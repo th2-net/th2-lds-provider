@@ -24,7 +24,7 @@ import com.exactpro.cradle.messages.StoredMessageFilter
 import com.exactpro.cradle.messages.StoredMessageId
 import mu.KotlinLogging
 import java.time.Instant
-import java.util.*
+import java.util.LinkedList
 import kotlin.system.measureTimeMillis
 
 class CradleMessageExtractor(
@@ -36,7 +36,9 @@ class CradleMessageExtractor(
 
     companion object {
         private val logger = KotlinLogging.logger { }
-        private val TIMESTAMP_COMPARATOR: Comparator<StoredMessage> = Comparator.comparing { it.timestamp }
+        private val STORED_MESSAGE_COMPARATOR: Comparator<StoredMessage> = Comparator.comparing<StoredMessage, Instant> { it.timestamp }
+            .thenComparing({ it.direction }) { dir1, dir2 -> -(dir1.ordinal - dir2.ordinal) } // SECOND < FIRST
+            .thenComparing<String> { it.streamName }
     }
 
     fun getStreams(): Collection<String> = storage.streams
@@ -68,16 +70,19 @@ class CradleMessageExtractor(
         fun StoredMessage.timestampLess(batch: StoredMessageBatch): Boolean = timestamp < batch.firstTimestamp
 
         var currentBatch: StoredMessageBatch = iterator.next()
-        val buffer: Queue<StoredMessage> = LinkedList()
-        val remaining: Queue<StoredMessage> = LinkedList()
+        val buffer: LinkedList<StoredMessage> = LinkedList()
+        val remaining: LinkedList<StoredMessage> = LinkedList()
         while (iterator.hasNext()) {
             prev = currentBatch
             currentBatch = iterator.next()
+            check(prev.firstTimestamp <= currentBatch.firstTimestamp) {
+                "Unordered batches received: ${prev.toShortInfo()} and ${currentBatch.toShortInfo()}"
+            }
             if (prev.lastTimestamp < currentBatch.firstTimestamp) {
                 buffer.addAll(prev.messages)
                 tryDrain(group, buffer, sink)
             } else {
-                remaining.filterTo(buffer) { it.timestampLess(currentBatch) }
+                generateSequence { if (remaining.peek()?.timestampLess(currentBatch) == true) remaining.poll() else null }.toCollection(buffer)
 
                 val messageCount = prev.messageCount
                 prev.messages.forEachIndexed { index, msg ->
@@ -103,7 +108,7 @@ class CradleMessageExtractor(
                     addAll(buffer)
                     addAll(remaining)
                     addAll(currentBatch.messages)
-                    sortWith(TIMESTAMP_COMPARATOR)
+                    sortWith(STORED_MESSAGE_COMPARATOR)
                 },
                 sink
             )
@@ -112,10 +117,10 @@ class CradleMessageExtractor(
 
     private fun tryDrain(
         group: String,
-        buffer: Queue<StoredMessage>,
+        buffer: LinkedList<StoredMessage>,
         sink: DataSink<StoredMessage>,
     ) {
-        buffer.sortedWith(TIMESTAMP_COMPARATOR)
+        buffer.sortWith(STORED_MESSAGE_COMPARATOR)
         drain(group, buffer, sink)
         buffer.clear()
     }
@@ -164,3 +169,5 @@ private class StoredMessageIterator(
 ) : Iterator<StoredMessage> by iterator {
     override fun hasNext(): Boolean = dataMeasurement.start("cradle_messages").use { iterator.hasNext() }
 }
+
+private fun StoredMessageBatch.toShortInfo(): String = "$streamName:${direction.label}:${firstMessage.index}..${lastMessage.index} ($firstTimestamp..$lastTimestamp)"

@@ -35,6 +35,7 @@ class CustomConfigurationClass(
     val mode: String? = null,
     val grpcBackPressure : Boolean? = null,
     val bufferPerQuery: Int? = null,
+    val groupRequestBuffer: Int? = null,
     val responseFormats: Set<String>? = null,
     val grpcBackPressureReadinessTimeoutMls: Long? = null,
 )
@@ -54,6 +55,7 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     }
     val grpcBackPressure: Boolean = VariableBuilder.getVariable(customConfiguration::grpcBackPressure, false)
     val bufferPerQuery: Int = VariableBuilder.getVariable(customConfiguration::bufferPerQuery, max(maxBufferDecodeQueue / execThreadPoolSize, 1))
+    val groupRequestBuffer: Int = VariableBuilder.getVariable(customConfiguration::bufferPerQuery, 1000)
     val responseFormats: Set<ResponseFormat> = VariableBuilder.getVariable(customConfiguration::responseFormats, EnumSet.of(ResponseFormat.BASE_64, ResponseFormat.PROTO_PARSED)) {
         it.mapTo(hashSetOf(), ResponseFormat.Companion::fromString)
     }

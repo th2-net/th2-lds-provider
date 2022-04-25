@@ -19,12 +19,16 @@ package com.exactpro.th2.lwdataprovider.db
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
 import com.exactpro.cradle.messages.StoredMessage
+import com.exactpro.cradle.messages.StoredMessageBatch
 import com.exactpro.cradle.messages.StoredMessageFilter
 import com.exactpro.cradle.messages.StoredMessageId
 import mu.KotlinLogging
+import java.time.Instant
+import java.util.*
 import kotlin.system.measureTimeMillis
 
 class CradleMessageExtractor(
+    private val groupBufferSize: Int,
     cradleManager: CradleManager
 ) {
 
@@ -32,6 +36,7 @@ class CradleMessageExtractor(
 
     companion object {
         private val logger = KotlinLogging.logger { }
+        private val TIMESTAMP_COMPARATOR: Comparator<StoredMessage> = Comparator.comparing { it.timestamp }
     }
 
     fun getStreams(): Collection<String> = storage.streams
@@ -51,6 +56,78 @@ class CradleMessageExtractor(
         }
     }
 
+
+    fun getMessagesGroup(group: String, start: Instant, end: Instant, sink: DataSink<StoredMessage>, measurement: DataMeasurement) {
+        val messagesGroup = storage.getGroupedMessageBatches(group, start, end)
+        val iterator = messagesGroup.iterator()
+        var prev: StoredMessageBatch? = null
+        if (!iterator.hasNext()) {
+            return
+        }
+
+        fun StoredMessage.timestampLess(batch: StoredMessageBatch): Boolean = timestamp < batch.firstTimestamp
+
+        var currentBatch: StoredMessageBatch = iterator.next()
+        val buffer: Queue<StoredMessage> = LinkedList()
+        val remaining: Queue<StoredMessage> = LinkedList()
+        while (iterator.hasNext()) {
+            prev = currentBatch
+            currentBatch = iterator.next()
+            if (prev.lastTimestamp < currentBatch.firstTimestamp) {
+                buffer.addAll(prev.messages)
+                tryDrain(group, buffer, sink)
+            } else {
+                remaining.filterTo(buffer) { it.timestampLess(currentBatch) }
+
+                val messageCount = prev.messageCount
+                prev.messages.forEachIndexed { index, msg ->
+                    if (msg.timestampLess(currentBatch)) {
+                        buffer += msg
+                    } else {
+                        check(remaining.size < groupBufferSize) {
+                            "the group buffer size cannot hold all messages: current size $groupBufferSize but needs ${messageCount - index} more"
+                        }
+                        remaining += msg
+                    }
+                }
+                tryDrain(group, buffer, sink)
+            }
+        }
+        if (prev == null) {
+            // Only single batch was extracted
+            drain(group, currentBatch.messages, sink)
+        } else {
+            drain(
+                group,
+                ArrayList<StoredMessage>(buffer.size + remaining.size + currentBatch.messageCount).apply {
+                    addAll(buffer)
+                    addAll(remaining)
+                    addAll(currentBatch.messages)
+                    sortWith(TIMESTAMP_COMPARATOR)
+                },
+                sink
+            )
+        }
+    }
+
+    private fun tryDrain(
+        group: String,
+        buffer: Queue<StoredMessage>,
+        sink: DataSink<StoredMessage>,
+    ) {
+        buffer.sortedWith(TIMESTAMP_COMPARATOR)
+        drain(group, buffer, sink)
+        buffer.clear()
+    }
+
+    private fun drain(
+        group: String,
+        buffer: Collection<StoredMessage>,
+        sink: DataSink<StoredMessage>,
+    ) {
+        sink.onNext(buffer)
+    }
+
     fun getMessage(msgId: StoredMessageId, sink: DataSink<StoredMessage>, measurement: DataMeasurement) {
 
         val time = measureTimeMillis {
@@ -66,7 +143,7 @@ class CradleMessageExtractor(
 
         }
 
-        logger.info { "Loaded 1 messages with id $msgId from DB $time ms"}
+        logger.info { "Loaded 1 messages with id $msgId from DB $time ms" }
 
     }
 

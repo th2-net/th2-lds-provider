@@ -23,7 +23,7 @@ plugins {
 
 ext {
     dockerImageVersion = release_version
-    cradleApiVersion = '3.1.2'
+    cradleApiVersion = '3.1.0-TH2-3490-2114567064-SNAPSHOT'
 }
 
 group 'com.exactpro.th2'

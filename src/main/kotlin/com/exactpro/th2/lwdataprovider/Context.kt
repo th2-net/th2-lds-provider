@@ -53,7 +53,7 @@ class Context(
     val mqDecoder: RabbitMqDecoder = RabbitMqDecoder(messageRouterRawBatch, configuration.maxBufferDecodeQueue),
     val timeoutHandler: TimerWatcher = TimerWatcher(mqDecoder, configuration),
     val cradleEventExtractor: CradleEventExtractor = CradleEventExtractor(cradleManager),
-    val cradleMsgExtractor: CradleMessageExtractor = CradleMessageExtractor(cradleManager),
+    val cradleMsgExtractor: CradleMessageExtractor = CradleMessageExtractor(configuration.groupRequestBuffer, cradleManager),
 
     val pool: ExecutorService = Executors.newFixedThreadPool(configuration.execThreadPoolSize),
     val searchMessagesHandler: SearchMessagesHandler = SearchMessagesHandler(

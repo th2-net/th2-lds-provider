@@ -32,6 +32,7 @@ import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
+import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 import mu.KotlinLogging
 import java.util.concurrent.Executor
@@ -147,6 +148,31 @@ class SearchMessagesHandler(
                 } catch (e: Exception) {
                     logger.error(e) { "error getting messages" }
                     sink.onError(e)
+                }
+            }
+        }
+    }
+
+    fun loadMessageGroups(request: MessagesGroupRequest, requestContext: MessageResponseHandler, dataMeasurement: DataMeasurement) {
+        if (request.groups.isEmpty()) {
+            return
+        }
+
+        threadPool.execute {
+            RootMessagesDataSink(
+                requestContext,
+                ParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize),
+                limit = null,
+            ).use { sink ->
+                try {
+                    request.groups.forEach { group ->
+                        logger.debug { "Executing request for group $group" }
+                        cradleMsgExtractor.getMessagesGroup(group, request.startTimestamp, request.endTimestamp, sink, dataMeasurement)
+                        logger.debug { "Executing of request for group $group has been finished" }
+                    }
+                } catch (ex: Exception) {
+                    logger.error("Error getting messages group", ex)
+                    sink.onError(ex)
                 }
             }
         }

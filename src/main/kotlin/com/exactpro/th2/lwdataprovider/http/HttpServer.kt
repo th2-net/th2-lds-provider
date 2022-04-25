@@ -61,6 +61,11 @@ class HttpServer(private val context: Context) {
         ), "/search/sse/messages")
 
         servletHandler.addServletWithMapping(ServletHolder(
+            GetMessageGroupsServlet(configuration, sseResponseBuilder, keepAliveHandler,
+                searchMessagesHandler, context.dataMeasurement)
+        ), "/search/sse/messages/group")
+
+        servletHandler.addServletWithMapping(ServletHolder(
             GetMessageById(
                 sseResponseBuilder, keepAliveHandler, searchMessagesHandler,
                 context.dataMeasurement

@@ -78,7 +78,7 @@ internal class TestSearchMessagesHandler {
     private val decoder = spy(TestDecoder())
 
     private val searchHandler = SearchMessagesHandler(
-        CradleMessageExtractor(manager),
+        CradleMessageExtractor(10, manager),
         decoder,
         executor,
         Configuration(

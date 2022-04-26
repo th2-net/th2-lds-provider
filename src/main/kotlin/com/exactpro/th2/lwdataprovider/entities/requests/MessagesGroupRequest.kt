@@ -16,6 +16,8 @@
 
 package com.exactpro.th2.lwdataprovider.entities.requests
 
+import com.exactpro.th2.dataprovider.grpc.MessageGroupsSearchRequest
+import com.exactpro.th2.lwdataprovider.grpc.toInstant
 import java.time.Instant
 
 class MessagesGroupRequest(
@@ -31,11 +33,22 @@ class MessagesGroupRequest(
         private const val START_TIMESTAMP_PARAM = "startTimestamp"
         private const val END_TIMESTAMP_PARAM = "endTimestamp"
 
+        @JvmStatic
         fun fromParametersMap(map: Map<String, List<String>>): MessagesGroupRequest =
             MessagesGroupRequest(
                 map[GROUP_PARAM]?.toSet() ?: error("No $GROUP_PARAM param was set"),
                 extractInstant(map, START_TIMESTAMP_PARAM),
                 extractInstant(map, END_TIMESTAMP_PARAM),
+            )
+
+        @JvmStatic
+        fun fromGrpcRequest(request: MessageGroupsSearchRequest): MessagesGroupRequest =
+            MessagesGroupRequest(
+                request.messageGroupList.mapTo(HashSet(request.messageGroupCount)) {
+                    it.name.apply { check(isNotEmpty()) { "group name cannot be empty" } }
+                },
+                if (request.hasStartTimestamp()) request.startTimestamp.toInstant() else error("missing start timestamp"),
+                if (request.hasEndTimestamp()) request.endTimestamp.toInstant() else error("missing end timestamp"),
             )
 
         private fun extractInstant(map: Map<String, List<String>>, paramName: String): Instant =

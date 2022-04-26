@@ -24,6 +24,7 @@ import com.exactpro.th2.dataprovider.grpc.EventResponse
 import com.exactpro.th2.dataprovider.grpc.EventSearchRequest
 import com.exactpro.th2.dataprovider.grpc.EventSearchResponse
 import com.exactpro.th2.dataprovider.grpc.MessageGroupResponse
+import com.exactpro.th2.dataprovider.grpc.MessageGroupsSearchRequest
 import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest
 import com.exactpro.th2.dataprovider.grpc.MessageSearchResponse
 import com.exactpro.th2.dataprovider.grpc.MessageStream
@@ -35,6 +36,7 @@ import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
+import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
@@ -144,6 +146,21 @@ open class GrpcDataProviderImpl(
         searchMessagesHandler.loadMessages(requestParams, handler, dataMeasurement)
         try {
             processResponse(responseObserver, queue, handler, { /*finish step*/ }) { it.message?.get() }
+        } catch (ex: Exception) {
+//            loadingStep.finish()
+            throw ex
+        }
+    }
+
+    override fun searchMessageGroups(request: MessageGroupsSearchRequest, responseObserver: StreamObserver<MessageSearchResponse>) {
+        val queue = ArrayBlockingQueue<GrpcEvent>(configuration.responseQueueSize)
+        val requestParams = MessagesGroupRequest.fromGrpcRequest(request)
+        logger.info { "Loading messages groups $requestParams" }
+        val handler = GrpcMessageResponseHandler(queue, dataMeasurement, configuration.bufferPerQuery)
+//        val loadingStep = context.startStep("messages_group_loading")
+        try {
+            searchMessagesHandler.loadMessageGroups(requestParams, handler, dataMeasurement)
+            processResponse(responseObserver, queue, handler, { /*finish step*/ }) { it.message }
         } catch (ex: Exception) {
 //            loadingStep.finish()
             throw ex

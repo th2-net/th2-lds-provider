@@ -162,12 +162,10 @@ abstract class RequestedMessageDetails(
     protected open val context: MessageRequestContext,
     private val onResponse: () -> Unit = {}
 ) {
+    val rawMessage: RawMessage = RawMessage.parseFrom(storedMessage.content)
     @Volatile
     var time: Long = 0
     var parsedMessage: List<Message>? = null
-
-    // TODO: need to be initialized in one place
-    var rawMessage: RawMessage? = null
 
     fun responseMessage() {
         try {

@@ -25,10 +25,10 @@ import mu.KotlinLogging
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.locks.Condition
 import java.util.concurrent.locks.ReentrantLock
+import javax.annotation.concurrent.GuardedBy
 import kotlin.concurrent.withLock
 
 abstract class RequestContext(
@@ -64,14 +64,15 @@ abstract class RequestContext(
 
 abstract class MessageRequestContext(
     channelMessages: ResponseHandler,
-    val maxMessagesPerRequest: Int = 0
+    private val maxMessagesPerRequest: Int = 0
 ) : RequestContext(channelMessages) {
     val requestedMessages: MutableMap<String, RequestedMessageDetails> = ConcurrentHashMap()
     val streamInfo: ProviderStreamInfo = ProviderStreamInfo()
 
-    val lock: ReentrantLock = ReentrantLock()
-    val condition: Condition = lock.newCondition()
-    val messagesInProcess = AtomicInteger(0)
+    private val lock: ReentrantLock = ReentrantLock()
+    private val condition: Condition = lock.newCondition()
+    @GuardedBy("lock")
+    private var messagesInProcess: Int = 0
 
     val allMessagesRequested: AtomicBoolean = AtomicBoolean(false)
     var loadedMessages = 0
@@ -86,10 +87,34 @@ abstract class MessageRequestContext(
     abstract fun addStreamInfo();
 
     override fun onMessageSent() {
-        if (maxMessagesPerRequest > 0 && messagesInProcess.decrementAndGet() < maxMessagesPerRequest) {
-            lock.withLock {
+        if (maxMessagesPerRequest <= 0) return
+        lock.withLock {
+            val curCount = messagesInProcess
+            messagesInProcess -= 1
+            if (messagesInProcess >= maxMessagesPerRequest) {
+                return
+            }
+            if (curCount >= maxMessagesPerRequest) {
                 condition.signal()
             }
+        }
+    }
+
+    fun checkAndWaitForRequestLimit(msgBufferCount: Int) {
+        if (maxMessagesPerRequest <= 0) return
+        var submitted = false
+        startStep("await_queue").use {
+            do {
+                lock.withLock {
+                    val expectedSize = messagesInProcess + msgBufferCount
+                    if (maxMessagesPerRequest <= expectedSize) {
+                        condition.await()
+                    } else {
+                        messagesInProcess = expectedSize
+                        submitted = true
+                    }
+                }
+            } while (!submitted)
         }
     }
 

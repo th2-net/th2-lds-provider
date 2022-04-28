@@ -70,14 +70,13 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                 }
 
                 if (msgBufferCount >= batchSize) {
-                    // TODO: requestContext.registerMessage(it) in for messages
+                    requestContext.checkAndWaitForRequestLimit(msgBufferCount)
                     decoder.sendBatchMessage(builder, messageBuffer, sessionName)
 
                     messageBuffer.clear()
                     builder.clear()
                     msgCount += msgBufferCount
                     logger.debug { "Message batch sent ($msgBufferCount). Total messages $msgCount" }
-                    requestContext.checkAndWaitForRequestLimit(msgBufferCount)
                     msgBufferCount = 0
                 }
             }
@@ -178,21 +177,10 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             return
         }
         val messageCount = detailsBuf.size
-        // TODO: registerMessage(it) in message
+        checkAndWaitForRequestLimit(messageCount)
         decoder.sendBatchMessage(builder, detailsBuf, alias)
         builder.clear()
         detailsBuf.clear()
-        checkAndWaitForRequestLimit(messageCount)
-    }
-
-    private fun MessageRequestContext.checkAndWaitForRequestLimit(msgBufferCount: Int) {
-        if (maxMessagesPerRequest > 0 && maxMessagesPerRequest <= messagesInProcess.addAndGet(msgBufferCount)) {
-            startStep("await_queue").use {
-                lock.withLock {
-                    condition.await()
-                }
-            }
-        }
     }
 
     private fun getMessagesFromCradle(filter: StoredMessageFilter, requestContext: MessageRequestContext): Iterable<StoredMessage> =

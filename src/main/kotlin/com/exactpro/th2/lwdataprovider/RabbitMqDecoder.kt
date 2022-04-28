@@ -17,7 +17,6 @@
 package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.message.plusAssign
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.QueueAttribute
@@ -76,12 +75,7 @@ class RabbitMqDecoder(
         details.time = currentTimeMillis
         registerMessage(details)
         details.readyToSend()
-        val rawMessage = details.rawMessage ?: run {
-            RawMessage.parseFrom(details.storedMessage.content).also {
-                details.rawMessage = it
-            }
-        }
-        batchBuilder.addGroupsBuilder() += rawMessage
+        batchBuilder.addGroupsBuilder() += details.rawMessage
     }
 
     private fun send(batchBuilder: MessageGroupBatch.Builder, session: String) {

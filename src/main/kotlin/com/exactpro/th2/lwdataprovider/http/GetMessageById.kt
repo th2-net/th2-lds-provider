@@ -64,7 +64,7 @@ class GetMessageById (
 
             val sseResponseBuilder = SseResponseBuilder(jacksonMapper)
             val sseResponse = SseResponseHandler(queue, sseResponseBuilder)
-            reqContext = MessageSseRequestContext(sseResponse, queryParametersMap)
+            reqContext = MessageSseRequestContext(sseResponse)
             keepAliveHandler.addKeepAliveData(reqContext)
             searchMessagesHandler.loadOneMessage(request, reqContext)
         }

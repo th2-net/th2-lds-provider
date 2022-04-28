@@ -18,11 +18,11 @@ package com.exactpro.th2.lwdataprovider.workers
 
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import mu.KotlinLogging
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
-class TimerWatcher (private val decodeBuffer: DecodeQueueBuffer,
-                    private val configuration: Configuration
+class TimerWatcher(
+    private val decodeBuffer: TimeoutChecker,
+    configuration: Configuration
 ) {
     
     private val timeout: Long = configuration.decodingTimeout
@@ -50,33 +50,9 @@ class TimerWatcher (private val decodeBuffer: DecodeQueueBuffer,
 
         logger.debug { "Timeout watcher started" }
         while (running) {
-            val currentTime = System.currentTimeMillis()
-            var mintime = currentTime
+            val minTime = decodeBuffer.removeOlderThen(timeout)
 
-            for (entry in decodeBuffer.entrySet()) {
-                var timeoutReached = false
-                val iterator = entry.value.iterator()
-                while (iterator.hasNext() && !timeoutReached) {
-                    val requestedMessageDetails = iterator.next()
-                    if (currentTime - requestedMessageDetails.time >= timeout) {
-                        //duplicated messages should not be asked again. so timeout is mutual. asked only first (oldest) message
-                        val list = decodeBuffer.removeById(entry.key)
-                        list?.forEach {
-                            it.parsedMessage = null
-                            it.responseMessage()
-                            it.notifyMessage()
-                        }
-                        if (list != null && list.isNotEmpty()) {
-                            decodeBuffer.checkAndUnlock()
-                        }
-                        timeoutReached = true
-                    } else if (requestedMessageDetails.time < mintime){
-                        mintime = requestedMessageDetails.time
-                    }
-                }
-            }
-
-            val sleepTime = timeout - (System.currentTimeMillis() - mintime)
+            val sleepTime = timeout - (System.currentTimeMillis() - minTime)
             if (sleepTime > 0) {
                 try {
                     Thread.sleep(sleepTime)

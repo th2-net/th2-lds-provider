@@ -19,7 +19,6 @@ package com.exactpro.th2.lwdataprovider.workers
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.Message
-import com.exactpro.th2.common.grpc.MessageBatch
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.MessageID
@@ -28,7 +27,7 @@ import mu.KotlinLogging
 import java.util.Collections
 
 class CodecMessageListener(
-    private val decodeQueue: DecodeQueueBuffer
+    private val decodeQueue: RequestsBuffer
 ) : MessageListener<MessageGroupBatch>  {
     
     private fun buildMessageIdString(messageId: MessageID) : String {
@@ -49,21 +48,10 @@ class CodecMessageListener(
             }
             val messageIdStr = buildMessageIdString(group.messagesList.first().message.metadata.id)
 
-            val msgIdQueue = decodeQueue.removeById(messageIdStr)
-            if (msgIdQueue != null) {
-                logger.debug { "Received message from codec $messageIdStr. Count of awaiters: ${msgIdQueue.size}. Messages count: ${group.messagesCount}" }
-
-                msgIdQueue.forEach {
-                    it.parsedMessage = group.messagesList.map { anyMsg -> anyMsg.message }
-                    it.responseMessage()
-                    it.notifyMessage()
-                }
-            } else {
-                logger.debug { "Not found expected from codec message with id $messageIdStr" }
+            decodeQueue.responseReceived(messageIdStr) {
+                group.messagesList.map { anyMsg -> anyMsg.message }
             }
         }
-
-        decodeQueue.checkAndUnlock()
     }
 
     private fun reportIncorrectGroup(group: MessageGroup) {
@@ -79,76 +67,6 @@ class CodecMessageListener(
                     }"
                 }
             }"
-        }
-    }
-
-    class MessageIterator(private val srcIterator: Iterator<Message>) : Iterator<List<Message>> {
-        
-        private var currElement: Ent? = null
-        
-        companion object {
-            
-            fun iterable(it: Iterable<Message>) : Iterable<List<Message>> 
-                = Iterable { MessageIterator(it.iterator()) }
-
-            private fun compareMsgIds(msgID: MessageID, other: MessageID) : Boolean {
-                return msgID.connectionId == other.connectionId && msgID.direction == other.direction
-                        && msgID.sequence == other.sequence;
-            }
-            
-            private class Ent {
-                var currElements: MutableList<Message> = Collections.emptyList()
-                var id: MessageID = MessageID.getDefaultInstance()
-                
-                constructor() {
-                    currElements = Collections.emptyList()
-                    id = MessageID.getDefaultInstance()
-                }
-
-                constructor(msg: Message) {
-                    currElements = Collections.singletonList(msg)
-                    id  = msg.metadata.id
-                }
-                
-                fun add(msg: Message) {
-                    if (currElements.isEmpty()) {
-                        currElements = Collections.singletonList(msg)
-                        id = msg.metadata.id
-                    } else if (currElements.size == 1) {
-                        currElements = ArrayList(currElements)
-                        currElements.add(msg)
-                    } else {
-                        currElements.add(msg)
-                    }
-                }
-            }
-        }
-        
-        override fun hasNext(): Boolean {
-            return this.srcIterator.hasNext() || currElement != null
-        }
-        
-        override fun next(): List<Message> {
-            while (srcIterator.hasNext()) {
-                val msg = srcIterator.next()
-                if (currElement == null) {
-                    currElement = Ent(msg)
-                } else {
-                    val tmpEl = currElement!!
-                    if (!compareMsgIds(msg.metadata.id, tmpEl.id)) {
-                        this.currElement = Ent(msg)
-                        return tmpEl.currElements
-                    } else {
-                        tmpEl.add(msg)
-                    }
-                }
-            }
-
-            currElement?.let {
-                currElement = null
-                return it.currElements
-            } ?: throw NoSuchElementException()
-            
         }
     }
 }

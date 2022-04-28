@@ -16,64 +16,139 @@
 
 package com.exactpro.th2.lwdataprovider.workers
 
+import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import mu.KotlinLogging
 import java.util.ArrayList
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantLock
+import java.util.concurrent.locks.ReentrantReadWriteLock
+import javax.annotation.concurrent.GuardedBy
+import kotlin.concurrent.read
 import kotlin.concurrent.withLock
+import kotlin.concurrent.write
 
-class DecodeQueueBuffer(private val maxDecodeQueueSize: Int = -1) {
+class DecodeQueueBuffer(
+    private val maxDecodeQueueSize: Int = -1
+) : RequestsBuffer {
 
-    companion object {
-        private val logger = KotlinLogging.logger { }
-    }
+    private val lock = ReentrantReadWriteLock()
+    @GuardedBy("lock")
+    private val decodeQueue: MutableMap<String, MutableList<RequestedMessageDetails>> = HashMap()
 
-    private val decodeQueue = ConcurrentHashMap<String, MutableList<RequestedMessageDetails>>()
-    private val lock = ReentrantLock()
-    
     private val fullDecodeQueryLock = ReentrantLock()
     private val fullDecodeQueryCond = fullDecodeQueryLock.newCondition()
+    @GuardedBy("fullDecodeQueryLock")
     private var locked: Boolean = false
+    @GuardedBy("fullDecodeQueryLock")
+    private var requests: Int = 0
     
-    fun add (details: RequestedMessageDetails): Boolean {
-        decodeQueue.computeIfAbsent(details.id) { ArrayList(1) }.add(details)
-        return true
+    fun add(details: RequestedMessageDetails) {
+        lock.write {
+            decodeQueue.computeIfAbsent(details.id) { ArrayList(1) }.add(details)
+        }
     }
 
-    fun removeById (id: String): List<RequestedMessageDetails>? {
-        lock.withLock { return decodeQueue.remove(id) }
-    }
-    
-    fun entrySet(): MutableSet<MutableMap.MutableEntry<String, MutableList<RequestedMessageDetails>>> {
-        return decodeQueue.entries
-    }
-    
-    fun getSize(): Int {
-        return decodeQueue.size
-    }
-    
-    @Suppress("ConvertTwoComparisonsToRangeCheck")
-    fun checkAndWait() {
-        val buf = decodeQueue.size
-        if (maxDecodeQueueSize > 0 && buf > maxDecodeQueueSize) {
-            logger.debug { "Messages in queue is more than buffer size buf and thread will be locked" }
+    fun checkAndWait(size: Int) {
+        if (maxDecodeQueueSize <= 0) return // unlimited
+        check(size in 0..maxDecodeQueueSize) { "size of the single request must be less than the max queue size" }
+        var submitted = false
+        do {
+            // We need to make sure that there are exactly 'maxDecodeQueueSize' requests or less in the result queue
             fullDecodeQueryLock.withLock {
-                locked = true
-                fullDecodeQueryCond.await()
+                val newRequests = requests + size
+                if (maxDecodeQueueSize < newRequests) {
+                    LOGGER.debug { "Cannot fit $size messages. " +
+                            "Expected queue size is more than buffer size ($maxDecodeQueueSize < $newRequests) buf and thread will be locked" }
+
+                    locked = true
+                    fullDecodeQueryCond.await()
+                } else {
+                    submitted = true
+                    requests += size
+                }
+            }
+        } while (!submitted)
+    }
+
+    override fun responseReceived(id: String, response: () -> List<Message>) {
+        withQueueLockAndRelease {
+            processResponse(id, response)
+        }
+    }
+
+    override fun bulkResponsesReceived(responses: Map<String, () -> List<Message>>) {
+        withQueueLockAndRelease {
+            // TODO: maybe we should use something optimized for bulk removal instead of simple map
+            responses.forEach(this::processResponse)
+        }
+    }
+
+    override fun removeOlderThan(timeout: Long): Long {
+        return withQueueLockAndRelease {
+            val currentTime = System.currentTimeMillis()
+            var mintime = currentTime
+            val entries = decodeQueue.entries.iterator()
+            while (entries.hasNext()) {
+                val (id, details) = entries.next()
+                if (details.any { currentTime - it.time >= timeout }) {
+                    entries.remove()
+                    LOGGER.trace { "Requests for message $id were cancelled due to timeout" }
+                    details.forEach { it.timeout() }
+                } else {
+                    val oldestReq = details.minOf { it.time }
+                    if (oldestReq < mintime) {
+                        mintime = oldestReq
+                    }
+                }
+            }
+            mintime
+        }
+    }
+
+    private inline fun <T> withQueueLockAndRelease(block: () -> T): T {
+        return lock.write {
+            try {
+                block()
+            } finally {
+                checkAndUnlock()
             }
         }
     }
 
-    fun checkAndUnlock() {
-        if (locked && maxDecodeQueueSize > 0 && decodeQueue.size < maxDecodeQueueSize) {
-            fullDecodeQueryLock.withLock {
+    private fun checkAndUnlock() {
+        if (maxDecodeQueueSize <= 0) return
+        fullDecodeQueryLock.withLock {
+            if (!locked) return
+            requests = lock.read { decodeQueue.size }
+            if (requests < maxDecodeQueueSize) {
                 fullDecodeQueryCond.signalAll()
                 locked = false
             }
-            logger.debug { "Awaiting buffer space is unlocked" }
+            LOGGER.debug { "Awaiting buffer space is unlocked" }
         }
     }
-    
-    
+
+    private fun processResponse(id: String, response: () -> List<Message>) {
+        val details = decodeQueue.remove(id) ?: run {
+            LOGGER.info { "Received unexpected message $id. There is no request for this message in decode queue" }
+            return
+        }
+        val messages = response()
+        LOGGER.trace { "Received response for message $id (${messages.size} message(s))" }
+        details.forEach {
+            it.responseFinished(messages)
+        }
+    }
+
+    private fun RequestedMessageDetails.timeout(): Unit = responseFinished(null)
+
+    private fun RequestedMessageDetails.responseFinished(response: List<Message>?) {
+        parsedMessage = response
+        responseMessage()
+        notifyMessage()  // TODO: should be joined to the previous one
+    }
+
+    companion object {
+        private val LOGGER = KotlinLogging.logger { }
+    }
 }

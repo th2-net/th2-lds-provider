@@ -17,30 +17,20 @@
 package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.cradle.messages.StoredMessage
-import com.exactpro.th2.common.grpc.Message
-import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.lwdataprovider.*
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
-import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.exactpro.th2.lwdataprovider.producers.MessageProducer53
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicLong
 
 
-class MessageSseRequestContext (
+class MessageSseRequestContext(
     override val channelMessages: SseResponseHandler,
-    requestParameters: Map<String, Any> = emptyMap(),
-    counter: AtomicLong = AtomicLong(0L),
-    scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo(),
-    requestedMessages: MutableMap<String, RequestedMessageDetails> = ConcurrentHashMap(),
     val jsonFormatter: CustomJsonFormatter = CustomJsonFormatter(),
     maxMessagesPerRequest: Int = 0
-) : MessageRequestContext(channelMessages, requestParameters, counter, scannedObjectInfo, requestedMessages,
-    maxMessagesPerRequest = maxMessagesPerRequest) {
+) : MessageRequestContext(channelMessages, maxMessagesPerRequest) {
 
 
-    override fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage, onResponse: () -> Unit) : RequestedMessageDetails {
-        return SseRequestedMessageDetails(id, time, storedMessage, this, onResponse)
+    override fun createMessageDetails(id: String, storedMessage: StoredMessage, onResponse: () -> Unit) : RequestedMessageDetails {
+        return SseRequestedMessageDetails(id, storedMessage, this, onResponse)
     }
 
     override fun addStreamInfo() {
@@ -51,13 +41,10 @@ class MessageSseRequestContext (
 
 class SseRequestedMessageDetails(
     id: String,
-    time: Long,
     storedMessage: StoredMessage,
     override val context: MessageSseRequestContext,
-    onResponse: () -> Unit,
-    parsedMessage: List<Message>? = null,
-    rawMessage: RawMessage? = null
-) : RequestedMessageDetails(id, time, storedMessage, context, parsedMessage, rawMessage, onResponse) {
+    onResponse: () -> Unit
+) : RequestedMessageDetails(id, storedMessage, context, onResponse) {
 
     override fun responseMessageInternal() {
         val msg = MessageProducer53.createMessage(this, context.jsonFormatter)
@@ -67,12 +54,9 @@ class SseRequestedMessageDetails(
 
 }
 
-abstract class EventRequestContext (
-    channelMessages: ResponseHandler,
-    requestParameters: Map<String, Any> = emptyMap(),
-    counter: AtomicLong = AtomicLong(0L),
-    scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
-) : RequestContext(channelMessages, requestParameters, counter, scannedObjectInfo) {
+abstract class EventRequestContext(
+    channelMessages: ResponseHandler
+) : RequestContext(channelMessages) {
 
     private var processedEvents: Int = 0;
     var eventsLimit: Int = 0;
@@ -90,12 +74,9 @@ abstract class EventRequestContext (
 
 }
 
-class SseEventRequestContext (
-    override val channelMessages: SseResponseHandler,
-    requestParameters: Map<String, Any> = emptyMap(),
-    counter: AtomicLong = AtomicLong(0L),
-    scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
-) : EventRequestContext(channelMessages, requestParameters, counter, scannedObjectInfo) {
+class SseEventRequestContext(
+    override val channelMessages: SseResponseHandler
+) : EventRequestContext(channelMessages) {
 
     override fun processEvent(event: Event) {
         val sseEvent = channelMessages.responseBuilder.build(event, counter)

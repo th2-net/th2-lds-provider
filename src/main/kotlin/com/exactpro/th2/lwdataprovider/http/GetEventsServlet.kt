@@ -22,7 +22,6 @@ import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
-import com.exactpro.th2.lwdataprovider.entities.responses.BaseEventEntity
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.fasterxml.jackson.databind.ObjectMapper
 import mu.KotlinLogging
@@ -54,7 +53,7 @@ class GetEventsServlet
         
         val queue = ArrayBlockingQueue<SseEvent>(configuration.responseQueueSize)
         val sseResponseBuilder = SseResponseHandler(queue, SseResponseBuilder(jacksonMapper))
-        val reqContext = SseEventRequestContext(sseResponseBuilder, queryParametersMap)
+        val reqContext = SseEventRequestContext(sseResponseBuilder)
         keepAliveHandler.addKeepAliveData(reqContext)
         searchEventsHandler.loadEvents(request, reqContext)
 

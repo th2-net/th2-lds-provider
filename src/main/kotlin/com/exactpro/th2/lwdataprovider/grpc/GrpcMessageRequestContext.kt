@@ -17,33 +17,23 @@
 package com.exactpro.th2.lwdataprovider.grpc
 
 import com.exactpro.cradle.messages.StoredMessage
-import com.exactpro.th2.common.grpc.Message
-import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.dataprovider.grpc.MessageSearchResponse
 import com.exactpro.th2.dataprovider.grpc.MessageStreamPointers
 import com.exactpro.th2.lwdataprovider.GrpcResponseHandler
 import com.exactpro.th2.lwdataprovider.MessageRequestContext
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
-import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.exactpro.th2.lwdataprovider.producers.GrpcMessageProducer
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicLong
+import mu.KotlinLogging
 
 
-class GrpcMessageRequestContext (
+class GrpcMessageRequestContext(
     override val channelMessages: GrpcResponseHandler,
-    requestParameters: Map<String, Any> = emptyMap(),
-    counter: AtomicLong = AtomicLong(0L),
-
-    scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo(),
-    requestedMessages: MutableMap<String, RequestedMessageDetails> = ConcurrentHashMap(),
     maxMessagesPerRequest: Int = 0
-) : MessageRequestContext(channelMessages, requestParameters, counter, scannedObjectInfo, requestedMessages,
-    maxMessagesPerRequest = maxMessagesPerRequest) {
+) : MessageRequestContext(channelMessages, maxMessagesPerRequest) {
 
 
-    override fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage, onResponse: () -> Unit): GrpcRequestedMessageDetails {
-        return GrpcRequestedMessageDetails(id, time, storedMessage, this, onResponse)
+    override fun createMessageDetails(id: String, storedMessage: StoredMessage, onResponse: () -> Unit): GrpcRequestedMessageDetails {
+        return GrpcRequestedMessageDetails(id, storedMessage, this, onResponse)
     }
 
     override fun addStreamInfo() {
@@ -55,13 +45,10 @@ class GrpcMessageRequestContext (
 
 class GrpcRequestedMessageDetails(
     id: String,
-    time: Long,
     storedMessage: StoredMessage,
     override val context: GrpcMessageRequestContext,
-    onResponse: () -> Unit,
-    parsedMessage: List<Message>? = null,
-    rawMessage: RawMessage? = null
-) : RequestedMessageDetails(id, time, storedMessage, context, parsedMessage, rawMessage, onResponse) {
+    onResponse: () -> Unit
+) : RequestedMessageDetails(id, storedMessage, context, onResponse) {
 
     override fun responseMessageInternal() {
         val msg = GrpcMessageProducer.createMessage(this)

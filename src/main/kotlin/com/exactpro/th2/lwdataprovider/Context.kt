@@ -51,7 +51,7 @@ class Context(
     val keepAliveHandler: KeepAliveHandler = KeepAliveHandler(configuration),
     
     val mqDecoder: RabbitMqDecoder = RabbitMqDecoder(configuration, messageRouterParsedBatch, messageRouterRawBatch),
-    val timeoutHandler: TimerWatcher = TimerWatcher(mqDecoder.decodeBuffer, configuration),
+    val timeoutHandler: TimerWatcher = TimerWatcher(mqDecoder, configuration),
     val cradleEventExtractor: CradleEventExtractor = CradleEventExtractor(cradleManager),
     val cradleMsgExtractor: CradleMessageExtractor = CradleMessageExtractor(configuration, cradleManager, mqDecoder),
     

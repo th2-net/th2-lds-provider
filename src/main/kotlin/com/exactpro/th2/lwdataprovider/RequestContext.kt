@@ -32,69 +32,66 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 abstract class RequestContext(
-   open val channelMessages: ResponseHandler,
-   val requestParameters: Map<String, Any> = emptyMap(),
-   val counter: AtomicLong = AtomicLong(0L),
-   val scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
+    open val channelMessages: ResponseHandler,
 ) {
+    val counter: AtomicLong = AtomicLong(0L)
+    val scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
 
-   @Volatile var contextAlive: Boolean = true
+    @Volatile
+    var contextAlive: Boolean = true
 
-   companion object {
-      private val logger = KotlinLogging.logger { }
-   }
-   
-   fun finishStream() {
-      channelMessages.finishStream()
-   }
+    companion object {
+        private val logger = KotlinLogging.logger { }
+    }
 
-   fun writeErrorMessage(text: String) {
-      logger.info { text }
-      channelMessages.writeErrorMessage(text)
-   }
+    fun finishStream() {
+        channelMessages.finishStream()
+    }
 
-   fun keepAliveEvent() {
-      channelMessages.keepAliveEvent(scannedObjectInfo, counter);
-   }
+    fun writeErrorMessage(text: String) {
+        logger.info { text }
+        channelMessages.writeErrorMessage(text)
+    }
 
-   open fun onMessageSent() {
+    fun keepAliveEvent() {
+        channelMessages.keepAliveEvent(scannedObjectInfo, counter);
+    }
 
-   }
+    open fun onMessageSent() {
+
+    }
 }
 
-abstract class MessageRequestContext (
-   channelMessages: ResponseHandler,
-   requestParameters: Map<String, Any> = emptyMap(),
-   counter: AtomicLong = AtomicLong(0L),
-   scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo(),
-   val requestedMessages: MutableMap<String, RequestedMessageDetails> = ConcurrentHashMap(),
-   val streamInfo: ProviderStreamInfo = ProviderStreamInfo(),
-   val maxMessagesPerRequest: Int = 0
-) : RequestContext(channelMessages, requestParameters, counter, scannedObjectInfo) {
+abstract class MessageRequestContext(
+    channelMessages: ResponseHandler,
+    val maxMessagesPerRequest: Int = 0
+) : RequestContext(channelMessages) {
+    val requestedMessages: MutableMap<String, RequestedMessageDetails> = ConcurrentHashMap()
+    val streamInfo: ProviderStreamInfo = ProviderStreamInfo()
 
-   val lock: ReentrantLock = ReentrantLock()
-   val condition: Condition = lock.newCondition()
-   val messagesInProcess = AtomicInteger(0)
+    val lock: ReentrantLock = ReentrantLock()
+    val condition: Condition = lock.newCondition()
+    val messagesInProcess = AtomicInteger(0)
 
-   val allMessagesRequested: AtomicBoolean = AtomicBoolean(false)
-   var loadedMessages = 0
+    val allMessagesRequested: AtomicBoolean = AtomicBoolean(false)
+    var loadedMessages = 0
 
-   fun registerMessage(message: RequestedMessageDetails) {
-      requestedMessages[message.id] = message
-   }
+    internal fun registerMessage(message: RequestedMessageDetails) {
+        requestedMessages[message.id] = message
+    }
 
-   fun allDataLoadedFromCradle() = allMessagesRequested.set(true)
+    fun allDataLoadedFromCradle() = allMessagesRequested.set(true)
 
-   abstract fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage, onResponse: () -> Unit = {}): RequestedMessageDetails;
-   abstract fun addStreamInfo();
+    abstract fun createMessageDetails(id: String, storedMessage: StoredMessage, onResponse: () -> Unit = {}): RequestedMessageDetails;
+    abstract fun addStreamInfo();
 
-   override fun onMessageSent() {
-      if (maxMessagesPerRequest > 0 && messagesInProcess.decrementAndGet() < maxMessagesPerRequest) {
-         lock.withLock {
-            condition.signal()
-         }
-      }
-   }
+    override fun onMessageSent() {
+        if (maxMessagesPerRequest > 0 && messagesInProcess.decrementAndGet() < maxMessagesPerRequest) {
+            lock.withLock {
+                condition.signal()
+            }
+        }
+    }
 
     fun startStep(name: String): StepHolder {
         return StepHolder(name, METRICS.labels(name).startTimer())
@@ -116,6 +113,7 @@ class StepHolder(
     init {
         LOGGER.trace { "Step $name started with timer ${timer.hashCode()}" }
     }
+
     private var finished: Boolean = false
     fun finish() {
         if (finished) {
@@ -125,6 +123,7 @@ class StepHolder(
         finished = true
         timer.observeDuration()
     }
+
     companion object {
         private val LOGGER = KotlinLogging.logger { }
     }
@@ -132,33 +131,41 @@ class StepHolder(
     override fun close() = finish()
 }
 
-abstract class RequestedMessageDetails (
-   val id: String,
-   @Volatile var time: Long,
-   val storedMessage: StoredMessage,
-   protected open val context: MessageRequestContext,
-   var parsedMessage: List<Message>? = null,
-   var rawMessage: RawMessage? = null,
-   private val onResponse: () -> Unit = {}
+abstract class RequestedMessageDetails(
+    val id: String,
+    val storedMessage: StoredMessage,
+    protected open val context: MessageRequestContext,
+    private val onResponse: () -> Unit = {}
 ) {
+    @Volatile
+    var time: Long = 0
+    var parsedMessage: List<Message>? = null
 
-   fun responseMessage() {
-       try {
-           responseMessageInternal()
-       } finally {
-           onResponse()
-       }
-   }
-   abstract fun responseMessageInternal();
+    // TODO: need to be initialized in one place
+    var rawMessage: RawMessage? = null
 
-   fun notifyMessage() {
-      context.apply { 
-         requestedMessages.remove(id)
-         scannedObjectInfo.update(id, Instant.now(), counter)
-         if (requestedMessages.isEmpty() && allMessagesRequested.get()) {
-            addStreamInfo()
-            finishStream()
-         }
-      }
-   }
+    fun responseMessage() {
+        try {
+            responseMessageInternal()
+        } finally {
+            onResponse()
+        }
+    }
+
+    abstract fun responseMessageInternal();
+
+    fun notifyMessage() {
+        context.apply {
+            requestedMessages.remove(id)
+            scannedObjectInfo.update(id, Instant.now(), counter)
+            if (requestedMessages.isEmpty() && allMessagesRequested.get()) {
+                addStreamInfo()
+                finishStream()
+            }
+        }
+    }
+
+    fun readyToSend() {
+        context.registerMessage(this)
+    }
 }

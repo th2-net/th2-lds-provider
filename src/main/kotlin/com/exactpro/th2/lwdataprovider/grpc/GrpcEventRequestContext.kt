@@ -18,17 +18,12 @@ package com.exactpro.th2.lwdataprovider.grpc
 
 import com.exactpro.th2.lwdataprovider.GrpcResponseHandler
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
-import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.exactpro.th2.lwdataprovider.http.EventRequestContext
 import com.exactpro.th2.lwdataprovider.producers.GrpcEventProducer
-import java.util.concurrent.atomic.AtomicLong
 
-class GrpcEventRequestContext (
-    override val channelMessages: GrpcResponseHandler,
-    requestParameters: Map<String, Any> = emptyMap(),
-    counter: AtomicLong = AtomicLong(0L),
-    scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
-) : EventRequestContext(channelMessages, requestParameters, counter, scannedObjectInfo) {
+class GrpcEventRequestContext(
+    override val channelMessages: GrpcResponseHandler
+) : EventRequestContext(channelMessages) {
 
     override fun processEvent(event: Event) {
         val strResp = GrpcEventProducer.createEvent(event)

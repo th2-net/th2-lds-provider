@@ -59,7 +59,7 @@ class GetOneEvent
             val request = GetEventRequest(toEventIds.first, toEventIds.second, queryParametersMap )
 
             val sseResponseBuilder = SseResponseHandler(queue, SseResponseBuilder(jacksonMapper))
-            reqContext = SseEventRequestContext(sseResponseBuilder, queryParametersMap)
+            reqContext = SseEventRequestContext(sseResponseBuilder)
             keepAliveHandler.addKeepAliveData(reqContext)
             searchEventsHandler.loadOneEvent(request, reqContext)
         }

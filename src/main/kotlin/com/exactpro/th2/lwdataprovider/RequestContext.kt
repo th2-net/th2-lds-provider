@@ -39,17 +39,14 @@ abstract class RequestContext(
 
     @Volatile
     var contextAlive: Boolean = true
-
-    companion object {
-        private val logger = KotlinLogging.logger { }
-    }
+        private set
 
     fun finishStream() {
         channelMessages.finishStream()
     }
 
     fun writeErrorMessage(text: String) {
-        logger.info { text }
+        logger.error { "An error occurred: $text" }
         channelMessages.writeErrorMessage(text)
     }
 
@@ -57,8 +54,15 @@ abstract class RequestContext(
         channelMessages.keepAliveEvent(scannedObjectInfo, counter);
     }
 
-    open fun onMessageSent() {
+    fun cancel() {
+        contextAlive = false
+    }
 
+    open fun onMessageSent() {
+    }
+
+    companion object {
+        private val logger = KotlinLogging.logger { }
     }
 }
 
@@ -71,6 +75,7 @@ abstract class MessageRequestContext(
 
     private val lock: ReentrantLock = ReentrantLock()
     private val condition: Condition = lock.newCondition()
+
     @GuardedBy("lock")
     private var messagesInProcess: Int = 0
 

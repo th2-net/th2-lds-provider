@@ -21,13 +21,11 @@ import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageFilter
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.lwdataprovider.MessageRequestContext
 import com.exactpro.th2.lwdataprovider.RabbitMqDecoder
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import mu.KotlinLogging
-import kotlin.concurrent.withLock
 import kotlin.system.measureTimeMillis
 
 class CradleMessageExtractor(configuration: Configuration, private val cradleManager: CradleManager,
@@ -65,9 +63,6 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                 val tmp = requestContext.createRequest(storedMessage)
                 messageBuffer.add(tmp)
                 ++msgBufferCount
-                tmp.rawMessage = requestContext.startStep("raw_message_parsing").use { RawMessage.parseFrom(storedMessage.content) }.also {
-                    builder.addGroupsBuilder() += it
-                }
 
                 if (msgBufferCount >= batchSize) {
                     requestContext.checkAndWaitForRequestLimit(msgBufferCount)
@@ -107,7 +102,6 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
     ): RequestedMessageDetails {
         val id = storedMessage.id.toString()
         return createMessageDetails(id, storedMessage).apply {
-            rawMessage = startStep("raw_message_parsing").use { RawMessage.parseFrom(storedMessage.content) }
             responseMessage()
         }
     }
@@ -119,7 +113,6 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             logger.info { "Executing query $filter" }
             val iterable = getMessagesFromCradle(filter, requestContext);
 
-            val time = System.currentTimeMillis()
             var msgId: StoredMessageId? = null
             for (storedMessageBatch in iterable) {
                 if (!requestContext.contextAlive) {
@@ -138,9 +131,6 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         logger.info { "Loaded $msgCount messages from DB $time ms"}
 
     }
-
-    private fun getMessagesFromCradle(filter: StoredMessageFilter, requestContext: MessageRequestContext): Iterable<StoredMessage> =
-        requestContext.startStep("cradle").use { storage.getMessages(filter) }
 
     fun getMessage(msgId: StoredMessageId, onlyRaw: Boolean, requestContext: MessageRequestContext) {
 
@@ -184,5 +174,3 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
     private fun getMessagesFromCradle(filter: StoredMessageFilter, requestContext: MessageRequestContext): Iterable<StoredMessage> =
         requestContext.startStep("cradle").use { storage.getMessages(filter) }
 }
-
-private fun StoredMessageBatch.toShortInfo(): String = "$streamName:${direction.label}:${firstMessage.index}..${lastMessage.index} ($firstTimestamp..$lastTimestamp)"

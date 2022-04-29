@@ -36,7 +36,7 @@ class GrpcMessageProducer {
             return MessageGroupResponse.newBuilder().apply {
                 messageId = convertMessageId(storedMessage.id)
                 timestamp = convertTimestamp(storedMessage.timestamp)
-                bodyRaw = rawMessage.rawMessage?.body
+                bodyRaw = rawMessage.rawMessage.body
 
                 rawMessage.parsedMessage?.forEach {
                     addMessageItem(MessageGroupItem.newBuilder().setMessage(it).build())

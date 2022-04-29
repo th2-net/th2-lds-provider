@@ -35,7 +35,7 @@ class MessageProducer53 {
                 rawMessage.storedMessage,
                 convertToOneMessage?.let { formatter.print(it) } ?: "{}",
                 convertToOneMessage,
-                rawMessage.rawMessage?.let {
+                rawMessage.rawMessage.let {
                     Base64.getEncoder().encodeToString(it.body.toByteArray())
                 },
                 if (convertToOneMessage != null) convertToOneMessage.metadata.messageType else ""
@@ -47,7 +47,7 @@ class MessageProducer53 {
                 rawMessage.storedMessage,
                 "{}",
                 null,
-                rawMessage.rawMessage?.let {
+                rawMessage.rawMessage.let {
                     Base64.getEncoder().encodeToString(it.body.toByteArray())
                 },
                 ""

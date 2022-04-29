@@ -36,7 +36,7 @@ class MessageProducer {
                         ProviderParsedMessage(msg.metadata.id, formatter.print(msg))
                     }.toList() 
                 } ?: Collections.emptyList<ProviderParsedMessage>(),
-                rawMessage.rawMessage?.let {
+                rawMessage.rawMessage.let {
                     Base64.getEncoder().encodeToString(it.body.toByteArray())
                 }
             )
@@ -46,7 +46,7 @@ class MessageProducer {
             return ProviderMessage(
                 rawMessage.storedMessage,
                 Collections.emptyList<ProviderParsedMessage>(),
-                rawMessage.rawMessage?.let {
+                rawMessage.rawMessage.let {
                     Base64.getEncoder().encodeToString(it.body.toByteArray())
                 }
             )

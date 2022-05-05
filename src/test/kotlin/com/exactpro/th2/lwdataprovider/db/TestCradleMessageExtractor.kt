@@ -130,7 +130,7 @@ internal class TestCradleMessageExtractor {
         whenever(storage.getGroupedMessageBatches(eq("test"), eq(startTimestamp), eq(endTimestamp))).thenReturn(batchesList)
 
         val sink = spy(StoredMessageDataSink())
-        extractor.getMessagesGroup("test", startTimestamp, endTimestamp, sink, measurement)
+        extractor.getMessagesGroup("test", startTimestamp, endTimestamp, true, sink, measurement)
 
         verify(sink, atMost(messagesCount.toInt())).onNext(any<Collection<StoredMessage>>())
         verify(sink, never()).onError(any<String>())

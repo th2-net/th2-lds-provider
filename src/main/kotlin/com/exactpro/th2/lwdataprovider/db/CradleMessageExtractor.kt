@@ -59,7 +59,7 @@ class CradleMessageExtractor(
     }
 
 
-    fun getMessagesGroup(group: String, start: Instant, end: Instant, sink: DataSink<StoredMessage>, measurement: DataMeasurement) {
+    fun getMessagesGroup(group: String, start: Instant, end: Instant, sort: Boolean, sink: DataSink<StoredMessage>, measurement: DataMeasurement) {
         val messagesGroup = storage.getGroupedMessageBatches(group, start, end)
         val iterator = messagesGroup.iterator()
         var prev: StoredMessageBatch? = null
@@ -80,7 +80,7 @@ class CradleMessageExtractor(
             }
             if (prev.lastTimestamp < currentBatch.firstTimestamp) {
                 buffer.addAll(prev.messages)
-                tryDrain(group, buffer, sink)
+                tryDrain(group, buffer, sort, sink)
             } else {
                 generateSequence { if (remaining.peek()?.timestampLess(currentBatch) == true) remaining.poll() else null }.toCollection(buffer)
 
@@ -95,7 +95,7 @@ class CradleMessageExtractor(
                         remaining += msg
                     }
                 }
-                tryDrain(group, buffer, sink)
+                tryDrain(group, buffer, sort, sink)
             }
         }
         if (prev == null) {
@@ -108,7 +108,9 @@ class CradleMessageExtractor(
                     addAll(buffer)
                     addAll(remaining)
                     addAll(currentBatch.messages)
-                    sortWith(STORED_MESSAGE_COMPARATOR)
+                    if (sort) {
+                        sortWith(STORED_MESSAGE_COMPARATOR)
+                    }
                 },
                 sink
             )
@@ -118,9 +120,12 @@ class CradleMessageExtractor(
     private fun tryDrain(
         group: String,
         buffer: LinkedList<StoredMessage>,
+        sort: Boolean,
         sink: DataSink<StoredMessage>,
     ) {
-        buffer.sortWith(STORED_MESSAGE_COMPARATOR)
+        if (sort) {
+            buffer.sortWith(STORED_MESSAGE_COMPARATOR)
+        }
         drain(group, buffer, sink)
         buffer.clear()
     }

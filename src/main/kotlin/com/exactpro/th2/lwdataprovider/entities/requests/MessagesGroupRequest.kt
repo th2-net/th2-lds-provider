@@ -24,6 +24,7 @@ class MessagesGroupRequest(
     val groups: Set<String>,
     val startTimestamp: Instant,
     val endTimestamp: Instant,
+    val sort: Boolean,
 ) {
     init {
         check(startTimestamp <= endTimestamp) { "$START_TIMESTAMP_PARAM must be greater than $END_TIMESTAMP_PARAM" }
@@ -32,6 +33,7 @@ class MessagesGroupRequest(
         private const val GROUP_PARAM = "group"
         private const val START_TIMESTAMP_PARAM = "startTimestamp"
         private const val END_TIMESTAMP_PARAM = "endTimestamp"
+        private const val SORT_PARAMETER = "sort"
 
         @JvmStatic
         fun fromParametersMap(map: Map<String, List<String>>): MessagesGroupRequest =
@@ -39,6 +41,7 @@ class MessagesGroupRequest(
                 map[GROUP_PARAM]?.toSet() ?: error("No $GROUP_PARAM param was set"),
                 extractInstant(map, START_TIMESTAMP_PARAM),
                 extractInstant(map, END_TIMESTAMP_PARAM),
+                booleanOrDefault(map, false),
             )
 
         @JvmStatic
@@ -49,7 +52,14 @@ class MessagesGroupRequest(
                 },
                 if (request.hasStartTimestamp()) request.startTimestamp.toInstant() else error("missing start timestamp"),
                 if (request.hasEndTimestamp()) request.endTimestamp.toInstant() else error("missing end timestamp"),
+                if (request.hasSort()) request.sort.value else false,
             )
+
+        private fun booleanOrDefault(map: Map<String, List<String>>, default: Boolean): Boolean {
+            val params = map[SORT_PARAMETER] ?: return default
+            return params.singleOrNull()
+                ?.toBoolean() ?: error("More than one parameter $SORT_PARAMETER was specified")
+        }
 
         private fun extractInstant(map: Map<String, List<String>>, paramName: String): Instant =
             (map[paramName] ?: error("No $paramName param was set"))

@@ -166,7 +166,7 @@ class SearchMessagesHandler(
                 try {
                     request.groups.forEach { group ->
                         logger.debug { "Executing request for group $group" }
-                        cradleMsgExtractor.getMessagesGroup(group, request.startTimestamp, request.endTimestamp, sink, dataMeasurement)
+                        cradleMsgExtractor.getMessagesGroup(group, request.startTimestamp, request.endTimestamp, request.sort, sink, dataMeasurement)
                         logger.debug { "Executing of request for group $group has been finished" }
                     }
                 } catch (ex: Exception) {

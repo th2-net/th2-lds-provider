@@ -52,7 +52,7 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     }
     val grpcBackPressure: Boolean = VariableBuilder.getVariable(customConfiguration::grpcBackPressure, false)
     val bufferPerQuery: Int = VariableBuilder.getVariable(customConfiguration::bufferPerQuery, max(maxBufferDecodeQueue / execThreadPoolSize, 1))
-    val groupRequestBuffer: Int = VariableBuilder.getVariable(customConfiguration::bufferPerQuery, 1000)
+    val groupRequestBuffer: Int = VariableBuilder.getVariable(customConfiguration::groupRequestBuffer, 1000)
     init {
         check(bufferPerQuery <= maxBufferDecodeQueue) {
             "buffer per queue ($bufferPerQuery) must be less or equal to the total buffer size ($maxBufferDecodeQueue)"

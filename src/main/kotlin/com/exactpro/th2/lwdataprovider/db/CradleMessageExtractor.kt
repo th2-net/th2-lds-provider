@@ -68,6 +68,13 @@ class CradleMessageExtractor(
         }
 
         fun StoredMessage.timestampLess(batch: StoredMessageBatch): Boolean = timestamp < batch.firstTimestamp
+        fun StoredMessageBatch.isNeedFiltration(): Boolean = firstTimestamp < start || lastTimestamp > end
+        fun StoredMessage.inRange(): Boolean = timestamp >= start && timestamp <= end
+        fun StoredMessageBatch.filterIfRequired(): Collection<StoredMessage> = if (isNeedFiltration()) {
+            messages.filter(StoredMessage::inRange)
+        } else {
+            messages
+        }
 
         var currentBatch: StoredMessageBatch = iterator.next()
         val buffer: LinkedList<StoredMessage> = LinkedList()
@@ -78,14 +85,23 @@ class CradleMessageExtractor(
             check(prev.firstTimestamp <= currentBatch.firstTimestamp) {
                 "Unordered batches received: ${prev.toShortInfo()} and ${currentBatch.toShortInfo()}"
             }
+            val needFiltration = prev.isNeedFiltration()
+
             if (prev.lastTimestamp < currentBatch.firstTimestamp) {
-                buffer.addAll(prev.messages)
+                if (needFiltration) {
+                    prev.messages.filterTo(buffer, StoredMessage::inRange)
+                } else {
+                    buffer.addAll(prev.messages)
+                }
                 tryDrain(group, buffer, sort, sink)
             } else {
                 generateSequence { if (remaining.peek()?.timestampLess(currentBatch) == true) remaining.poll() else null }.toCollection(buffer)
 
                 val messageCount = prev.messageCount
                 prev.messages.forEachIndexed { index, msg ->
+                    if (needFiltration && !msg.inRange()) {
+                        return@forEachIndexed
+                    }
                     if (msg.timestampLess(currentBatch)) {
                         buffer += msg
                     } else {
@@ -98,16 +114,17 @@ class CradleMessageExtractor(
                 tryDrain(group, buffer, sort, sink)
             }
         }
+        val remainingMessages = currentBatch.filterIfRequired()
         if (prev == null) {
             // Only single batch was extracted
-            drain(group, currentBatch.messages, sink)
+            drain(group, remainingMessages, sink)
         } else {
             drain(
                 group,
-                ArrayList<StoredMessage>(buffer.size + remaining.size + currentBatch.messageCount).apply {
+                ArrayList<StoredMessage>(buffer.size + remaining.size + remainingMessages.size).apply {
                     addAll(buffer)
                     addAll(remaining)
-                    addAll(currentBatch.messages)
+                    addAll(remainingMessages)
                     if (sort) {
                         sortWith(STORED_MESSAGE_COMPARATOR)
                     }

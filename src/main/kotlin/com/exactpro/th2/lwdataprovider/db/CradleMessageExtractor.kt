@@ -98,6 +98,7 @@ class CradleMessageExtractor(
                 generateSequence { if (remaining.peek()?.timestampLess(currentBatch) == true) remaining.poll() else null }.toCollection(buffer)
 
                 val messageCount = prev.messageCount
+                val prevRemaining = remaining.size
                 prev.messages.forEachIndexed { index, msg ->
                     if (needFiltration && !msg.inRange()) {
                         return@forEachIndexed
@@ -111,10 +112,17 @@ class CradleMessageExtractor(
                         remaining += msg
                     }
                 }
+
+                val lastId = if (prevRemaining == remaining.size) {
+                    buffer.last
+                } else {
+                    remaining.last
+                }.id
                 tryDrain(group, buffer, sort, sink)
             }
         }
         val remainingMessages = currentBatch.filterIfRequired()
+
         if (prev == null) {
             // Only single batch was extracted
             drain(group, remainingMessages, sink)

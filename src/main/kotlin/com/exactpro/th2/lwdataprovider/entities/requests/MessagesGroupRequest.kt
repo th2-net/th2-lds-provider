@@ -20,7 +20,7 @@ import com.exactpro.th2.dataprovider.grpc.MessageGroupsSearchRequest
 import com.exactpro.th2.lwdataprovider.grpc.toInstant
 import java.time.Instant
 
-class MessagesGroupRequest(
+data class MessagesGroupRequest(
     val groups: Set<String>,
     val startTimestamp: Instant,
     val endTimestamp: Instant,

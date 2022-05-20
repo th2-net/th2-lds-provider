@@ -20,6 +20,7 @@ import com.exactpro.th2.common.schema.grpc.router.GrpcRouter
 import com.exactpro.th2.lwdataprovider.Context
 import io.grpc.BindableService
 import io.grpc.Server
+import io.grpc.protobuf.services.ProtoReflectionService
 import mu.KotlinLogging
 import java.util.concurrent.TimeUnit
 
@@ -37,7 +38,7 @@ class GrpcServer (server: Server) {
                 logger.info { "Creating grpc provider" }
                 GrpcDataProviderImpl(context.configuration, context.searchMessagesHandler, context.searchEventsHandler, context.dataMeasurement)
             }
-            val server = grpcRouter.startServer(bindableService)
+            val server = grpcRouter.startServer(bindableService, ProtoReflectionService.newInstance())
             logger.info { "grpc server started" }
             return GrpcServer(server)
         }

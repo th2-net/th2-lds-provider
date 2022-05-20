@@ -154,7 +154,7 @@ class SearchMessagesHandler(
 
     fun loadMessageGroups(request: MessagesGroupRequest, requestContext: MessageResponseHandler, dataMeasurement: DataMeasurement) {
         if (request.groups.isEmpty()) {
-            return
+            requestContext.finishStream()
         }
 
         threadPool.execute {

@@ -37,7 +37,7 @@ class GetMessageGroupsServlet(
 ) : SseServlet() {
 
     override fun doGet(req: HttpServletRequest, resp: HttpServletResponse) {
-        LOGGER.debug { "Processing request for getting message groups: ${req.queryString}" }
+        LOGGER.info { "Processing request for getting message groups: ${req.queryString}" }
         val queryParametersMap = getParameters(req)
         val request = MessagesGroupRequest.fromParametersMap(queryParametersMap)
 

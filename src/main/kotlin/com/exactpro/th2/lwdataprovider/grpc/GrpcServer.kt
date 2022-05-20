@@ -21,6 +21,7 @@ import com.exactpro.th2.lwdataprovider.Context
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import io.grpc.BindableService
 import io.grpc.Server
+import io.grpc.protobuf.services.ProtoReflectionService
 import mu.KotlinLogging
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
@@ -45,7 +46,7 @@ class GrpcServer(server: Server, private val onStop: () -> Unit) {
                 logger.info { "Creating grpc provider" }
                 GrpcDataProviderImpl(context.configuration, context.searchMessagesHandler, context.searchEventsHandler, context.dataMeasurement)
             }
-            val server = grpcRouter.startServer(bindableService)
+            val server = grpcRouter.startServer(bindableService, ProtoReflectionService.newInstance())
             logger.info { "grpc server started" }
             return GrpcServer(server) { executor?.shutdown() }
         }

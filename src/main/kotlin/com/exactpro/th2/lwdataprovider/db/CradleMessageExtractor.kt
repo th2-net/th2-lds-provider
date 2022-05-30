@@ -96,7 +96,7 @@ class CradleMessageExtractor(
                 }
                 tryDrain(group, buffer, sort, sink)
             } else {
-                generateSequence { if (remaining.peek()?.timestampLess(currentBatch) == true) remaining.poll() else null }.toCollection(buffer)
+                generateSequence { if (!sort || remaining.peek()?.timestampLess(currentBatch) == true) remaining.poll() else null }.toCollection(buffer)
 
                 val messageCount = prev.messageCount
                 val prevRemaining = remaining.size
@@ -104,7 +104,7 @@ class CradleMessageExtractor(
                     if (needFiltration && !msg.inRange()) {
                         return@forEachIndexed
                     }
-                    if (msg.timestampLess(currentBatch)) {
+                    if (!sort || msg.timestampLess(currentBatch)) {
                         buffer += msg
                     } else {
                         check(remaining.size < groupBufferSize) {

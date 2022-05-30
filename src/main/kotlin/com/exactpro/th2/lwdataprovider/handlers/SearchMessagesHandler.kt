@@ -155,13 +155,17 @@ class SearchMessagesHandler(
 
     fun loadMessageGroups(request: MessagesGroupRequest, requestContext: MessageResponseHandler, dataMeasurement: DataMeasurement) {
         if (request.groups.isEmpty()) {
-            requestContext.finishStream()
+            requestContext.complete()
         }
 
         threadPool.execute {
             RootMessagesDataSink(
                 requestContext,
-                ParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize),
+                if (request.rawOnly) {
+                    RawStoredMessageHandler(requestContext)
+                } else {
+                    ParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
+                },
                 limit = null,
             ).use { sink ->
                 try {

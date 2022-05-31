@@ -99,7 +99,6 @@ class CradleMessageExtractor(
                 generateSequence { if (!sort || remaining.peek()?.timestampLess(currentBatch) == true) remaining.poll() else null }.toCollection(buffer)
 
                 val messageCount = prev.messageCount
-                val prevRemaining = remaining.size
                 prev.messages.forEachIndexed { index, msg ->
                     if (needFiltration && !msg.inRange()) {
                         return@forEachIndexed
@@ -114,11 +113,6 @@ class CradleMessageExtractor(
                     }
                 }
 
-                val lastId = if (prevRemaining == remaining.size) {
-                    buffer.last
-                } else {
-                    remaining.last
-                }.id
                 tryDrain(group, buffer, sort, sink)
             }
         }

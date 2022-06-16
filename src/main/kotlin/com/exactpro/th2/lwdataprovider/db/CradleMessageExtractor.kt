@@ -18,6 +18,7 @@ package com.exactpro.th2.lwdataprovider.db
 
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
+import com.exactpro.cradle.messages.StoredGroupMessageBatch
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageBatch
 import com.exactpro.cradle.messages.StoredMessageFilter
@@ -61,23 +62,23 @@ class CradleMessageExtractor(
 
 
     fun getMessagesGroup(group: String, start: Instant, end: Instant, sort: Boolean, sink: DataSink<StoredMessage>, measurement: DataMeasurement) {
-        val messagesGroup = storage.getGroupedMessageBatches(group, start, end)
+        val messagesGroup: MutableIterable<StoredGroupMessageBatch> = storage.getGroupedMessageBatches(group, start, end)
         val iterator = messagesGroup.iterator()
-        var prev: StoredMessageBatch? = null
         if (!iterator.hasNext()) {
             return
         }
 
-        fun StoredMessage.timestampLess(batch: StoredMessageBatch): Boolean = timestamp < batch.firstTimestamp
-        fun StoredMessageBatch.isNeedFiltration(): Boolean = firstTimestamp < start || lastTimestamp > end
+        fun StoredMessage.timestampLess(batch: StoredGroupMessageBatch): Boolean = timestamp < batch.firstTimestamp
+        fun StoredGroupMessageBatch.isNeedFiltration(): Boolean = firstTimestamp < start || lastTimestamp > end
         fun StoredMessage.inRange(): Boolean = timestamp >= start && timestamp <= end
-        fun StoredMessageBatch.filterIfRequired(): Collection<StoredMessage> = if (isNeedFiltration()) {
+        fun StoredGroupMessageBatch.filterIfRequired(): Collection<StoredMessage> = if (isNeedFiltration()) {
             messages.filter(StoredMessage::inRange)
         } else {
             messages
         }
 
-        var currentBatch: StoredMessageBatch = iterator.next()
+        var prev: StoredGroupMessageBatch? = null
+        var currentBatch: StoredGroupMessageBatch = iterator.next()
         val buffer: LinkedList<StoredMessage> = LinkedList()
         val remaining: LinkedList<StoredMessage> = LinkedList()
         while (iterator.hasNext()) {
@@ -195,4 +196,4 @@ private class StoredMessageIterator(
     override fun hasNext(): Boolean = dataMeasurement.start("cradle_messages").use { iterator.hasNext() }
 }
 
-private fun StoredMessageBatch.toShortInfo(): String = "$streamName:${direction.label}:${firstMessage.index}..${lastMessage.index} ($firstTimestamp..$lastTimestamp)"
+private fun StoredGroupMessageBatch.toShortInfo(): String = "${sessionGroup}:${firstMessage.index}..${lastMessage.index} ($firstTimestamp..$lastTimestamp)"

@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.lwdataprovider.grpc
 
+import com.exactpro.cradle.BookId
 import com.exactpro.th2.common.message.toJavaDuration
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.dataprovider.lw.grpc.MessageLoadedStatistic
@@ -41,7 +42,9 @@ class QueueGrpcProvider(
         try {
             val internalRequest = request.run {
                 QueueMessageGroupsRequest.create(
-                    messageGroupList.mapTo(hashSetOf()) { it.name },
+                    messageGroupList.associate { bookGroups ->
+                        BookId(bookGroups.bookId.name) to bookGroups.groupList.mapTo(hashSetOf()) { it.name }
+                    },
                     if (hasStartTimestamp()) startTimestamp.toInstant() else null,
                     if (hasEndTimestamp()) endTimestamp.toInstant() else null,
                     if (hasSyncInterval()) syncInterval.toJavaDuration() else null,

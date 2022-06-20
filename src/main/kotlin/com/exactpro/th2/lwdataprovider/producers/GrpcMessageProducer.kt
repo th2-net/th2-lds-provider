@@ -20,6 +20,7 @@ import com.exactpro.cradle.Direction
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.grpc.ConnectionID
 import com.exactpro.th2.common.grpc.MessageID
+import com.exactpro.th2.common.message.toTimestamp
 import com.exactpro.th2.dataprovider.lw.grpc.MessageGroupItem
 import com.exactpro.th2.dataprovider.lw.grpc.MessageGroupResponse
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
@@ -52,9 +53,10 @@ class GrpcMessageProducer {
 
         private fun convertMessageId(messageID: StoredMessageId) : MessageID {
             return MessageID.newBuilder().also {
-                it.connectionId = ConnectionID.newBuilder().setSessionAlias(messageID.streamName).build()
+                it.connectionId = ConnectionID.newBuilder().setSessionAlias(messageID.sessionAlias).build()
                 it.direction = convertDirection(messageID)
-                it.sequence = messageID.index
+                it.sequence = messageID.sequence
+                it.timestamp = messageID.timestamp.toTimestamp()
             }.build()
         }
 

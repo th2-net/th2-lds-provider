@@ -23,11 +23,11 @@ plugins {
 
 ext {
     dockerImageVersion = release_version
-    cradleApiVersion = '3.2.3-TH2-4117-2932978377-SNAPSHOT'
+    cradleApiVersion = '4.0.0-TH2-2150-2515326049-SNAPSHOT'
 }
 
 dependencies {
-    implementation('com.exactpro.th2:common:3.42.0') {
+    implementation('com.exactpro.th2:common:4.0.0-th2-2150-books-pages-2496284531-SNAPSHOT') {
         exclude group: 'com.exactpro.th2', module: 'cradle-core'
         exclude group: 'com.exactpro.th2', module: 'cradle-cassandra'
     }

@@ -16,25 +16,27 @@
 
 package com.exactpro.th2.lwdataprovider.db
 
+import com.exactpro.cradle.BookId
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
 import com.exactpro.cradle.Direction
-import com.exactpro.cradle.messages.StoredGroupMessageBatch
+import com.exactpro.cradle.messages.GroupedMessageFilter
+import com.exactpro.cradle.messages.MessageFilter
+import com.exactpro.cradle.messages.MessageFilterBuilder
+import com.exactpro.cradle.messages.StoredGroupedMessageBatch
 import com.exactpro.cradle.messages.StoredMessage
-import com.exactpro.cradle.messages.StoredMessageFilterBuilder
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.MessageRouter
+import com.exactpro.th2.lwdataprovider.util.ImmutableListCradleResult
+import com.exactpro.th2.lwdataprovider.util.ListCradleResult
 import com.exactpro.th2.lwdataprovider.util.createBatches
 import com.exactpro.th2.lwdataprovider.util.createCradleStoredMessage
 import com.exactpro.th2.lwdataprovider.util.validateOrder
 import mu.KotlinLogging
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.MethodOrderer
-import org.junit.jupiter.api.Order
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
-import org.junit.jupiter.api.TestMethodOrder
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import org.mockito.Mockito.spy
@@ -43,7 +45,6 @@ import org.mockito.kotlin.argThat
 import org.mockito.kotlin.atMost
 import org.mockito.kotlin.clearInvocations
 import org.mockito.kotlin.doReturn
-import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
@@ -102,13 +103,13 @@ internal class TestCradleMessageExtractor {
             }
         }
         messagesByAlias.forEach { (alias, messages) ->
-            doReturn(messages).whenever(storage).getMessages(argThat {
-                streamName.check(alias)
+            doReturn(ImmutableListCradleResult(messages)).whenever(storage).getMessages(argThat {
+                sessionAlias == alias
             })
         }
         val sink = StoredMessageDataSink()
         extractor.getMessagesWithSyncInterval(
-            messagesByAlias.keys.map { StoredMessageFilterBuilder().streamName().isEqualTo(it).build() },
+            messagesByAlias.keys.map { createMessageFilter(it) },
             Duration.ofMinutes(20),
             sink,
             measurement,
@@ -156,13 +157,13 @@ internal class TestCradleMessageExtractor {
             }
         }
         messagesByAlias.forEach { (alias, messages) ->
-            doReturn(messages).whenever(storage).getMessages(argThat {
-                streamName.check(alias)
+            doReturn(ImmutableListCradleResult(messages)).whenever(storage).getMessages(argThat {
+                sessionAlias == alias
             })
         }
         val sink = StoredMessageDataSink()
         extractor.getMessagesWithSyncInterval(
-            messagesByAlias.keys.map { StoredMessageFilterBuilder().streamName().isEqualTo(it).build() },
+            messagesByAlias.keys.map { createMessageFilter(it) },
             Duration.ofMinutes(20),
             sink,
             measurement,
@@ -194,13 +195,13 @@ internal class TestCradleMessageExtractor {
             generateMessage(it, start)
         }
         messagesByAlias.forEach { (alias, messages) ->
-            doReturn(messages).whenever(storage).getMessages(argThat {
-                streamName.check(alias)
+            doReturn(ImmutableListCradleResult(messages)).whenever(storage).getMessages(argThat {
+                sessionAlias == alias
             })
         }
         val sink = StoredMessageDataSink()
         extractor.getMessagesWithSyncInterval(
-            messagesByAlias.keys.map { StoredMessageFilterBuilder().streamName().isEqualTo(it).build() },
+            messagesByAlias.keys.map { createMessageFilter(it) },
             Duration.ofMinutes(20),
             sink,
             measurement,
@@ -220,6 +221,12 @@ internal class TestCradleMessageExtractor {
                         messagesByAlias.getValue("c").takeLast(1)
             )
     }
+
+    private fun createMessageFilter(alias: String): MessageFilter = MessageFilterBuilder()
+        .bookId(BookId("test"))
+        .sessionAlias(alias)
+        .direction(Direction.FIRST)
+        .build()
 
     @Test
     fun getMessagesGroupWithOverlapping() {
@@ -249,18 +256,24 @@ internal class TestCradleMessageExtractor {
     }
 
     private fun checkMessagesReturnsInOrder(messagesPerBatch: Long, batchesCount: Int, increase: Long, messagesCount: Long, overlap: Long) {
-        val batchesList: List<StoredGroupMessageBatch> = createBatches(
+        val batchesList: MutableList<StoredGroupedMessageBatch> = createBatches(
             messagesPerBatch = messagesPerBatch,
             batchesCount = batchesCount,
             overlapCount = overlap,
             increase = increase,
             startTimestamp = startTimestamp,
             end = endTimestamp,
-        )
-        whenever(storage.getGroupedMessageBatches(eq("test"), eq(startTimestamp), eq(endTimestamp))).thenReturn(batchesList)
+        ).toMutableList()
+        whenever(storage.getGroupedMessageBatches(any())).thenReturn(ListCradleResult(batchesList))
 
         val sink = spy(StoredMessageDataSink())
-        extractor.getMessagesGroup("test", CradleGroupRequest(startTimestamp, endTimestamp, sort = true), sink, measurement)
+        extractor.getMessagesGroup(
+            GroupedMessageFilter.builder()
+                .groupName("test")
+                .timestampFrom().isGreaterThanOrEqualTo(startTimestamp)
+                .timestampTo().isLessThan(endTimestamp)
+                .build(), CradleGroupRequest(true), sink, measurement
+        )
 
         verify(sink, atMost(messagesCount.toInt())).onNext(any(), any<Collection<StoredMessage>>())
         verify(sink, never()).onError(any<String>())

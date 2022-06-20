@@ -16,17 +16,20 @@
 
 package com.exactpro.th2.lwdataprovider.entities.requests
 
+import com.exactpro.cradle.BookId
 import com.exactpro.cradle.Direction
 import com.exactpro.cradle.TimeRelation
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.dataprovider.lw.grpc.MessageSearchRequest
 import com.exactpro.th2.dataprovider.lw.grpc.MessageStreamPointer
-import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
+import com.exactpro.th2.lwdataprovider.entities.requests.util.getInitEndTimestamp
+import com.exactpro.th2.lwdataprovider.entities.requests.util.invalidRequest
 import com.exactpro.th2.lwdataprovider.grpc.toInstant
 import com.exactpro.th2.lwdataprovider.grpc.toProviderMessageStreams
 import com.exactpro.th2.lwdataprovider.grpc.toProviderRelation
 import com.exactpro.th2.lwdataprovider.grpc.toStoredMessageId
+import com.exactpro.th2.lwdataprovider.toCradle
 import java.time.Instant
 
 class SseMessageSearchRequest(
@@ -38,7 +41,8 @@ class SseMessageSearchRequest(
     val resumeFromIdsList: List<StoredMessageId>?,
 
     endTimestamp: Instant?,
-    val responseFormats: Set<ResponseFormat>? = null
+    val responseFormats: Set<ResponseFormat>? = null,
+    val bookId: BookId,
 ) {
     init {
         if (keepOpen) {
@@ -62,7 +66,7 @@ class SseMessageSearchRequest(
             if (value == "next") return TimeRelation.AFTER
             if (value == "previous") return TimeRelation.BEFORE
 
-            throw InvalidRequestException("'$value' is not a valid timeline direction. Use 'next' or 'previous'")
+            invalidRequest("'$value' is not a valid timeline direction. Use 'next' or 'previous'")
         }
 
         private fun toStreams(streams: List<String>?): List<ProviderMessageStream>? {
@@ -108,6 +112,7 @@ class SseMessageSearchRequest(
         resultCountLimit = parameters["resultCountLimit"]?.firstOrNull()?.toInt(),
         keepOpen = parameters["keepOpen"]?.firstOrNull()?.toBoolean() ?: false,
         responseFormats = parameters["responseFormats"]?.mapTo(hashSetOf(), ResponseFormat.Companion::fromString),
+        bookId = parameters["bookId"]?.firstOrNull()?.let(::BookId) ?: invalidRequest("parameter 'bookId' is required"),
     )
 
 
@@ -126,6 +131,7 @@ class SseMessageSearchRequest(
         resultCountLimit = if (grpcRequest.hasResultCountLimit()) grpcRequest.resultCountLimit.value else null,
         keepOpen = if (grpcRequest.hasKeepOpen()) grpcRequest.keepOpen.value else false,
         responseFormats = grpcRequest.responseFormatsList.takeIf { it.isNotEmpty() }?.mapTo(hashSetOf(), ResponseFormat.Companion::fromString),
+        bookId = grpcRequest.run { if (hasBookId()) bookId.toCradle() else invalidRequest("parameter 'bookId' is required") },
     )
 
     private fun checkEndTimestamp() {
@@ -133,16 +139,16 @@ class SseMessageSearchRequest(
 
         if (searchDirection == TimeRelation.AFTER) {
             if (startTimestamp.isAfter(endTimestamp))
-                throw InvalidRequestException("startTimestamp: $startTimestamp > endTimestamp: $endTimestamp")
+                invalidRequest("startTimestamp: $startTimestamp > endTimestamp: $endTimestamp")
         } else {
             if (startTimestamp.isBefore(endTimestamp))
-                throw InvalidRequestException("startTimestamp: $startTimestamp < endTimestamp: $endTimestamp")
+                invalidRequest("startTimestamp: $startTimestamp < endTimestamp: $endTimestamp")
         }
     }
 
     private fun checkStartPoint() {
         if (startTimestamp == null && resumeFromIdsList == null)
-            throw InvalidRequestException("One of the 'startTimestamp' or 'resumeFromId' or 'messageId' must not be null")
+            invalidRequest("One of the 'startTimestamp' or 'resumeFromId' or 'messageId' must not be null")
     }
 
     private fun checkRequest() {
@@ -160,6 +166,7 @@ class SseMessageSearchRequest(
                 "keepOpen=$keepOpen, " +
                 "resumeFromIdsList=$resumeFromIdsList, " +
                 "responseFormats=$responseFormats, " +
+                "bookId=$bookId, " +
                 ")"
     }
 }

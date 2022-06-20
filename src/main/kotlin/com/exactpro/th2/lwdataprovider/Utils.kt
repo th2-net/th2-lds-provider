@@ -17,6 +17,7 @@
 package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.cradle.Direction
+import com.exactpro.th2.dataprovider.lw.grpc.BookId
 
 fun cradleDirectionToGrpc(direction: Direction): com.exactpro.th2.common.grpc.Direction {
     return if (direction == Direction.FIRST)
@@ -31,3 +32,5 @@ fun grpcDirectionToCradle(direction: com.exactpro.th2.common.grpc.Direction): Di
     else
         Direction.SECOND
 }
+
+fun BookId.toCradle(): com.exactpro.cradle.BookId = com.exactpro.cradle.BookId(name)

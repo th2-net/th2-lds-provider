@@ -16,11 +16,14 @@
 
 package com.exactpro.th2.lwdataprovider.handlers
 
+import com.exactpro.cradle.BookId
 import com.exactpro.cradle.Direction
 import com.exactpro.cradle.Order
+import com.exactpro.cradle.TimeRelation
 import com.exactpro.cradle.TimeRelation.AFTER
+import com.exactpro.cradle.messages.GroupedMessageFilter
+import com.exactpro.cradle.messages.MessageFilterBuilder
 import com.exactpro.cradle.messages.StoredMessage
-import com.exactpro.cradle.messages.StoredMessageFilterBuilder
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.lwdataprovider.Decoder
@@ -35,6 +38,9 @@ import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
+import com.exactpro.th2.lwdataprovider.handlers.util.BookGroup
+import com.exactpro.th2.lwdataprovider.handlers.util.GroupParametersHolder
+import com.exactpro.th2.lwdataprovider.handlers.util.modifyFilterBuilderTimestamps
 import com.exactpro.th2.lwdataprovider.handlers.util.computeNewParametersForGroupRequest
 import mu.KotlinLogging
 import java.time.Instant
@@ -52,9 +58,9 @@ class SearchMessagesHandler(
         private val logger = KotlinLogging.logger { }
     }
 
-    fun extractStreamNames(): Collection<String> {
+    fun extractStreamNames(bookId: BookId): Collection<String> {
         logger.info { "Getting stream names" }
-        return cradleMsgExtractor.getStreams();
+        return cradleMsgExtractor.getStreams(bookId);
     }
 
     fun loadMessages(request: SseMessageSearchRequest, requestContext: MessageResponseHandler, dataMeasurement: DataMeasurement) {
@@ -102,7 +108,7 @@ class SearchMessagesHandler(
                         val order = orderFrom(request)
                         val allLoaded = hashSetOf<Stream>()
                         do {
-                            val continuePulling = pullUpdates(request, order, lastTimestamp, sink, allLoaded, dataMeasurement)
+                            val continuePulling = pullUpdates(request, order, sink, allLoaded, dataMeasurement)
                         } while (continuePulling)
                     }
 
@@ -125,7 +131,7 @@ class SearchMessagesHandler(
                 }
             ).use { sink ->
                 try {
-                    cradleMsgExtractor.getMessage(StoredMessageId.fromString(request.msgId), sink, dataMeasurement);
+                    cradleMsgExtractor.getMessage(request.msgId, sink, dataMeasurement);
                 } catch (e: Exception) {
                     logger.error(e) { "error getting messages" }
                     sink.onError(e)
@@ -151,10 +157,16 @@ class SearchMessagesHandler(
                 limit = null,
             ).use { sink ->
                 try {
-                    val parameters = CradleGroupRequest(request.startTimestamp, request.endTimestamp, request.sort)
+                    val parameters = CradleGroupRequest(request.sort)
                     request.groups.forEach { group ->
+                        val filter = GroupedMessageFilter.builder()
+                            .groupName(group)
+                            .bookId(request.bookId)
+                            .timestampFrom().isGreaterThanOrEqualTo(request.startTimestamp)
+                            .timestampTo().isLessThan(request.endTimestamp)
+                            .build()
                         logger.debug { "Executing request for group $group" }
-                        cradleMsgExtractor.getMessagesGroup(group, parameters, sink, dataMeasurement)
+                        cradleMsgExtractor.getMessagesGroup(filter, parameters, sink, dataMeasurement)
                         logger.debug { "Executing of request for group $group has been finished" }
                     }
 
@@ -189,8 +201,8 @@ class SearchMessagesHandler(
         allLoaded: MutableSet<String>,
         dataMeasurement: DataMeasurement,
     ): Boolean {
-        val parametersByGroup: Map<String, CradleGroupRequest> = computeNewParametersForGroupRequest(
-            request.groups,
+        val parametersByBookId: Map<BookGroup, GroupParametersHolder> = computeNewParametersForGroupRequest(
+            mapOf(request.bookId to request.groups),
             request.startTimestamp,
             lastTimestamp,
             parameters,
@@ -198,9 +210,16 @@ class SearchMessagesHandler(
             sink.streamInfo,
             cradleMsgExtractor
         )
-        parametersByGroup.forEach { (group, params) ->
-            cradleMsgExtractor.getMessagesGroup(group, params, sink, dataMeasurement)
-            logger.info { "Data has been loaded for group $group" }
+        parametersByBookId.forEach { (bookGroup, params) ->
+            val (newStart, reqParams) = params
+            val filter = GroupedMessageFilter.builder()
+                .groupName(bookGroup.group)
+                .bookId(bookGroup.bookId)
+                .timestampFrom().isGreaterThanOrEqualTo(newStart)
+                .timestampTo().isLessThan(request.endTimestamp)
+                .build()
+            cradleMsgExtractor.getMessagesGroup(filter, reqParams, sink, dataMeasurement)
+            logger.info { "Data has been loaded for group $bookGroup" }
         }
         return allLoaded.size != request.groups.size
     }
@@ -209,7 +228,6 @@ class SearchMessagesHandler(
     private fun pullUpdates(
         request: SseMessageSearchRequest,
         order: Order,
-        lastTimestamp: Instant,
         sink: RootMessagesDataSink,
         allLoaded: MutableSet<Stream>,
         dataMeasurement: DataMeasurement,
@@ -218,8 +236,8 @@ class SearchMessagesHandler(
         var allDataLoaded = true
 
         val lastReceivedIDs: List<StoredMessageId> = sink.streamInfo.lastIDs
-        fun StoredMessageId.shortString(): String = "$streamName:${direction.label}"
-        fun StoredMessageId.toStream(): Stream = Stream(streamName, direction)
+        fun StoredMessageId.shortString(): String = "$sessionAlias:${direction.label}"
+        fun StoredMessageId.toStream(): Stream = Stream(sessionAlias, direction)
 
         lastReceivedIDs.forEach { messageId ->
             if (limitReached) {
@@ -231,13 +249,13 @@ class SearchMessagesHandler(
                 return@forEach
             }
             logger.info { "Pulling data for ${messageId.shortString()}" }
-            val hasDataOutside = hasDataOutsideRequestRange(order, messageId, lastTimestamp)
+            val hasDataOutside = hasDataOutsideRequestRange(order, messageId)
             if (hasDataOutside) {
                 logger.info { "All data is loaded for ${messageId.shortString()}" }
                 allLoaded += stream
             }
-            if (messageId.index == 0L) {
-                loadByStream(messageId.streamName, messageId.direction, request, sink, dataMeasurement)
+            if (messageId.sequence == 0L) {
+                loadByStream(messageId.sessionAlias, messageId.direction, request, sink, dataMeasurement)
             } else {
                 loadByResumeId(messageId, request, sink, dataMeasurement)
             }
@@ -248,9 +266,9 @@ class SearchMessagesHandler(
         return !allDataLoaded && !limitReached
     }
 
-    private fun hasDataOutsideRequestRange(order: Order, it: StoredMessageId, lastTimestamp: Instant): Boolean = when (order) {
-        Order.DIRECT -> cradleMsgExtractor.hasMessagesAfter(it, lastTimestamp)
-        Order.REVERSE -> cradleMsgExtractor.hasMessagesBefore(it, lastTimestamp)
+    private fun hasDataOutsideRequestRange(order: Order, it: StoredMessageId): Boolean = when (order) {
+        Order.DIRECT -> cradleMsgExtractor.hasMessagesAfter(it)
+        Order.REVERSE -> cradleMsgExtractor.hasMessagesBefore(it)
     }
 
     private fun RootMessagesDataSink.limitReached(): Boolean = canceled != null
@@ -261,14 +279,15 @@ class SearchMessagesHandler(
         sink: RootMessagesDataSink,
         dataMeasurement: DataMeasurement,
     ) {
-        sink.subSink(resumeFromId.streamName, resumeFromId.direction).use { subSink ->
-            val filter = StoredMessageFilterBuilder().apply {
-                streamName().isEqualTo(resumeFromId.streamName)
-                direction().isEqualTo(resumeFromId.direction)
+        sink.subSink(resumeFromId.sessionAlias, resumeFromId.direction).use { subSink ->
+            val filter = MessageFilterBuilder().apply {
+                bookId(request.bookId)
+                sessionAlias(resumeFromId.sessionAlias)
+                direction(resumeFromId.direction)
                 val order = orderFrom(request)
                 order(order)
                 indexFilter(request, resumeFromId)
-                timestampsFilter(order, request)
+                modifyFilterBuilderTimestamps(request)
                 limitFilter(sink)
             }.build()
 
@@ -288,12 +307,14 @@ class SearchMessagesHandler(
         dataMeasurement: DataMeasurement,
     ) {
         sink.subSink(stream, direction).use { subSink ->
-            val order = orderFrom(request)
-            val filter = StoredMessageFilterBuilder().apply {
-                streamName().isEqualTo(stream)
-                direction().isEqualTo(direction)
-                order(order)
-                timestampsFilter(order, request)
+            val filter = MessageFilterBuilder().apply {
+                bookId(request.bookId)
+                sessionAlias(stream)
+                direction(direction)
+                modifyFilterBuilderTimestamps(request)
+                if (request.searchDirection == TimeRelation.BEFORE) {
+                    order(Order.REVERSE)
+                }
                 limitFilter(sink)
             }.build()
             val time = measureTimeMillis {
@@ -303,7 +324,7 @@ class SearchMessagesHandler(
         }
     }
 
-    private fun StoredMessageFilterBuilder.limitFilter(
+    private fun MessageFilterBuilder.limitFilter(
         sink: AbstractBasicDataSink,
     ) {
         sink.limit?.let { limit(max(it, 0)) }
@@ -318,27 +339,14 @@ class SearchMessagesHandler(
         return order
     }
 
-    private fun StoredMessageFilterBuilder.timestampsFilter(
-        order: Order,
-        request: SseMessageSearchRequest,
-    ) {
-        if (order == Order.DIRECT) {
-            request.startTimestamp?.let { timestampFrom().isGreaterThanOrEqualTo(it) }
-            request.endTimestamp.let { timestampTo().isLessThan(it) }
-        } else {
-            request.startTimestamp?.let { timestampTo().isLessThanOrEqualTo(it) }
-            request.endTimestamp.let { timestampFrom().isGreaterThan(it) }
-        }
-    }
-
-    private fun StoredMessageFilterBuilder.indexFilter(
+    private fun MessageFilterBuilder.indexFilter(
         request: SseMessageSearchRequest,
         resumeFromId: StoredMessageId,
     ) {
         if (request.searchDirection == AFTER) {
-            index().isGreaterThanOrEqualTo(resumeFromId.index)
+            sequence().isGreaterThanOrEqualTo(resumeFromId.sequence)
         } else {
-            index().isLessThanOrEqualTo(resumeFromId.index)
+            sequence().isLessThanOrEqualTo(resumeFromId.sequence)
         }
     }
 }
@@ -455,7 +463,7 @@ private class ParsedStoredMessageHandler(
             return
         }
         handler.checkAndWaitForRequestLimit(details.size)
-        decoder.sendBatchMessage(batch, details, details.first().storedMessage.streamName)
+        decoder.sendBatchMessage(batch, details, details.first().storedMessage.sessionAlias)
         details.clear()
         batch.clear()
     }

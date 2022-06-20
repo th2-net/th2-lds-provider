@@ -51,9 +51,9 @@ class GrpcMessageProducer {
 
         private fun convertMessageId(messageID: StoredMessageId) : MessageID {
             return MessageID.newBuilder().also {
-                it.connectionId = ConnectionID.newBuilder().setSessionAlias(messageID.streamName).build()
+                it.connectionId = ConnectionID.newBuilder().setSessionAlias(messageID.sessionAlias).build()
                 it.direction = convertDirection(messageID)
-                it.sequence = messageID.index
+                it.sequence = messageID.sequence
             }.build()
         }
 

@@ -16,30 +16,32 @@
 
 package com.exactpro.th2.lwdataprovider.workers
 
+import com.exactpro.cradle.messages.StoredMessageIdUtils.timestampToString
 import com.exactpro.th2.common.grpc.AnyMessage
-import com.exactpro.th2.common.grpc.Direction
-import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.schema.message.MessageListener
+import com.exactpro.th2.lwdataprovider.grpc.toInstant
 import mu.KotlinLogging
-import java.util.Collections
 
 class CodecMessageListener(
-    private val decodeQueue: RequestsBuffer
+    private val decodeQueue: RequestsBuffer,
 ) : MessageListener<MessageGroupBatch>  {
     
     private fun buildMessageIdString(messageId: MessageID) : String {
-        return messageId.connectionId.sessionAlias + ":" + 
-                (if (messageId.direction == Direction.FIRST) "first" else "second") + ":" + messageId.sequence
+        return messageId.bookName + ":" +
+                messageId.connectionId.sessionAlias + ":" +
+                (messageId.direction.number + 1) + ":" +
+                timestampToString(messageId.timestamp.toInstant()) + ":" +
+                messageId.sequence
     }
 
     companion object {
         private val logger = KotlinLogging.logger { }
     }
     
-    override fun handler(consumerTag: String, message: MessageGroupBatch) {
+    override fun handle(consumerTag: String, message: MessageGroupBatch) {
 
         message.groupsList.forEach { group ->
             if (group.messagesList.any { !it.hasMessage() }) {

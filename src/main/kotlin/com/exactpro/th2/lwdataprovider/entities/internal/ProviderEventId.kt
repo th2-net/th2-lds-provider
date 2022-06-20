@@ -20,14 +20,12 @@ import com.exactpro.cradle.testevents.StoredTestEventId
 
 class ProviderEventId(val batchId: StoredTestEventId?, val eventId: StoredTestEventId) {
     companion object {
-        const val divider = ":"
+        const val divider = ">" // FIXME: like in the main provider it is a temporal solution
     }
 
     constructor(id: String) : this(
-        batchId = id.split(divider).getOrNull(0)?.let { StoredTestEventId(it) }?.takeIf { id.contains(
-            divider
-        ) },
-        eventId = id.split(divider).getOrNull(1)?.let { StoredTestEventId(it) } ?: StoredTestEventId(id)
+        batchId = if (id.contains(divider)) id.split(divider).getOrNull(0)?.let { StoredTestEventId.fromString(it) } else null,
+        eventId = id.split(divider).getOrNull(1)?.let { StoredTestEventId.fromString(it) } ?: StoredTestEventId.fromString(id)
     )
 
     override fun toString(): String {

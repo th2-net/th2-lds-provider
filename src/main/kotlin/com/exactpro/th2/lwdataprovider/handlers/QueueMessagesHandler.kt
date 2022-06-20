@@ -16,6 +16,8 @@
 
 package com.exactpro.th2.lwdataprovider.handlers
 
+import com.exactpro.cradle.BookId
+import com.exactpro.cradle.messages.GroupedMessageFilter
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.plusAssign
@@ -30,8 +32,11 @@ import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.db.MessageDataSink
 import com.exactpro.th2.lwdataprovider.entities.requests.QueueMessageGroupsRequest
 import com.exactpro.th2.lwdataprovider.grpc.toRawMessage
+import com.exactpro.th2.lwdataprovider.handlers.util.BookGroup
+import com.exactpro.th2.lwdataprovider.handlers.util.GroupParametersHolder
 import com.exactpro.th2.lwdataprovider.handlers.util.computeNewParametersForGroupRequest
 import mu.KotlinLogging
+import java.time.Instant
 import java.util.concurrent.Executor
 
 class QueueMessagesHandler(
@@ -45,34 +50,37 @@ class QueueMessagesHandler(
         request: QueueMessageGroupsRequest,
         handler: ResponseHandler<LoadStatistic>,
     ) {
-        if (request.groups.isEmpty()) {
+        if (request.groupsByBook.isEmpty()) {
             handler.complete()
             return
         }
         executor.execute {
-            val param = CradleGroupRequest(request.startTimestamp, request.endTimestamp, false)
+            val param = CradleGroupRequest(false)
             val streamInfo = ProviderStreamInfo()
             createSink(handler, streamInfo, batchMaxSize) { bath, attribute ->
                 router.send(bath, attribute, request.externalQueue, QueueAttribute.RAW.value)
             }.use { sink ->
                 try {
                     extractor.getGroupsWithSyncInterval(
-                        request.groups.associateWith { param },
+                        request.groupsByBook.toFilters(
+                            request.startTimestamp,
+                            request.endTimestamp,
+                        ) { param },
                         request.syncInterval,
                         sink,
                         dataMeasurement,
                     )
 
                     if (request.keepAlive) {
-                        val groupSize = request.groups.size
+                        val groupSize = request.groupsByBook.size
                         val allLoaded = hashSetOf<String>()
                         do {
                             sink.canceled?.apply {
                                 LOGGER.info { "request canceled: $message" }
                                 return@execute
                             }
-                            val newParams = computeNewParametersForGroupRequest(
-                                request.groups,
+                            val newParams: Map<BookGroup, GroupParametersHolder> = computeNewParametersForGroupRequest(
+                                request.groupsByBook,
                                 request.startTimestamp,
                                 request.endTimestamp,
                                 param,
@@ -85,7 +93,14 @@ class QueueMessagesHandler(
                                 return@execute
                             }
                             extractor.getGroupsWithSyncInterval(
-                                newParams,
+                                newParams.mapValues { (bookGroup, holder) ->
+                                    groupedMessageFilter(
+                                        bookGroup.bookId,
+                                        bookGroup.group,
+                                        holder.newStartTime,
+                                        request.endTimestamp,
+                                    ) to holder.params
+                                },
                                 request.syncInterval,
                                 sink,
                                 dataMeasurement,
@@ -118,6 +133,32 @@ class QueueMessagesHandler(
         private val LOGGER = KotlinLogging.logger { }
     }
 }
+
+private inline fun Map<BookId, Set<String>>.toFilters(
+    start: Instant,
+    end: Instant,
+    crossinline paramSupplier: (BookGroup) -> CradleGroupRequest,
+): Map<BookGroup, Pair<GroupedMessageFilter, CradleGroupRequest>> {
+    return asSequence().flatMap { (bookId, groups) ->
+        groups.asSequence().map { group ->
+            val filter = groupedMessageFilter(bookId, group, start, end)
+            val bookGroup = BookGroup(group, bookId)
+            bookGroup to (filter to paramSupplier(bookGroup))
+        }
+    }.toMap()
+}
+
+private fun groupedMessageFilter(
+    bookId: BookId,
+    group: String,
+    start: Instant,
+    end: Instant
+): GroupedMessageFilter = GroupedMessageFilter.builder()
+    .groupName(group)
+    .bookId(bookId)
+    .timestampFrom().isGreaterThanOrEqualTo(start)
+    .timestampTo().isLessThan(end)
+    .build()
 
 private class QueueMessageDataSink(
     private val handler: ResponseHandler<LoadStatistic>,

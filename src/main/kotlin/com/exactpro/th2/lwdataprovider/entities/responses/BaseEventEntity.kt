@@ -17,13 +17,9 @@
 package com.exactpro.th2.lwdataprovider.entities.responses
 
 import com.exactpro.cradle.testevents.StoredTestEventId
-import com.exactpro.cradle.testevents.StoredTestEventMetadata
-import com.exactpro.cradle.testevents.StoredTestEventWrapper
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.fasterxml.jackson.annotation.JsonRawValue
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.google.gson.Gson
 import java.time.Instant
 
 data class BaseEventEntity(
@@ -57,39 +53,6 @@ data class BaseEventEntity(
         
     }
 
-    constructor(
-        stored: StoredTestEventMetadata,
-        eventId: ProviderEventId,
-        batchId: StoredTestEventId?,
-        parentEventId: ProviderEventId?
-    ) : this(
-        batchId = batchId,
-        isBatched = batchId != null,
-        id = eventId,
-        eventName = stored.name ?: "",
-        eventType = stored.type ?: "",
-        startTimestamp = stored.startTimestamp,
-        endTimestamp = stored.endTimestamp,
-        parentEventId = parentEventId,
-        successful = stored.isSuccess
-    )
-
-    constructor(
-        stored: StoredTestEventWrapper,
-        eventId: ProviderEventId,
-        batchId: StoredTestEventId?,
-        parentEventId: ProviderEventId?
-    ) : this(
-        batchId = batchId,
-        isBatched = batchId != null,
-        id = eventId,
-        eventName = stored.name ?: "",
-        eventType = stored.type ?: "",
-        startTimestamp = stored.startTimestamp,
-        endTimestamp = stored.endTimestamp,
-        parentEventId = parentEventId,
-        successful = stored.isSuccess
-    )
 
     fun convertToEvent(): Event {
         return Event(

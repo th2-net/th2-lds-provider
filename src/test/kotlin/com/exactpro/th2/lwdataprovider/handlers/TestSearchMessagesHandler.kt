@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.lwdataprovider.handlers
 
+import com.exactpro.cradle.BookId
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
 import com.exactpro.cradle.Direction
@@ -40,6 +41,7 @@ import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 import com.exactpro.th2.lwdataprovider.grpc.toCradleDirection
+import com.exactpro.th2.lwdataprovider.util.ListCradleResult
 import com.exactpro.th2.lwdataprovider.util.createBatches
 import com.exactpro.th2.lwdataprovider.util.createCradleStoredMessage
 import com.exactpro.th2.lwdataprovider.util.validateMessagesOrder
@@ -63,8 +65,8 @@ import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.verifyNoInteractions
 import org.mockito.kotlin.whenever
+import strikt.api.Assertion
 import strikt.api.expectThat
-import strikt.assertions.get
 import strikt.assertions.isEqualTo
 import strikt.assertions.isNotNull
 import strikt.assertions.isNull
@@ -105,16 +107,17 @@ internal class TestSearchMessagesHandler {
     @Test
     fun `stops when limit per request is reached`() {
         val taskExecutor = Executors.newSingleThreadExecutor()
+        val storedMessages: MutableList<StoredMessage> = arrayListOf(
+            createCradleStoredMessage("test-stream", Direction.FIRST, index = 1),
+            createCradleStoredMessage("test-stream", Direction.FIRST, index = 2),
+            createCradleStoredMessage("test-stream", Direction.FIRST, index = 3),
+            createCradleStoredMessage("test-stream", Direction.FIRST, index = 4),
+            createCradleStoredMessage("test-stream", Direction.FIRST, index = 5),
+        )
         doReturn(
-            listOf(
-                createCradleStoredMessage("test-stream", Direction.FIRST, index = 1),
-                createCradleStoredMessage("test-stream", Direction.FIRST, index = 2),
-                createCradleStoredMessage("test-stream", Direction.FIRST, index = 3),
-                createCradleStoredMessage("test-stream", Direction.FIRST, index = 4),
-                createCradleStoredMessage("test-stream", Direction.FIRST, index = 5),
-            )
+            ListCradleResult(storedMessages)
         ).whenever(storage).getMessages(argThat {
-            streamName.check("test-stream") && direction.check(Direction.FIRST)
+            sessionAlias == "test-stream" && direction == Direction.FIRST
         })
 
         val handler = spy(MessageResponseHandlerTestImpl(measurement, 4))
@@ -151,51 +154,22 @@ internal class TestSearchMessagesHandler {
             verify(handler, times(5)).handleNext(messages.capture())
             verify(handler).complete()
         }
-        expectThat(messages.allValues) {
-            withElementAt(0) {
-                get { id } isEqualTo "test-stream:first:1"
-                get { parsedMessage }.isNotNull()
-                    .single()
-                    .get { messageType } isEqualTo "Test0"
-            }
-            withElementAt(1) {
-                get { id } isEqualTo "test-stream:first:2"
-                get { parsedMessage }.isNotNull()
-                    .single()
-                    .get { messageType } isEqualTo "Test1"
-            }
-            withElementAt(2) {
-                get { id } isEqualTo "test-stream:first:3"
-                get { parsedMessage }.isNotNull()
-                    .single()
-                    .get { messageType } isEqualTo "Test2"
-            }
-            withElementAt(3) {
-                get { id } isEqualTo "test-stream:first:4"
-                get { parsedMessage }.isNotNull()
-                    .single()
-                    .get { messageType } isEqualTo "Test3"
-            }
-            withElementAt(4) {
-                get { id } isEqualTo "test-stream:first:5"
-                get { parsedMessage }.isNotNull()
-                    .single()
-                    .get { messageType } isEqualTo "Test4"
-            }
-        }
+
+        expectThat(messages.allValues).elementsEquals(storedMessages)
     }
 
     @Test
     fun `splits messages by batch size`() {
+        val storedMessages = arrayListOf(
+            createCradleStoredMessage("test-stream", Direction.FIRST, index = 1),
+            createCradleStoredMessage("test-stream", Direction.FIRST, index = 2),
+            createCradleStoredMessage("test-stream", Direction.FIRST, index = 3),
+            createCradleStoredMessage("test-stream", Direction.FIRST, index = 4),
+        )
         doReturn(
-            listOf(
-                createCradleStoredMessage("test-stream", Direction.FIRST, index = 1),
-                createCradleStoredMessage("test-stream", Direction.FIRST, index = 2),
-                createCradleStoredMessage("test-stream", Direction.FIRST, index = 3),
-                createCradleStoredMessage("test-stream", Direction.FIRST, index = 4),
-            )
+            ListCradleResult(storedMessages)
         ).whenever(storage).getMessages(argThat {
-            streamName.check("test-stream") && direction.check(Direction.FIRST)
+            sessionAlias == "test-stream" && direction == Direction.FIRST
         })
 
         val handler = spy(MessageResponseHandlerTestImpl(measurement))
@@ -220,43 +194,19 @@ internal class TestSearchMessagesHandler {
             verify(handler, times(4)).handleNext(messages.capture())
             verify(handler).complete()
         }
-        expectThat(messages.allValues) {
-            withElementAt(0) {
-                get { id } isEqualTo "test-stream:first:1"
-                get { parsedMessage }.isNotNull()
-                    .single()
-                    .get { messageType } isEqualTo "Test0"
-            }
-            withElementAt(1) {
-                get { id } isEqualTo "test-stream:first:2"
-                get { parsedMessage }.isNotNull()
-                    .single()
-                    .get { messageType } isEqualTo "Test1"
-            }
-            withElementAt(2) {
-                get { id } isEqualTo "test-stream:first:3"
-                get { parsedMessage }.isNotNull()
-                    .single()
-                    .get { messageType } isEqualTo "Test2"
-            }
-            withElementAt(3) {
-                get { id } isEqualTo "test-stream:first:4"
-                get { parsedMessage }.isNotNull()
-                    .single()
-                    .get { messageType } isEqualTo "Test3"
-            }
-        }
+        expectThat(messages.allValues).elementsEquals(storedMessages)
     }
 
     @Test
     fun `returns raw messages`() {
+        val storedMessages = arrayListOf(
+            createCradleStoredMessage("test-stream", Direction.FIRST, index = 1),
+            createCradleStoredMessage("test-stream", Direction.FIRST, index = 2),
+        )
         doReturn(
-            listOf(
-                createCradleStoredMessage("test-stream", Direction.FIRST, index = 1),
-                createCradleStoredMessage("test-stream", Direction.FIRST, index = 2),
-            )
+            ListCradleResult(storedMessages)
         ).whenever(storage).getMessages(argThat {
-            streamName.check("test-stream") && direction.check(Direction.FIRST)
+            sessionAlias == "test-stream" && direction == Direction.FIRST
         })
 
         val handler = spy(MessageResponseHandlerTestImpl(measurement))
@@ -270,28 +220,20 @@ internal class TestSearchMessagesHandler {
             verify(handler, times(2)).handleNext(messages.capture())
             verify(handler).complete()
         }
-        expectThat(messages.allValues) {
-            get(0).apply {
-                get { id } isEqualTo "test-stream:first:1"
-                get { parsedMessage }.isNull()
-            }
-            get(1).apply {
-                get { id } isEqualTo "test-stream:first:2"
-                get { parsedMessage }.isNull()
-            }
-        }
+        expectThat(messages.allValues).elementsEquals(storedMessages, isParsed = false)
         verifyNoInteractions(decoder)
     }
 
     @Test
     fun `returns parsed messages`() {
+        val storedMessages = arrayListOf(
+            createCradleStoredMessage("test-stream", Direction.FIRST, index = 1),
+            createCradleStoredMessage("test-stream", Direction.FIRST, index = 2),
+        )
         doReturn(
-            listOf(
-                createCradleStoredMessage("test-stream", Direction.FIRST, index = 1),
-                createCradleStoredMessage("test-stream", Direction.FIRST, index = 2),
-            )
+            ListCradleResult(storedMessages)
         ).whenever(storage).getMessages(argThat {
-            streamName.check("test-stream") && direction.check(Direction.FIRST)
+            sessionAlias == "test-stream" && direction == Direction.FIRST
         })
 
         val handler = spy(MessageResponseHandlerTestImpl(measurement))
@@ -316,36 +258,21 @@ internal class TestSearchMessagesHandler {
             verify(handler, times(2)).handleNext(messages.capture())
             verify(handler).complete()
         }
-        expectThat(messages.allValues) {
-            withElementAt(0) {
-                get { id } isEqualTo "test-stream:first:1"
-                get { parsedMessage }.isNotNull()
-                    .single()
-                    .get { messageType } isEqualTo "Test0"
-            }
-            withElementAt(1) {
-                get { id } isEqualTo "test-stream:first:2"
-                get { parsedMessage }.isNotNull()
-                    .single()
-                    .get { messageType } isEqualTo "Test1"
-            }
-        }
+        expectThat(messages.allValues).elementsEquals(storedMessages)
     }
 
     @Test
     fun `returns single parsed message`() {
+        val messageId = StoredMessageId(BookId("test"), "test-stream", Direction.FIRST, Instant.now(), 1)
+        val message = createCradleStoredMessage("test-stream", Direction.FIRST, index = 1)
         doReturn(
-            createCradleStoredMessage("test-stream", Direction.FIRST, index = 1)
-        ).whenever(storage).getMessage(
-            eq(
-                StoredMessageId("test-stream", Direction.FIRST, 1)
-            )
-        )
+            message
+        ).whenever(storage).getMessage(eq(messageId))
 
         val handler = spy(MessageResponseHandlerTestImpl(measurement))
         searchHandler.loadOneMessage(
             GetMessageRequest(
-                "test-stream:first:1",
+                messageId,
                 onlyRaw = false
             ),
             handler,
@@ -366,23 +293,20 @@ internal class TestSearchMessagesHandler {
             verify(handler, times(1)).handleNext(messages.capture())
             verify(handler).complete()
         }
-        expectThat(messages.allValues).single().apply {
-            get { id } isEqualTo "test-stream:first:1"
-            get { parsedMessage }.isNotNull()
-                .single()
-                .get { messageType } isEqualTo "Test0"
-        }
+        expectThat(messages.allValues).single().equalsMessage(message)
     }
 
     @Test
     fun `returns single raw message`() {
+        val messageId = StoredMessageId(BookId("test"),"test-stream", Direction.FIRST, Instant.now(), 1)
+        val message = createCradleStoredMessage("test-stream", Direction.FIRST, index = 1)
         doReturn(
-            createCradleStoredMessage("test-stream", Direction.FIRST, index = 1),
-        ).whenever(storage).getMessage(eq(StoredMessageId("test-stream", Direction.FIRST, 1)))
+            message,
+        ).whenever(storage).getMessage(eq(messageId))
 
         val handler = spy(MessageResponseHandlerTestImpl(measurement))
         searchHandler.loadOneMessage(
-            GetMessageRequest("test-stream:first:1", onlyRaw = true),
+            GetMessageRequest(messageId, onlyRaw = true),
             handler,
             measurement,
         )
@@ -391,10 +315,7 @@ internal class TestSearchMessagesHandler {
             verify(handler, times(1)).handleNext(messages.capture())
             verify(handler).complete()
         }
-        expectThat(messages.allValues).single().apply {
-            get { id } isEqualTo "test-stream:first:1"
-            get { parsedMessage }.isNull()
-        }
+        expectThat(messages.allValues).single().equalsMessage(message, isParsed = false)
         verifyNoInteractions(decoder)
     }
 
@@ -442,11 +363,15 @@ internal class TestSearchMessagesHandler {
         val secondRequestMessagesCount = lastBatches.sumOf { it.messageCount }
         val messagesCount = firstRequestMessagesCount + secondRequestMessagesCount
 
-        whenever(storage.getGroupedMessageBatches(eq(group), eq(startTimestamp), eq(endTimestamp)))
-            .thenReturn(firstBatches)
-        whenever(storage.getGroupedMessageBatches(eq(group), eq(firstBatches.maxOf { it.lastTimestamp }), eq(endTimestamp)))
-            .thenReturn(lastBatches)
-        whenever(storage.getLastMessageBatchForGroup(eq(group))).thenReturn(firstBatches.last(), outsideBatches.last())
+        whenever(storage.getGroupedMessageBatches(argThat {
+            groupName == group && from.value == startTimestamp && to.value == endTimestamp
+        })).thenReturn(ListCradleResult(firstBatches.toMutableList()))
+        whenever(storage.getGroupedMessageBatches(argThat {
+            groupName == group && from.value == firstBatches.maxOf { it.lastTimestamp } && to.value == endTimestamp
+        })).thenReturn(ListCradleResult(lastBatches.toMutableList()))
+        whenever(storage.getGroupedMessageBatches(argThat {
+            limit == 1 && groupName == group
+        })).thenReturn(ListCradleResult(firstBatches.toMutableList()), ListCradleResult(outsideBatches.toMutableList()))
 
         val handler = spy(MessageResponseHandlerTestImpl(measurement))
         val request = MessagesGroupRequest(
@@ -455,7 +380,8 @@ internal class TestSearchMessagesHandler {
             endTimestamp,
             sort = true,
             rawOnly = true,
-            keepOpen = true
+            keepOpen = true,
+            BookId("test"),
         )
         LOGGER.info { "Request: $request" }
         searchHandler.loadMessageGroups(request, handler, measurement)
@@ -467,12 +393,36 @@ internal class TestSearchMessagesHandler {
             val missing: List<StoredMessage> = (firstBatches.asSequence() + lastBatches.asSequence()).flatMap { it.messages }.filter { stored ->
                 messages.none {
                     val raw = it.rawMessage
-                    raw.sessionAlias == stored.streamName && raw.sequence == stored.index && raw.direction.toCradleDirection() == stored.direction
+                    raw.sessionAlias == stored.sessionAlias && raw.sequence == stored.sequence && raw.direction.toCradleDirection() == stored.direction
                 }
             }.toList()
             "Missing ${missing.size} message(s): $missing"
         }
         validateMessagesOrder(messages, messagesCount)
+    }
+
+    private fun Assertion.Builder<List<RequestedMessageDetails>>.elementsEquals(expected: List<StoredMessage>, isParsed: Boolean = true) {
+        expected.forEachIndexed { index, storedMessage ->
+            withElementAt(index) {
+                equalsMessage(storedMessage, isParsed, index)
+            }
+        }
+    }
+
+    private fun Assertion.Builder<RequestedMessageDetails>.equalsMessage(
+        storedMessage: StoredMessage,
+        isParsed: Boolean = true,
+        index: Int = 0,
+    ) {
+        get { id } isEqualTo storedMessage.id.toString()
+        get { parsedMessage }.apply {
+            if (isParsed) {
+                isNotNull().single()
+                    .get { messageType } isEqualTo "Test$index"
+            } else {
+                isNull()
+            }
+        }
     }
 
     private fun createSearchRequest(streams: List<ProviderMessageStream>, isRawOnly: Boolean): SseMessageSearchRequest = SseMessageSearchRequest(
@@ -484,6 +434,7 @@ internal class TestSearchMessagesHandler {
         keepOpen = false,
         responseFormats = if (isRawOnly) setOf(ResponseFormat.BASE_64) else null,
         resumeFromIdsList = null,
+        bookId = BookId("test"),
     )
 
     companion object {

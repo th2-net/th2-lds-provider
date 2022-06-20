@@ -16,13 +16,16 @@
 
 package com.exactpro.th2.lwdataprovider.util
 
+import com.exactpro.cradle.BookId
 import com.exactpro.cradle.Direction
-import com.exactpro.cradle.messages.MessageToStore
+import com.exactpro.cradle.PageId
 import com.exactpro.cradle.messages.MessageToStoreBuilder
-import com.exactpro.cradle.messages.StoredGroupMessageBatch
+import com.exactpro.cradle.messages.StoredGroupedMessageBatch
 import com.exactpro.cradle.messages.StoredMessage
-import com.exactpro.cradle.messages.StoredMessageId
+import com.exactpro.cradle.resultset.CradleResultSet
 import com.exactpro.cradle.testevents.StoredTestEventId
+import com.exactpro.cradle.testevents.StoredTestEventSingle
+import com.exactpro.cradle.testevents.TestEventSingleToStore
 import com.exactpro.cradle.testevents.TestEventToStore
 import java.time.Instant
 
@@ -30,30 +33,58 @@ fun createCradleStoredMessage(
     streamName: String,
     direction: Direction,
     index: Long,
-    content: String? = null,
+    content: String = "hello",
     timestamp: Instant? = Instant.now(),
-): StoredMessage = StoredMessage(
-    MessageToStoreBuilder()
-        .timestamp(timestamp)
-        .content(content?.toByteArray() ?: ByteArray(0))
-        .build(),
-    StoredMessageId(streamName, direction, index)
-)
+): StoredMessage = MessageToStoreBuilder()
+    .bookId(BookId("test"))
+    .direction(direction)
+    .sessionAlias(streamName)
+    .sequence(index)
+    .timestamp(timestamp)
+    .content(content.toByteArray())
+    .metadata("com.exactpro.th2.cradle.grpc.protocol", "abc")
+    .build()
+    .let { msg ->
+        StoredMessage(msg, msg.id, null)
+    }
 
-fun createEventToStore(
+fun createEventStoredEvent(
     eventId: String,
     start: Instant,
     end: Instant,
     parentEventId: StoredTestEventId? = null
-): TestEventToStore = TestEventToStore().apply {
-    id = StoredTestEventId(eventId)
-    name = "test_event"
-    type = "test"
-    parentId = parentEventId
-    content = ByteArray(0)
-    isSuccess = true
-    startTimestamp = start.plusSeconds(1)
-    endTimestamp = end.minusSeconds(1)
+): TestEventSingleToStore = TestEventToStore.singleBuilder()
+    .id(BookId("test"), "test-scope", start.plusSeconds(1), eventId)
+    .name("test_event")
+    .type("test")
+    .parentId(parentEventId)
+    .content(ByteArray(0))
+    .success(true)
+    .endTimestamp(end.minusSeconds(1))
+    .build()
+
+fun TestEventSingleToStore.toStoredEvent(pageID: PageId? = null): StoredTestEventSingle = StoredTestEventSingle(this, pageID)
+
+fun createEventId(id: String, book: String? = "test", scope: String? = "test-scope", timestamp: Instant? = Instant.now()): StoredTestEventId =
+    StoredTestEventId(BookId(book), scope, timestamp, id)
+
+class ListCradleResult<T>(collection: MutableCollection<T>) : CradleResultSet<T> {
+    private val iterator: MutableIterator<T> = collection.iterator()
+    override fun remove() = iterator.remove()
+
+    override fun hasNext(): Boolean = iterator.hasNext()
+
+    override fun next(): T = iterator.next()
+
+}
+
+class ImmutableListCradleResult<T>(collection: Collection<T>) : CradleResultSet<T> {
+    private val iterator: Iterator<T> = collection.iterator()
+    override fun remove() = throw UnsupportedOperationException()
+
+    override fun hasNext(): Boolean = iterator.hasNext()
+
+    override fun next(): T = iterator.next()
 }
 
 fun createBatches(
@@ -64,12 +95,13 @@ fun createBatches(
     startTimestamp: Instant,
     end: Instant,
     aliasIndexOffset: Int = 0,
-): List<StoredGroupMessageBatch> =
-    ArrayList<StoredGroupMessageBatch>().apply {
+): List<StoredGroupedMessageBatch> =
+    ArrayList<StoredGroupedMessageBatch>().apply {
         val startSeconds = startTimestamp.epochSecond
         repeat(batchesCount) {
             val start = Instant.ofEpochSecond(startSeconds + it * increase * (messagesPerBatch - overlapCount), startTimestamp.nano.toLong())
-            add(StoredGroupMessageBatch().apply {
+            add(StoredGroupedMessageBatch(
+                "test",
                 createStoredMessages(
                     "test${it + aliasIndexOffset}",
                     Instant.now().run { epochSecond * 1_000_000_000 + nano },
@@ -78,8 +110,10 @@ fun createBatches(
                     direction = if (it % 2 == 0) Direction.FIRST else Direction.SECOND,
                     incSeconds = increase,
                     end,
-                ).forEach(this::addMessage)
-            })
+                ),
+                PageId(BookId("test-book"), "test-page"),
+                Instant.now(),
+            ))
         }
     }
 
@@ -91,19 +125,15 @@ fun createStoredMessages(
     direction: Direction = Direction.FIRST,
     incSeconds: Long = 10L,
     maxTimestamp: Instant,
-): List<MessageToStore> {
+): List<StoredMessage> {
     return (0 until count).map {
         val index = startSequence + it
         val instant = startTimestamp.plusSeconds(incSeconds * it).coerceAtMost(maxTimestamp)
-        MessageToStoreBuilder()
-            .direction(direction)
-            .streamName(alias)
-            .index(index)
-            .timestamp(instant)
-            .content(
-                "abc".toByteArray()
-            )
-            .metadata("com.exactpro.th2.cradle.grpc.protocol", "abc")
-            .build()
+        createCradleStoredMessage(
+            alias,
+            direction,
+            index,
+            timestamp = instant,
+        )
     }
 }

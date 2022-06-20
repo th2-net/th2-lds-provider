@@ -16,9 +16,11 @@
 
 package com.exactpro.th2.lwdataprovider
 
-import com.exactpro.cradle.messages.StoredMessageFilterBuilder
+import com.exactpro.cradle.BookId
+import com.exactpro.cradle.Direction
+import com.exactpro.cradle.messages.MessageFilterBuilder
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
-import com.exactpro.th2.lwdataprovider.handlers.modifyFilterBuilderTimestamps
+import com.exactpro.th2.lwdataprovider.handlers.util.modifyFilterBuilderTimestamps
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
@@ -26,8 +28,11 @@ class TestStoredMessageFilterUtil {
     @Test
     fun testDirectionAfter(){
         val request = SseMessageSearchRequest(mapOf("startTimestamp" to listOf("1"),
-            "endTimestamp" to listOf("2"), "searchDirection" to listOf("next")))
-        val filter = StoredMessageFilterBuilder().apply {
+            "endTimestamp" to listOf("2"), "searchDirection" to listOf("next"), "bookId" to listOf("test")))
+        val filter = MessageFilterBuilder().apply {
+            bookId(BookId("test"))
+            sessionAlias("test")
+            direction(Direction.FIRST)
             modifyFilterBuilderTimestamps(request)
         }.build()
 
@@ -42,8 +47,11 @@ class TestStoredMessageFilterUtil {
     @Test
     fun testDirectionBefore(){
         val request = SseMessageSearchRequest(mapOf("startTimestamp" to listOf("3"),
-            "endTimestamp" to listOf("2"), "searchDirection" to listOf("previous")))
-        val filter = StoredMessageFilterBuilder().apply {
+            "endTimestamp" to listOf("2"), "searchDirection" to listOf("previous"), "bookId" to listOf("test")))
+        val filter = MessageFilterBuilder().apply {
+            bookId(BookId("test"))
+            sessionAlias("test")
+            direction(Direction.FIRST)
             modifyFilterBuilderTimestamps(request)
         }.build()
 

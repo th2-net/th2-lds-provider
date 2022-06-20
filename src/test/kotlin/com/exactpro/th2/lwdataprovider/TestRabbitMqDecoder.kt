@@ -170,15 +170,19 @@ internal class TestRabbitMqDecoder {
         message().setMetadata(
             messageType = "Test",
             direction = details.storedMessage.direction.toGrpcDirection(),
-            sessionAlias = details.storedMessage.streamName,
-            sequence = details.storedMessage.index,
+            sessionAlias = details.storedMessage.sessionAlias,
+            sequence = details.storedMessage.sequence,
+            timestamp = details.storedMessage.timestamp,
         ).apply {
-            metadataBuilder.idBuilder.addSubsequence(index + 1)
+            metadataBuilder.idBuilder.apply {
+                addSubsequence(index + 1)
+                bookName = "test"
+            }
         }.build()
 
     private fun notifyListeners(vararg messages: List<Message>) {
         listeners.forEach {
-            it.handler("", MessageGroupBatch.newBuilder()
+            it.handle("", MessageGroupBatch.newBuilder()
                 .apply {
                     for (messageGroup in messages) {
                         messageGroup.forEach(addGroupsBuilder()::plusAssign)

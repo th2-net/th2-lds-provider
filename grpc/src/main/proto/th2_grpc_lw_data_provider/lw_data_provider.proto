@@ -50,12 +50,23 @@ service DataProvider {
   rpc SearchMessageGroups (MessageGroupsSearchRequest) returns (stream MessageSearchResponse);
 }
 
+// The scope for events to request
+message EventScope {
+  string name = 1;
+}
+
+message BookId {
+  // Name of the book to request data from
+  string name = 1;
+}
+
 message MessageGroupsSearchRequest {
   message Group {
     string name = 1;
   }
   google.protobuf.Timestamp start_timestamp = 1;
   google.protobuf.Timestamp end_timestamp = 2;
+  BookId book_id = 7;
   repeated Group message_group = 3;
   google.protobuf.BoolValue sort = 4;
   bool raw_only = 5;
@@ -63,7 +74,7 @@ message MessageGroupsSearchRequest {
 }
 
 message MessageStreamsRequest {
-
+  BookId book_id = 1;
 }
 
 message EventResponse {
@@ -117,6 +128,9 @@ message EventSearchRequest {
   google.protobuf.Int32Value result_count_limit = 5; // Sets the maximum amount of events to return. By default it is absent (unlimited).
 
   repeated Filter filter = 6; // List of event search filters. (See 'search/sse/events' HTTP method https://github.com/th2-net/th2-rpt-data-provider)
+
+  BookId book_id = 7;
+  EventScope scope = 8;
 }
 
 message EventSearchResponse {
@@ -139,6 +153,7 @@ message MessageSearchRequest {
   repeated MessageStreamPointer stream_pointer = 7; // List of stream pointers to restore the search from. start_timestamp will be ignored if this parameter is specified. By default it is absent.
 
   repeated string response_formats = 8; // List of possible response formats (e.g. PARSED or BASE_64)
+  BookId book_id = 9;
 }
 
 message MessageSearchResponse {

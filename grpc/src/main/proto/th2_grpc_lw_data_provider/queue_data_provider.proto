@@ -20,9 +20,14 @@ service QueueDataProvider {
 }
 
 message MessageGroupsQueueSearchRequest {
+  message BookGroups {
+    th2.data_provider.lw.BookId book_id = 1;
+    repeated th2.data_provider.lw.MessageGroupsSearchRequest.Group group = 2;
+  }
   google.protobuf.Timestamp start_timestamp = 1;
   google.protobuf.Timestamp end_timestamp = 2;
-  repeated th2.data_provider.lw.MessageGroupsSearchRequest.Group message_group = 3;
+  reserved 3; // simple groups
+  repeated BookGroups message_group = 7;
   google.protobuf.Duration sync_interval = 4;
   string external_queue = 5;
   bool keep_alive = 6;

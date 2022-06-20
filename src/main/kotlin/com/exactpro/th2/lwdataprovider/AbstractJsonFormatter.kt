@@ -76,21 +76,17 @@ abstract class AbstractJsonFormatter : JsonFormatter {
                 sb.append("\"connectionId\":{\"sessionAlias\":\"").append(id.connectionId.sessionAlias).append("\"},")
             }
             sb.append("\"direction\":\"").append(id.direction.name).append("\",");
-            sb.append("\"sequence\":\"").append(id.sequence).append("\",");
+            sb.append("\"sequence\":\"").append(id.sequence).append("\",")
+            if (id.hasTimestamp()) {
+                sb.append("\"timestamp\":{\"seconds\":\"").append(id.timestamp.seconds).append("\",\"nanos\":\"")
+                    .append(id.timestamp.nanos).append("\"},")
+            }
             sb.append("\"subsequence\":[")
             if (id.subsequenceCount > 0) {
                 id.subsequenceList.forEach { sb.append(it.toString()).append(',') }
                 sb.setLength(sb.length - 1)
             }
             sb.append("]}")
-            first = false
-        }
-        if (msg.hasTimestamp()) {
-            if (!first) {
-                sb.append(',')
-            }
-            sb.append("\"timestamp\":{\"seconds\":\"").append(msg.timestamp.seconds).append("\",\"nanos\":\"")
-                .append(msg.timestamp.nanos).append("\"}")
             first = false
         }
         if (msg.messageType.isNotEmpty()) {

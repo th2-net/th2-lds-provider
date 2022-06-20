@@ -50,12 +50,23 @@ service DataProvider {
   rpc SearchMessageGroups (MessageGroupsSearchRequest) returns (stream MessageSearchResponse);
 }
 
+// The scope for events to request
+message EventScope {
+  string name = 1;
+}
+
+message BookId {
+  // Name of the book to request data from
+  string name = 1;
+}
+
 message MessageGroupsSearchRequest {
   message Group {
     string name = 1;
   }
   google.protobuf.Timestamp start_timestamp = 1;
   google.protobuf.Timestamp end_timestamp = 2;
+  BookId book_id = 7;
   repeated Group message_group = 3;
   google.protobuf.BoolValue sort = 4;
   bool raw_only = 5;
@@ -63,7 +74,7 @@ message MessageGroupsSearchRequest {
 }
 
 message MessageStreamsRequest {
-
+  BookId book_id = 1;
 }
 
 message EventResponse {
@@ -90,7 +101,7 @@ message MessageGroupItem {
 
 message MessageGroupResponse {
   MessageID message_id = 1; // Message id should be unique in session
-  google.protobuf.Timestamp timestamp = 2; // Message creation timestamp
+  google.protobuf.Timestamp timestamp = 2 [deprecated = true]; // Message creation timestamp. Deprecated. Moved to MessageID
   map<string, string> message_properties = 6; // Additional properties for the source raw message
   bytes body_raw = 3;
   repeated EventID attached_event_id = 4; // ids of events linked to this message group
@@ -118,6 +129,9 @@ message EventSearchRequest {
   google.protobuf.Int32Value result_count_limit = 5; // Sets the maximum amount of events to return. By default it is absent (unlimited).
 
   repeated Filter filter = 6; // List of event search filters. (See 'search/sse/events' HTTP method https://github.com/th2-net/th2-rpt-data-provider)
+
+  BookId book_id = 7;
+  EventScope scope = 8;
 }
 
 message EventSearchResponse {
@@ -140,6 +154,7 @@ message MessageSearchRequest {
   repeated MessageStreamPointer stream_pointer = 7; // List of stream pointers to restore the search from. start_timestamp will be ignored if this parameter is specified. By default it is absent.
 
   repeated string response_formats = 8; // List of possible response formats (e.g. PARSED or BASE_64)
+  BookId book_id = 9;
 }
 
 message MessageSearchResponse {

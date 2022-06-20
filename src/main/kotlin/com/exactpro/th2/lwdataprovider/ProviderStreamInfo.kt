@@ -30,11 +30,11 @@ class ProviderStreamInfo {
     private val streams: MutableMap<String, StreamDetails> = ConcurrentHashMap()
 
     val lastIDs: List<StoredMessageId>
-        get() = streams.values.map { details -> details.msgId }
+        get() = streams.values.mapNotNull { details -> details.msgId }
 
     fun lastIDsForGroup(group: String): List<StoredMessageId> = streams.values.asSequence()
         .filter { it.group == group }
-        .map { it.msgId }
+        .mapNotNull { it.msgId }
         .toList()
     fun lastTimestampForGroup(group: String): Instant = streams.values.asSequence()
         .filter { it.group == group }
@@ -44,9 +44,9 @@ class ProviderStreamInfo {
     fun registerMessage(msg: StoredMessageId?, timestamp: Instant?, group: String? = null) {
         if (msg == null || timestamp == null)
             return
-        val key: String = msg.run { streamName + direction.label }
+        val key: String = msg.run { sessionAlias + direction.label }
         streams.computeIfAbsent(key) {
-            StreamDetails(msg.streamName, msg.direction, group)
+            StreamDetails(msg.sessionAlias, msg.direction, group, msg)
         }.apply {
             msgId = msg
             this.timestamp = timestamp
@@ -65,7 +65,9 @@ class ProviderStreamInfo {
                     this.name = streamDetails.streamName
                     this.direction = streamDetails.direction.toGrpcDirection()
                 }.build()
-                this.lastId = streamDetails.msgId.toGrpcMessageId()
+                streamDetails.msgId?.toGrpcMessageId()?.also {
+                    this.lastId = it
+                }
             }.build()
         }.toCollection(ArrayList(streams.size))
     }
@@ -76,6 +78,6 @@ data class StreamDetails(
     val streamName: String,
     val direction: Direction,
     val group: String?,
-    var msgId: StoredMessageId = StoredMessageId(streamName, direction, 0L),
+    var msgId: StoredMessageId? = null,
     var timestamp: Instant = Instant.MIN,
 )

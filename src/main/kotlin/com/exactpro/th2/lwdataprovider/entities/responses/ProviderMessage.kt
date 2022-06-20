@@ -49,7 +49,7 @@ data class ProviderMessage(
     ) : this(
         timestamp = rawStoredMessage.timestamp ?: Instant.ofEpochMilli(0),
         direction = Direction.fromStored(rawStoredMessage.direction ?: com.exactpro.cradle.Direction.FIRST),
-        sessionId = rawStoredMessage.streamName ?: "",
+        sessionId = rawStoredMessage.sessionAlias ?: "",
         parsedMessages = parsedMessages,
         rawMessageBase64 = base64Body,
         msgId = rawStoredMessage.id

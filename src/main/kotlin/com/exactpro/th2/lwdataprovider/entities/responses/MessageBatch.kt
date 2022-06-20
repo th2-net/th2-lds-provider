@@ -17,7 +17,6 @@
 package com.exactpro.th2.lwdataprovider.entities.responses
 
 import com.exactpro.cradle.messages.StoredMessage
-import com.exactpro.cradle.messages.StoredMessageBatchId
 import com.exactpro.cradle.messages.StoredMessageId
 import java.time.Instant
 
@@ -63,7 +62,7 @@ data class MessageBatch(
 
 
 data class ParsedMessageBatch(
-    val id: StoredMessageBatchId,
+    val id: StoredMessageId,
     val batch: Map<StoredMessageId, ProviderMessage>,
     val attachedEvents: Boolean
 )

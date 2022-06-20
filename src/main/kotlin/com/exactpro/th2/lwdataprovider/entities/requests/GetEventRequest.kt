@@ -28,7 +28,7 @@ data class GetEventRequest(
 
         fun fromEventID(eventID: EventID) : GetEventRequest {
             val id = eventID.id
-            return if (id.contains(':')) {
+            return if (id.contains('>')) { // FIXME: temporal solution as it done in main provider
                 val spl = id.split(':')
                 GetEventRequest(spl[0], spl[1])
             } else {

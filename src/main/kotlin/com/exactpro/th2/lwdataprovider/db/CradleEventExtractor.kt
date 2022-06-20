@@ -18,21 +18,25 @@ package com.exactpro.th2.lwdataprovider.db
 
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
+import com.exactpro.cradle.Order
+import com.exactpro.cradle.TimeRelation
 import com.exactpro.cradle.cassandra.CassandraCradleStorage
+import com.exactpro.cradle.testevents.StoredTestEvent
 import com.exactpro.cradle.testevents.StoredTestEventId
-import com.exactpro.cradle.testevents.StoredTestEventWrapper
+import com.exactpro.cradle.testevents.TestEventFilter
+import com.exactpro.cradle.testevents.TestEventFilterBuilder
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.BaseEventEntity
-import com.exactpro.th2.lwdataprovider.filter.DataFilter
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
+import com.exactpro.th2.lwdataprovider.filter.DataFilter
 import com.exactpro.th2.lwdataprovider.producers.EventProducer
 import mu.KotlinLogging
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.temporal.ChronoUnit
-import java.util.*
+import java.util.Collections
 
 
 class CradleEventExtractor(
@@ -50,16 +54,30 @@ class CradleEventExtractor(
             requireNotNull(filter.endTimestamp) { "end timestamp is not set" }
         )
 
+        val commonFilterSupplier: (start: Instant, end: Instant) -> TestEventFilterBuilder = { start, end ->
+            TestEventFilter.builder()
+                .startTimestampFrom().isGreaterThanOrEqualTo(start)
+                .startTimestampTo().isLessThan(end)
+                .order(when (filter.searchDirection) {
+                    TimeRelation.BEFORE -> Order.REVERSE
+                    TimeRelation.AFTER -> Order.DIRECT
+                })
+                .bookId(filter.bookId)
+                .scope(filter.scope)
+        }
+
         if (filter.parentEvent == null) {
             getEventByDates(dates, sink, filter.filter) { start, end ->
                 logger.info { "Extracting events from $start to $end processed." }
-                storage.getTestEvents(start, end)
+                commonFilterSupplier(start, end).build()
             }
         } else {
             val parentId: StoredTestEventId = filter.parentEvent.eventId
             getEventByDates(dates, sink, filter.filter) { start, end ->
                 logger.info { "Extracting events from $start to $end with parent $parentId processed." }
-                storage.getTestEvents(parentId, start, end)
+                commonFilterSupplier(start, end)
+                    .parent(parentId)
+                    .build()
             }
         }
     }
@@ -67,21 +85,21 @@ class CradleEventExtractor(
     fun getSingleEvents(filter: GetEventRequest, sink: EventDataSink<Event>) {
         logger.info { "Extracting single event $filter" }
         val batchId = filter.batchId
-        val eventId = StoredTestEventId(filter.eventId)
+        val eventId = StoredTestEventId.fromString(filter.eventId)
         if (batchId != null) {
-            val testBatch = storage.getTestEvent(StoredTestEventId(batchId))
+            val testBatch = storage.getTestEvent(StoredTestEventId.fromString(batchId))
             if (testBatch == null) {
-                sink.onError("Event batch is not found with id: $batchId")
+                sink.onError("Event batch is not found with id: '$batchId'")
                 return
             }
             if (testBatch.isSingle) {
-                sink.onError("Event with id: $batchId is not a batch. (single event)")
+                sink.onError("Event with id: '$batchId' is not a batch. (single event)")
                 return
             }
             val batch = testBatch.asBatch()
             val testEvent = batch.getTestEvent(eventId)
             if (testEvent == null) {
-                sink.onError("Event with id: $eventId is not found in batch $batchId")
+                sink.onError("Event with id: '$eventId' is not found in batch '$batchId'")
                 return
             }
             val batchEventBody = EventProducer.fromBatchEvent(testEvent, batch)
@@ -90,11 +108,11 @@ class CradleEventExtractor(
         } else {
             val testBatch = storage.getTestEvent(eventId)
             if (testBatch == null) {
-                sink.onError("Event is not found with id: $eventId")
+                sink.onError("Event is not found with id: '$eventId'")
                 return
             }
             if (testBatch.isBatch) {
-                sink.onError("Event with id: $eventId is a batch. (not single event)")
+                sink.onError("Event with id: '$eventId' is a batch. (not single event)")
                 return
             }
             processEvents(Collections.singleton(testBatch), sink, ProcessingInfo(), DataFilter.acceptAll())
@@ -130,13 +148,13 @@ class CradleEventExtractor(
         dates: Collection<Pair<Instant, Instant>>,
         sink: EventDataSink<Event>,
         filter: DataFilter<BaseEventEntity>,
-        eventSupplier: (Instant, Instant) -> Iterable<StoredTestEventWrapper>,
+        filterSupplier: (Instant, Instant) -> TestEventFilter,
     ) {
         for (splitByDate in dates) {
             val counter = ProcessingInfo()
             val startTime = System.currentTimeMillis()
-            val testEvents = eventSupplier(splitByDate.first, splitByDate.second)
-            processEvents(testEvents, sink, counter, filter)
+            val testEvents = storage.getTestEvents(filterSupplier(splitByDate.first, splitByDate.second))
+            processEvents(testEvents.asIterable(), sink, counter, filter)
             logger.info { "Events for this period loaded. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms" }
             sink.canceled?.apply {
                 logger.info { "Loading events stopped: $message" }
@@ -146,7 +164,7 @@ class CradleEventExtractor(
     }
 
     private fun processEvents(
-        testEvents: Iterable<StoredTestEventWrapper>,
+        testEvents: Iterable<StoredTestEvent>,
         sink: EventDataSink<Event>,
         count: ProcessingInfo,
         filter: DataFilter<BaseEventEntity>,

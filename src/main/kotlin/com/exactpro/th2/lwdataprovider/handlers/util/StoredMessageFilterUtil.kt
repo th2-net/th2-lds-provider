@@ -14,13 +14,13 @@
  * limitations under the License.
  ******************************************************************************/
 
-package com.exactpro.th2.lwdataprovider.handlers
+package com.exactpro.th2.lwdataprovider.handlers.util
 
 import com.exactpro.cradle.TimeRelation.AFTER
-import com.exactpro.cradle.messages.StoredMessageFilterBuilder
+import com.exactpro.cradle.messages.MessageFilterBuilder
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 
-fun StoredMessageFilterBuilder.modifyFilterBuilderTimestamps(request: SseMessageSearchRequest){
+fun MessageFilterBuilder.modifyFilterBuilderTimestamps(request: SseMessageSearchRequest){
     if (request.searchDirection == AFTER){
         request.startTimestamp?.let { timestampFrom().isGreaterThanOrEqualTo(it) }
         request.endTimestamp.let { timestampTo().isLessThan(it) }

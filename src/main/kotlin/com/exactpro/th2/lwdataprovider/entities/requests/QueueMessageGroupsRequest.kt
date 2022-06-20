@@ -16,11 +16,12 @@
 
 package com.exactpro.th2.lwdataprovider.entities.requests
 
+import com.exactpro.cradle.BookId
 import java.time.Duration
 import java.time.Instant
 
 data class QueueMessageGroupsRequest(
-    val groups: Set<String>,
+    val groupsByBook: Map<BookId, Set<String>>,
     val startTimestamp: Instant,
     val endTimestamp: Instant,
     val syncInterval: Duration,
@@ -35,14 +36,14 @@ data class QueueMessageGroupsRequest(
     companion object {
         @JvmStatic
         fun create(
-            groups: Set<String>?,
+            groupsByBook: Map<BookId, Set<String>>?,
             startTimestamp: Instant?,
             endTimestamp: Instant?,
             syncInterval: Duration?,
             keepAlive: Boolean?,
             externalQueue: String?,
         ): QueueMessageGroupsRequest = QueueMessageGroupsRequest(
-            requireNotNull(groups) { "groups must be set" },
+            requireNotNull(groupsByBook) { "groupsByBook must be set" },
             requireNotNull(startTimestamp) { "start timestamp must be set" },
             requireNotNull(endTimestamp) { "end timestamp must be set" },
             requireNotNull(syncInterval) { "sync interval must be set" },

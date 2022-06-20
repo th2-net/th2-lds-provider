@@ -16,16 +16,20 @@
 
 package com.exactpro.th2.lwdataprovider.entities.requests
 
+import com.exactpro.cradle.BookId
 import com.exactpro.cradle.TimeRelation
 import com.exactpro.th2.dataprovider.lw.grpc.EventSearchRequest
-import com.exactpro.th2.dataprovider.lw.grpc.TimeRelation.PREVIOUS
+import com.exactpro.th2.dataprovider.lw.grpc.TimeRelation.*
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.converter.GrpcFilterConverter
 import com.exactpro.th2.lwdataprovider.entities.requests.converter.HttpFilterConverter
+import com.exactpro.th2.lwdataprovider.entities.requests.util.getInitEndTimestamp
+import com.exactpro.th2.lwdataprovider.entities.requests.util.invalidRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.BaseEventEntity
 import com.exactpro.th2.lwdataprovider.filter.DataFilter
 import com.exactpro.th2.lwdataprovider.filter.events.EventsFilterFactory
+import com.exactpro.th2.lwdataprovider.toCradle
 import java.time.Instant
 
 class SseEventSearchRequest(
@@ -35,6 +39,8 @@ class SseEventSearchRequest(
     val resultCountLimit: Int?,
     endTimestamp: Instant?,
     val filter: DataFilter<BaseEventEntity> = DataFilter.acceptAll(),
+    val bookId: BookId,
+    val scope: String,
 ) {
 
     val endTimestamp : Instant
@@ -51,7 +57,7 @@ class SseEventSearchRequest(
             if (value == "next") return TimeRelation.AFTER
             if (value == "previous") return TimeRelation.BEFORE
 
-            throw InvalidRequestException("'$value' is not a valid timeline direction. Use 'next' or 'previous'")
+            invalidRequest("'$value' is not a valid timeline direction. Use 'next' or 'previous'")
         }
     }
 
@@ -64,6 +70,10 @@ class SseEventSearchRequest(
         endTimestamp = parameters["endTimestamp"]?.firstOrNull()?.let { Instant.ofEpochMilli(it.toLong()) },
         resultCountLimit = parameters["resultCountLimit"]?.firstOrNull()?.toInt(),
         filter = EventsFilterFactory.create(httpConverter.convert(parameters)),
+        bookId = parameters["bookId"]?.firstOrNull()?.run(::BookId)
+            ?: invalidRequest("parameter 'bookId' is required"),
+        scope = parameters["scope"]?.firstOrNull()
+            ?: invalidRequest("parameter 'scope' is required"),
     )
 
     constructor(request: EventSearchRequest) : this(
@@ -88,6 +98,8 @@ class SseEventSearchRequest(
             request.resultCountLimit.value
         } else null,
         filter = EventsFilterFactory.create(grpcConverter.convert(request.filterList)),
+        bookId = request.run { if (hasBookId()) bookId.toCradle() else invalidRequest("parameter 'bookId' is required") },
+        scope = request.run { if (hasScope()) scope.name else invalidRequest("parameter 'scope' is required") },
     )
 
     private fun checkEndTimestamp() {
@@ -95,16 +107,16 @@ class SseEventSearchRequest(
 
         if (searchDirection == TimeRelation.AFTER) {
             if (startTimestamp.isAfter(endTimestamp))
-                throw InvalidRequestException("startTimestamp: $startTimestamp > endTimestamp: $endTimestamp")
+                invalidRequest("startTimestamp: $startTimestamp > endTimestamp: $endTimestamp")
         } else {
             if (startTimestamp.isBefore(endTimestamp))
-                throw InvalidRequestException("startTimestamp: $startTimestamp < endTimestamp: $endTimestamp")
+                invalidRequest("startTimestamp: $startTimestamp < endTimestamp: $endTimestamp")
         }
     }
 
     private fun checkStartPoint() {
         if (startTimestamp == null)
-            throw InvalidRequestException("'startTimestamp' must not be null")
+            invalidRequest("'startTimestamp' must not be null")
     }
 
     private fun checkRequest() {
@@ -120,6 +132,8 @@ class SseEventSearchRequest(
                 "searchDirection=$searchDirection, " +
                 "resultCountLimit=$resultCountLimit, " +
                 "filter=$filter, " +
+                "bookId=$bookId, " +
+                "scope='$scope', " +
                 ")"
     }
 

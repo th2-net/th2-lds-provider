@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.lwdataprovider.handlers.util
 
+import com.exactpro.cradle.BookId
 import com.exactpro.cradle.Direction
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.lwdataprovider.ProviderStreamInfo
@@ -27,41 +28,52 @@ import java.time.Instant
 private val LOGGER = KotlinLogging.logger { }
 
 fun computeNewParametersForGroupRequest(
-    groups: Set<String>,
+    groupsByBook: Map<BookId, Set<String>>,
     startTimestamp: Instant,
     lastTimestamp: Instant,
     parameters: CradleGroupRequest,
     allLoaded: MutableSet<String>,
     streamInfo: ProviderStreamInfo,
     extractor: CradleMessageExtractor,
-): Map<String, CradleGroupRequest> = groups.asSequence().mapNotNull { group ->
-    if (group in allLoaded) {
-        LOGGER.trace { "Skip pulling data for group $group because all data is already loaded" }
-        return@mapNotNull null
+): Map<BookGroup, GroupParametersHolder> = groupsByBook.asSequence().flatMap { (bookId, groups) ->
+    groups.asSequence().mapNotNull { group ->
+        if (group in allLoaded) {
+            LOGGER.trace { "Skip pulling data for group $group because all data is already loaded" }
+            return@mapNotNull null
+        }
+        LOGGER.info { "Pulling updates for group $group" }
+        val hasDataOutsideRange = extractor.hasMessagesInGroupAfter(group, bookId, lastTimestamp)
+        if (hasDataOutsideRange) {
+            LOGGER.info { "All data in requested range is loaded for group $group" }
+            allLoaded += group
+        }
+        LOGGER.info { "Requesting additional data for group $group" }
+        val lastGroupTimestamp = streamInfo.lastTimestampForGroup(group)
+            .coerceAtLeast(startTimestamp)
+        val newParameters = if (lastGroupTimestamp == startTimestamp) {
+            parameters
+        } else {
+            val lastIdByStream: Map<Pair<String, Direction>, StoredMessageId> = streamInfo.lastIDsForGroup(group)
+                .associateBy { it.sessionAlias to it.direction }
+            parameters.copy(
+                preFilter = { msg ->
+                    val stream = msg.run { sessionAlias to direction }
+                    lastIdByStream[stream]?.run {
+                        msg.sequence > sequence
+                    } ?: true
+                }
+            )
+        }
+        BookGroup(group, bookId) to GroupParametersHolder(lastGroupTimestamp, newParameters)
     }
-    LOGGER.info { "Pulling updates for group $group" }
-    val hasDataOutsideRange = extractor.hasMessagesInGroupAfter(group, lastTimestamp)
-    if (hasDataOutsideRange) {
-        LOGGER.info { "All data in requested range is loaded for group $group" }
-        allLoaded += group
-    }
-    LOGGER.info { "Requesting additional data for group $group" }
-    val lastGroupTimestamp = streamInfo.lastTimestampForGroup(group)
-        .coerceAtLeast(startTimestamp)
-    val newParameters = if (lastGroupTimestamp == startTimestamp) {
-        parameters
-    } else {
-        val lastIdByStream: Map<Pair<String, Direction>, StoredMessageId> = streamInfo.lastIDsForGroup(group)
-            .associateBy { it.streamName to it.direction }
-        parameters.copy(
-            start = lastGroupTimestamp,
-            preFilter = { msg ->
-                val stream = msg.run { streamName to direction }
-                lastIdByStream[stream]?.run {
-                    msg.index > index
-                } ?: true
-            }
-        )
-    }
-    group to newParameters
 }.toMap()
+
+data class GroupParametersHolder(
+    val newStartTime: Instant,
+    val params: CradleGroupRequest,
+)
+
+data class BookGroup(
+    val group: String,
+    val bookId: BookId,
+)

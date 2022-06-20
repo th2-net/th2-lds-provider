@@ -17,15 +17,13 @@
 package com.exactpro.th2.lwdataprovider.entities.responses
 
 import com.exactpro.cradle.messages.StoredMessageId
-import com.exactpro.cradle.testevents.StoredTestEventWithContent
-import com.exactpro.th2.common.grpc.ConnectionID
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.EventStatus.FAILED
 import com.exactpro.th2.common.grpc.EventStatus.SUCCESS
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.message.toTimestamp
 import com.exactpro.th2.dataprovider.lw.grpc.EventResponse
-import com.exactpro.th2.lwdataprovider.cradleDirectionToGrpc
+import com.exactpro.th2.lwdataprovider.grpc.toGrpcMessageId
 import com.fasterxml.jackson.annotation.JsonRawValue
 import com.google.protobuf.ByteString
 import com.google.protobuf.UnsafeByteOperations
@@ -51,13 +49,7 @@ data class Event(
 
     private fun convertMessageIdToProto(attachedMessageIds: Set<String>): List<MessageID> {
         return attachedMessageIds.map { id ->
-            StoredMessageId.fromString(id).let {
-                MessageID.newBuilder()
-                    .setConnectionId(ConnectionID.newBuilder().setSessionAlias(it.streamName))
-                    .setDirection(cradleDirectionToGrpc(it.direction))
-                    .setSequence(it.index)
-                    .build()
-            }
+            StoredMessageId.fromString(id).toGrpcMessageId()
         }
     }
 
@@ -77,27 +69,6 @@ data class Event(
                 parentEventId?.let { builder.setParentEventId(EventID.newBuilder().setId(it)) }
             }.build()
     }
-
-    constructor(
-        stored: StoredTestEventWithContent,
-        eventId: String,
-        messages: Set<String>,
-        batchId: String?,
-        parentEventId: String?,
-        body: String?
-    ) : this(
-        batchId = batchId,
-        isBatched = batchId != null,
-        eventId = eventId,
-        eventName = stored.name ?: "",
-        eventType = stored.type ?: "",
-        startTimestamp = stored.startTimestamp,
-        endTimestamp = stored.endTimestamp,
-        parentEventId = parentEventId,
-        successful = stored.isSuccess,
-        attachedMessageIds = messages,
-        body = body ?: "{}"
-    )
 
 
 }

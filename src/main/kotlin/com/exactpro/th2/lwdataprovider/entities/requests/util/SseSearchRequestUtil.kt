@@ -14,7 +14,7 @@
  * limitations under the License.
  ******************************************************************************/
 
-package com.exactpro.th2.lwdataprovider.entities.requests
+package com.exactpro.th2.lwdataprovider.entities.requests.util
 
 import com.exactpro.cradle.TimeRelation
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
@@ -32,3 +32,5 @@ fun getInitEndTimestamp(passedEndTimestamp: Instant?, resultCountLimit: Int?,
         passedEndTimestamp ?: throw InvalidRequestException("If limit is not set, passed end timestamp must be not null")
     }
 }
+
+fun invalidRequest(text: String): Nothing = throw InvalidRequestException(text)

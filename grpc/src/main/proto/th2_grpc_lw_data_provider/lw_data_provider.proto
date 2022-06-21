@@ -48,6 +48,9 @@ service DataProvider {
   Searches for messages groups in specified timestamp
    */
   rpc SearchMessageGroups (MessageGroupsSearchRequest) returns (stream MessageSearchResponse);
+
+  // Returns the set of books stored in cradle cache
+  rpc GetBooks(BooksRequest) returns (BooksResponse);
 }
 
 // The scope for events to request
@@ -187,4 +190,11 @@ message MessageStreamsResponse {
 enum TimeRelation {
   NEXT = 0;
   PREVIOUS = 1;
+}
+
+message BooksRequest {
+}
+
+message BooksResponse {
+  repeated BookId book_ids = 1;
 }

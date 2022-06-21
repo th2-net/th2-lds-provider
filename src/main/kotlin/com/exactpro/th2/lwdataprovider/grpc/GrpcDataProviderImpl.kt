@@ -16,10 +16,12 @@
 
 package com.exactpro.th2.lwdataprovider.grpc
 
-import com.exactpro.cradle.BookId
+import com.exactpro.cradle.BookInfo
 import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageID
+import com.exactpro.th2.dataprovider.lw.grpc.BooksRequest
+import com.exactpro.th2.dataprovider.lw.grpc.BooksResponse
 import com.exactpro.th2.dataprovider.lw.grpc.DataProviderGrpc
 import com.exactpro.th2.dataprovider.lw.grpc.EventResponse
 import com.exactpro.th2.dataprovider.lw.grpc.EventSearchRequest
@@ -44,6 +46,8 @@ import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import com.exactpro.th2.lwdataprovider.toCradle
+import com.exactpro.th2.lwdataprovider.toGrpc
+import io.grpc.Status
 import io.grpc.stub.StreamObserver
 import mu.KotlinLogging
 import java.util.concurrent.ArrayBlockingQueue
@@ -58,6 +62,17 @@ open class GrpcDataProviderImpl(
 
     companion object {
         private val LOGGER = KotlinLogging.logger { }
+    }
+
+    override fun getBooks(request: BooksRequest, responseObserver: StreamObserver<BooksResponse>) {
+        LOGGER.info { "Extracting list of books" }
+        try {
+            val books = searchMessagesHandler.extractBookNames().map(BookInfo::toGrpc)
+            responseObserver.onNext(BooksResponse.newBuilder().addAllBookIds(books).build())
+            responseObserver.onCompleted()
+        } catch (ex: Exception) {
+            responseObserver.onError(Status.INTERNAL.withDescription(ex.message).asRuntimeException())
+        }
     }
 
     override fun getEvent(request: EventID, responseObserver: StreamObserver<EventResponse>) {
@@ -126,6 +141,10 @@ open class GrpcDataProviderImpl(
 
     override fun getMessageStreams(request: MessageStreamsRequest, responseObserver: StreamObserver<MessageStreamsResponse>) {
         LOGGER.info { "Extracting message streams" }
+        if (!request.hasBookId()) {
+            responseObserver.onError(Status.INVALID_ARGUMENT.withDescription("bookId is required").asRuntimeException())
+            return
+        }
         val streamsRsp = MessageStreamsResponse.newBuilder()
         for (name in searchMessagesHandler.extractStreamNames(request.bookId.toCradle())) {
             val currentBuilder = MessageStream.newBuilder().setName(name)

@@ -32,11 +32,11 @@ This component is similar to [rpt-data-provider](https://github.com/th2-net/th2-
 - `onlyRaw` - boolean - Disabling decoding messages. If it is true, message body will be empty in all messages. Default `false`
 - `responseFormats` - text, accepts multiple values - sets response formats. Possible values: BASE_64, PROTO_PARSED, JSON_PARSED. default value - BASE_64 & PROTO_PARSED.
 
-`http://localhost:8080/search/sse/messages/groups` - creates an SSE channel of messages that matches the requested group for the requested time period
+`http://localhost:8080/search/sse/messages/group` - creates an SSE channel of messages that matches the requested group for the requested time period
 - `startTimestamp` - number, unix timestamp in milliseconds - Sets the search starting point. **Must not be null**
 - `endTimestamp` - number, unix timestamp in milliseconds - Sets the search ending point. **Must not be null**
 - `group` - the repeatable parameter with group names to request. **At least one must be specified**
-Example: `http://localhost:8080/search/sse/messages/groups?group=A&group=B&startTimestamp=15600000&endTimestamp=15700000`
+Example: `http://localhost:8080/search/sse/messages/group?group=A&group=B&startTimestamp=15600000&endTimestamp=15700000`
 
 
 Elements in channel match the format sse:

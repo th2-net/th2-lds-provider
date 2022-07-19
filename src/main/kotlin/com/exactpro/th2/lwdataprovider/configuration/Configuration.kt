@@ -37,6 +37,7 @@ class CustomConfigurationClass(
     val bufferPerQuery: Int? = null,
     val groupRequestBuffer: Int? = null,
     val responseFormats: Set<String>? = null,
+    val codecUsePinAttributes: Boolean? = null,
 )
 
 class Configuration(customConfiguration: CustomConfigurationClass) {
@@ -58,6 +59,7 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     val responseFormats: Set<ResponseFormat> = VariableBuilder.getVariable(customConfiguration::responseFormats, EnumSet.of(ResponseFormat.BASE_64, ResponseFormat.PROTO_PARSED)) {
         it.mapTo(hashSetOf(), ResponseFormat.Companion::fromString)
     }
+    val codecUsePinAttributes: Boolean = VariableBuilder.getVariable(customConfiguration::codecUsePinAttributes, true)
     init {
         require(bufferPerQuery <= maxBufferDecodeQueue) {
             "buffer per queue ($bufferPerQuery) must be less or equal to the total buffer size ($maxBufferDecodeQueue)"

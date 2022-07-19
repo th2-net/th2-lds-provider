@@ -29,7 +29,7 @@ import kotlin.system.measureTimeMillis
 
 class CradleMessageExtractor(
     private val groupBufferSize: Int,
-    cradleManager: CradleManager
+    cradleManager: CradleManager,
 ) {
 
     private val storage: CradleStorage = cradleManager.storage

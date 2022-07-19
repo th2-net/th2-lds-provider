@@ -1,4 +1,4 @@
-# Lightweight data provider (1.1.0)
+# Lightweight data provider (1.1.1)
 
 # Overview
 This component serves as a data provider for [th2-data-services](https://github.com/th2-net/th2-data-services). It will connect to the cassandra database via [cradle api](https://github.com/th2-net/cradleapi) and expose the data stored in there as REST resources.
@@ -64,6 +64,7 @@ spec:
 #   maxBufferDecodeQueue: 10000 # buffer size for messages that sent to decode but anwers hasn't been received 
 #   decodingTimeout: 60000 # timeout expecting answers from codec. 
 #   batchSize: 100 # batch size from codecs
+#   codecUsePinAttributes: true # send raw message to specified codec (true) or send to all codecs (false) 
     
 
   pins: # pins are used to communicate with codec components to parse message data

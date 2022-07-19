@@ -60,6 +60,7 @@ internal class TestRabbitMqDecoder {
     private val decoder = RabbitMqDecoder(
         maxDecodeQueue = 3,
         messageRouterRawBatch = messageRouter,
+        codecUsePinAttributes = true,
     )
 
     @ParameterizedTest(name = "{0} message(s) in response")

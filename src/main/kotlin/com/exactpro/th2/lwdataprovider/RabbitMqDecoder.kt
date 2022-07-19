@@ -20,6 +20,7 @@ import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.plusAssign
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.QueueAttribute
+import com.exactpro.th2.lwdataprovider.configuration.VariableBuilder
 import com.exactpro.th2.lwdataprovider.workers.CodecMessageListener
 import com.exactpro.th2.lwdataprovider.workers.DecodeQueueBuffer
 import com.exactpro.th2.lwdataprovider.workers.TimeoutChecker
@@ -27,7 +28,8 @@ import mu.KotlinLogging
 
 class RabbitMqDecoder(
     private val messageRouterRawBatch: MessageRouter<MessageGroupBatch>,
-    maxDecodeQueue: Int
+    maxDecodeQueue: Int,
+    private val codecUsePinAttributes: Boolean,
 ) : TimeoutChecker, Decoder, AutoCloseable {
     
     private val decodeBuffer = DecodeQueueBuffer(maxDecodeQueue)
@@ -77,7 +79,12 @@ class RabbitMqDecoder(
     }
 
     private fun send(batchBuilder: MessageGroupBatch.Builder, session: String) {
-        this.messageRouterRawBatch.send(batchBuilder.build(), session, QueueAttribute.RAW.value)
+        val batch = batchBuilder.build()
+        if (codecUsePinAttributes) {
+            this.messageRouterRawBatch.send(batch, session, QueueAttribute.RAW.value)
+        } else {
+            this.messageRouterRawBatch.sendAll(batch, QueueAttribute.RAW.value)
+        }
     }
 
     private fun registerMessage(message: RequestedMessageDetails) {

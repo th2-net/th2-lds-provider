@@ -30,6 +30,7 @@ import com.exactpro.th2.lwdataprovider.ResponseHandler
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 import mu.KotlinLogging
@@ -61,7 +62,7 @@ class SearchMessagesHandler(
         threadPool.execute {
             RootMessagesDataSink(
                 requestContext,
-                if (request.onlyRaw) {
+                if (request.responseFormats.hasRowOnly()) {
                     RawStoredMessageHandler(requestContext)
                 } else {
                     ParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
@@ -149,6 +150,10 @@ class SearchMessagesHandler(
                 }
             }
         }
+    }
+
+    private fun Set<ResponseFormat>?.hasRowOnly(): Boolean {
+        return this != null && size == 1 && contains(ResponseFormat.BASE_64)
     }
 }
 

@@ -26,8 +26,8 @@ import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 
-internal class TestCustomJsonFormatter {
-    private val formatter = CustomJsonFormatter()
+internal class TestCustomProtoJsonFormatter {
+    private val formatter = CustomProtoJsonFormatter()
     private val objectMapper = ObjectMapper()
 
     @Test

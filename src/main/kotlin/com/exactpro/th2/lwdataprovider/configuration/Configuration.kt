@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.lwdataprovider.configuration
 
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import mu.KotlinLogging
 import java.util.*
 import kotlin.math.max
@@ -34,6 +35,7 @@ class CustomConfigurationClass(
     val mode: String? = null,
     val grpcBackPressure : Boolean? = null,
     val bufferPerQuery: Int? = null,
+    val responseFormats: Set<String> = emptySet(),
 )
 
 class Configuration(customConfiguration: CustomConfigurationClass) {
@@ -51,6 +53,9 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     }
     val grpcBackPressure: Boolean = VariableBuilder.getVariable(customConfiguration::grpcBackPressure, false)
     val bufferPerQuery: Int = VariableBuilder.getVariable(customConfiguration::bufferPerQuery, max(maxBufferDecodeQueue / execThreadPoolSize, 1))
+    val responseFormats: Set<ResponseFormat> = VariableBuilder.getVariable(customConfiguration::responseFormats, emptySet()) {
+        it.mapTo(hashSetOf(), ResponseFormat.Companion::fromString)
+    }
     init {
         require(bufferPerQuery <= maxBufferDecodeQueue) {
             "buffer per queue ($bufferPerQuery) must be less or equal to the total buffer size ($maxBufferDecodeQueue)"

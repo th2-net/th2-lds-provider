@@ -23,6 +23,7 @@ import com.exactpro.th2.lwdataprovider.entities.responses.EventTreeNode
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
+import com.exactpro.th2.lwdataprovider.entities.responses.ResponseMessage
 import com.fasterxml.jackson.databind.ObjectMapper
 import java.util.concurrent.atomic.AtomicLong
 
@@ -34,17 +35,8 @@ class SseResponseBuilder(
         return SseEvent.build(jacksonMapper, event, counter)
     }
 
-    fun build(message: ProviderMessage, counter: Long): SseEvent {
+    fun build(message: ResponseMessage, counter: Long): SseEvent {
         return SseEvent.build(jacksonMapper, message, counter)
-    }
-
-    @Deprecated("5.3 version")
-    fun build(message: ProviderMessage53, counter: Long): SseEvent {
-        return SseEvent(
-            jacksonMapper.writeValueAsString(message),
-            EventType.MESSAGE,
-            counter.toString()
-        )
     }
 
     fun build(lastScannedObjectInfo: LastScannedObjectInfo, counter: Long): SseEvent {

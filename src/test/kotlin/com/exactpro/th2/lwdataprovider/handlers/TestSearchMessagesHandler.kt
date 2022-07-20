@@ -30,6 +30,7 @@ import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.configuration.CustomConfigurationClass
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
@@ -392,7 +393,7 @@ internal class TestSearchMessagesHandler {
         keepOpen = false,
         attachedEvents = false,
         lookupLimitDays = null,
-        onlyRaw = isRawOnly,
+        responseFormats = if (isRawOnly) setOf(ResponseFormat.BASE_64) else null,
         resumeFromIdsList = null,
     )
 }

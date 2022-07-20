@@ -16,19 +16,17 @@
 
 package com.exactpro.th2.lwdataprovider.producers
 
-import com.exactpro.th2.lwdataprovider.CustomJsonFormatter
+import com.exactpro.th2.lwdataprovider.CustomProtoJsonFormatter
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderParsedMessage
 import java.util.Base64
-import java.util.Collections
-import kotlin.streams.toList
 
 class MessageProducer {
 
     companion object {
 
-        fun createMessage(rawMessage: RequestedMessageDetails, formatter: CustomJsonFormatter): ProviderMessage {
+        fun createMessage(rawMessage: RequestedMessageDetails, formatter: CustomProtoJsonFormatter): ProviderMessage {
             return ProviderMessage(
                 rawMessage.storedMessage,
                 rawMessage.parsedMessage?.asSequence()?.map { msg ->

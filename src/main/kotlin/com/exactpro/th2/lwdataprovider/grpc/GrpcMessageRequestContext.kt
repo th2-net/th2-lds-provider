@@ -22,6 +22,7 @@ import com.exactpro.th2.lwdataprovider.GrpcEvent
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.exceptions.HandleDataException
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.handlers.MessageResponseHandler
 import com.exactpro.th2.lwdataprovider.producers.GrpcMessageProducer
 import java.util.concurrent.BlockingQueue
@@ -30,9 +31,10 @@ class GrpcMessageResponseHandler(
     private val buffer: BlockingQueue<GrpcEvent>,
     dataMeasurement: DataMeasurement,
     maxMessagesPerRequest: Int = 0,
+    private val responseFormats: Set<ResponseFormat> = emptySet(),
 ) : MessageResponseHandler(dataMeasurement, maxMessagesPerRequest) {
     override fun handleNextInternal(data: RequestedMessageDetails) {
-        val msg = GrpcMessageProducer.createMessage(data)
+        val msg = GrpcMessageProducer.createMessage(data, responseFormats)
         buffer.put(GrpcEvent(message = MessageSearchResponse.newBuilder().setMessage(msg).build()))
     }
 

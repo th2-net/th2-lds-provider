@@ -22,6 +22,7 @@ import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.EventTreeNode
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage
+import com.exactpro.th2.lwdataprovider.entities.responses.ResponseMessage
 import com.fasterxml.jackson.databind.ObjectMapper
 import java.util.*
 import java.util.concurrent.atomic.AtomicLong
@@ -56,7 +57,7 @@ data class SseEvent(val data: String = "empty data", val event: EventType, val m
             )
         }
 
-        fun build(jacksonMapper: ObjectMapper, message: ProviderMessage, counter: Long): SseEvent {
+        fun build(jacksonMapper: ObjectMapper, message: ResponseMessage, counter: Long): SseEvent {
             return SseEvent(
                 jacksonMapper.writeValueAsString(message),
                 EventType.MESSAGE,

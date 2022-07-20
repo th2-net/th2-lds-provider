@@ -19,8 +19,9 @@ package com.exactpro.th2.lwdataprovider.producers
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.message.addFields
 import com.exactpro.th2.common.message.messageType
-import com.exactpro.th2.lwdataprovider.CustomJsonFormatter
+import com.exactpro.th2.lwdataprovider.CustomProtoJsonFormatter
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import java.util.Base64
 
@@ -29,32 +30,24 @@ class MessageProducer53 {
 
     companion object {
 
-        fun createMessage(rawMessage: RequestedMessageDetails, formatter: CustomJsonFormatter): ProviderMessage53 {
+        fun createMessage(
+            rawMessage: RequestedMessageDetails,
+            formatter: JsonFormatter?,
+            includeRaw: Boolean,
+        ): ProviderMessage53 {
             val convertToOneMessage = rawMessage.parsedMessage?.let { convertToOneMessage(it) }
             return ProviderMessage53(
                 rawMessage.storedMessage,
-                convertToOneMessage?.let { formatter.print(it) } ?: "{}",
+                if (formatter == null) null else convertToOneMessage?.let { formatter.print(it) },
                 convertToOneMessage,
-                rawMessage.rawMessage.let {
-                    Base64.getEncoder().encodeToString(it.body.toByteArray())
-                },
+                if (includeRaw) {
+                    rawMessage.rawMessage.let { Base64.getEncoder().encodeToString(it.body.toByteArray()) }
+                } else null,
                 if (convertToOneMessage != null) convertToOneMessage.metadata.messageType else ""
             )
         }
 
-        public fun createOnlyRawMessage(rawMessage: RequestedMessageDetails): ProviderMessage53 {
-            return ProviderMessage53(
-                rawMessage.storedMessage,
-                "{}",
-                null,
-                rawMessage.rawMessage.let {
-                    Base64.getEncoder().encodeToString(it.body.toByteArray())
-                },
-                ""
-            )
-        }
-
-        fun convertToOneMessage (messages: List<Message>): Message {
+        private fun convertToOneMessage(messages: List<Message>): Message {
             return when (messages.size) {
                 1 -> messages[0]
                 else -> messages[0].toBuilder().run {

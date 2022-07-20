@@ -16,21 +16,24 @@
 
 package com.exactpro.th2.lwdataprovider.http
 
-import com.exactpro.th2.lwdataprovider.CustomJsonFormatter
 import com.exactpro.th2.lwdataprovider.EventType
 import com.exactpro.th2.lwdataprovider.KeepAliveListener
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.exactpro.th2.lwdataprovider.handlers.AbstractCancelableHandler
 import com.exactpro.th2.lwdataprovider.handlers.MessageResponseHandler
+import com.exactpro.th2.lwdataprovider.producers.JsonFormatter
 import com.exactpro.th2.lwdataprovider.producers.MessageProducer53
+import com.exactpro.th2.lwdataprovider.producers.ParsedFormats
 import com.google.gson.Gson
 import org.apache.commons.lang3.exception.ExceptionUtils
-import java.util.*
+import java.util.Collections
+import java.util.EnumSet
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.atomic.AtomicLong
 
@@ -38,9 +41,17 @@ class HttpMessagesRequestHandler(
     private val buffer: BlockingQueue<SseEvent>,
     private val builder: SseResponseBuilder,
     dataMeasurement: DataMeasurement,
-    maxMessagesPerRequest: Int = 0
+    maxMessagesPerRequest: Int = 0,
+    responseFormats: Set<ResponseFormat> = EnumSet.of(ResponseFormat.BASE_64, ResponseFormat.PROTO_PARSED),
 ) : MessageResponseHandler(dataMeasurement, maxMessagesPerRequest), KeepAliveListener {
-    private val jsonFormatter = CustomJsonFormatter()
+    private val includeRaw: Boolean = responseFormats.isEmpty() || ResponseFormat.BASE_64 in responseFormats
+    private val jsonFormatter: JsonFormatter? = (responseFormats - ResponseFormat.BASE_64).run {
+        when (size) {
+            0 -> null
+            1 -> single()
+            else -> error("more than one parsed format specified: $this")
+        }
+    }?.run(ParsedFormats::createFormatter)
     private val indexer = DataIndexer()
 
     private val scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
@@ -49,7 +60,7 @@ class HttpMessagesRequestHandler(
         get() = scannedObjectInfo.timestamp
 
     override fun handleNextInternal(data: RequestedMessageDetails) {
-        val msg = MessageProducer53.createMessage(data, jsonFormatter)
+        val msg = MessageProducer53.createMessage(data, jsonFormatter, includeRaw)
         buffer.put(builder.build(msg, indexer.nextIndex()))
     }
 

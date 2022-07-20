@@ -39,7 +39,8 @@ class SseMessageSearchRequest(
     val resumeFromIdsList: List<StoredMessageId>?,
     val onlyRaw: Boolean,
 
-    endTimestamp: Instant?
+    endTimestamp: Instant?,
+    val responseFormats: Set<String>? = null
 ) {
 
     val endTimestamp : Instant
@@ -93,7 +94,8 @@ class SseMessageSearchRequest(
         keepOpen = parameters["keepOpen"]?.firstOrNull()?.toBoolean() ?: false,
         attachedEvents = parameters["attachedEvents"]?.firstOrNull()?.toBoolean() ?: false,
         lookupLimitDays = parameters["lookupLimitDays"]?.firstOrNull()?.toInt(),
-        onlyRaw = parameters["onlyRaw"]?.firstOrNull()?.toBoolean() ?: false
+        onlyRaw = parameters["onlyRaw"]?.firstOrNull()?.toBoolean() ?: false,
+        responseFormats = parameters["responseFormats"]?.toSet(),
     )
 
 
@@ -113,7 +115,8 @@ class SseMessageSearchRequest(
         keepOpen = if (grpcRequest.hasKeepOpen()) grpcRequest.keepOpen.value else false,
         attachedEvents = false, // disabled
         lookupLimitDays = null,
-        onlyRaw = false // NOT SUPPORTED in GRPC
+        onlyRaw = false, // NOT SUPPORTED in GRPC
+        responseFormats = grpcRequest.responseFormatsList.toSet(),
     )
 
     private fun checkEndTimestamp() {

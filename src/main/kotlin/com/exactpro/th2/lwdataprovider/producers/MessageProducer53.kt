@@ -29,15 +29,15 @@ class MessageProducer53 {
 
     companion object {
 
-        fun createMessage(rawMessage: RequestedMessageDetails, formatter: CustomJsonFormatter): ProviderMessage53 {
+        fun createMessage(rawMessage: RequestedMessageDetails, formatter: CustomJsonFormatter, responseFormats: Set<String>): ProviderMessage53 {
             val convertToOneMessage = rawMessage.parsedMessage?.let { convertToOneMessage(it) }
             return ProviderMessage53(
                 rawMessage.storedMessage,
                 convertToOneMessage?.let { formatter.print(it) } ?: "{}",
-                convertToOneMessage,
-                rawMessage.rawMessage.let {
-                    Base64.getEncoder().encodeToString(it.body.toByteArray())
-                },
+                if (responseFormats.isEmpty() || responseFormats.contains("PARSED")) convertToOneMessage else null,
+                if (responseFormats.isEmpty() || responseFormats.contains("BASE_64")) {
+                    rawMessage.rawMessage.let { Base64.getEncoder().encodeToString(it.body.toByteArray()) }
+                } else null,
                 if (convertToOneMessage != null) convertToOneMessage.metadata.messageType else ""
             )
         }
@@ -54,7 +54,7 @@ class MessageProducer53 {
             )
         }
 
-        fun convertToOneMessage (messages: List<Message>): Message {
+        fun convertToOneMessage(messages: List<Message>): Message {
             return when (messages.size) {
                 1 -> messages[0]
                 else -> messages[0].toBuilder().run {

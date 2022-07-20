@@ -30,9 +30,10 @@ class GrpcMessageResponseHandler(
     private val buffer: BlockingQueue<GrpcEvent>,
     dataMeasurement: DataMeasurement,
     maxMessagesPerRequest: Int = 0,
+    private val responseFormats: Set<String> = emptySet(),
 ) : MessageResponseHandler(dataMeasurement, maxMessagesPerRequest) {
     override fun handleNextInternal(data: RequestedMessageDetails) {
-        val msg = GrpcMessageProducer.createMessage(data)
+        val msg = GrpcMessageProducer.createMessage(data, responseFormats)
         buffer.put(GrpcEvent(message = MessageSearchResponse.newBuilder().setMessage(msg).build()))
     }
 

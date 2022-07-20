@@ -38,7 +38,8 @@ class HttpMessagesRequestHandler(
     private val buffer: BlockingQueue<SseEvent>,
     private val builder: SseResponseBuilder,
     dataMeasurement: DataMeasurement,
-    maxMessagesPerRequest: Int = 0
+    maxMessagesPerRequest: Int = 0,
+    private val responseFormats: Set<String> = emptySet(),
 ) : MessageResponseHandler(dataMeasurement, maxMessagesPerRequest), KeepAliveListener {
     private val jsonFormatter = CustomJsonFormatter()
     private val indexer = DataIndexer()
@@ -49,7 +50,7 @@ class HttpMessagesRequestHandler(
         get() = scannedObjectInfo.timestamp
 
     override fun handleNextInternal(data: RequestedMessageDetails) {
-        val msg = MessageProducer53.createMessage(data, jsonFormatter)
+        val msg = MessageProducer53.createMessage(data, jsonFormatter, responseFormats)
         buffer.put(builder.build(msg, indexer.nextIndex()))
     }
 

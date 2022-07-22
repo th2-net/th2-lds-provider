@@ -49,7 +49,7 @@ class GetMessagesServlet(
 
         val queue = ArrayBlockingQueue<SseEvent>(configuration.responseQueueSize)
         val handler = HttpMessagesRequestHandler(queue, sseResponseBuilder, dataMeasurement, maxMessagesPerRequest = configuration.bufferPerQuery,
-            responseFormats = request.responseFormats ?: emptySet())
+            responseFormats = request.responseFormats ?: configuration.responseFormats)
 //        dataMeasurement.start("messages_loading").use {
             keepAliveHandler.addKeepAliveData(handler).use {
                 searchMessagesHandler.loadMessages(request, handler, dataMeasurement)

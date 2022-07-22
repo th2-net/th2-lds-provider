@@ -65,6 +65,7 @@ spec:
 #   decodingTimeout: 60000 # timeout expecting answers from codec. 
 #   batchSize: 100 # batch size from codecs
 #   codecUsePinAttributes: true # send raw message to specified codec (true) or send to all codecs (false) 
+#   responseFormats: string list # resolve data for selected formats only. (allowed values: BASE_64, PARSED)
     
 
   pins: # pins are used to communicate with codec components to parse message data

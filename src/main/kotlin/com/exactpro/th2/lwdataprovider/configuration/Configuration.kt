@@ -36,6 +36,7 @@ class CustomConfigurationClass(
     val bufferPerQuery: Int? = null,
     val groupRequestBuffer: Int? = null,
     val codecUsePinAttributes: Boolean? = null,
+    val responseFormats: Set<String> = emptySet(),
 )
 
 class Configuration(customConfiguration: CustomConfigurationClass) {
@@ -55,6 +56,7 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     val bufferPerQuery: Int = VariableBuilder.getVariable(customConfiguration::bufferPerQuery, max(maxBufferDecodeQueue / execThreadPoolSize, 1))
     val groupRequestBuffer: Int = VariableBuilder.getVariable(customConfiguration::groupRequestBuffer, 1000)
     val codecUsePinAttributes: Boolean = VariableBuilder.getVariable(customConfiguration::codecUsePinAttributes, true)
+    val responseFormats: Set<String> = VariableBuilder.getVariable(customConfiguration::responseFormats, emptySet())
     init {
         check(bufferPerQuery <= maxBufferDecodeQueue) {
             "buffer per queue ($bufferPerQuery) must be less or equal to the total buffer size ($maxBufferDecodeQueue)"

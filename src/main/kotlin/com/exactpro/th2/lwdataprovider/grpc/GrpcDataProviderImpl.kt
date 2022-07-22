@@ -140,7 +140,7 @@ open class GrpcDataProviderImpl(
         val queue = ArrayBlockingQueue<GrpcEvent>(configuration.responseQueueSize)
         val requestParams = SseMessageSearchRequest(request)
         LOGGER.info { "Loading messages $requestParams" }
-        val handler = GrpcMessageResponseHandler(queue, dataMeasurement, configuration.bufferPerQuery)
+        val handler = GrpcMessageResponseHandler(queue, dataMeasurement, configuration.bufferPerQuery, requestParams.responseFormats ?: configuration.responseFormats)
 //        val loadingStep = context.startStep("messages_loading")
         searchMessagesHandler.loadMessages(requestParams, handler, dataMeasurement)
         try {

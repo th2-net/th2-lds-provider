@@ -29,7 +29,7 @@ This component is similar to [rpt-data-provider](https://github.com/th2-net/th2-
 - `searchDirection` - `next`/`previous` - Sets the lookup direction. Can be used for pagination. Defaults to `next`.
 - `resultCountLimit` - number - Sets the maximum amount of messages to return. Defaults to `null (unlimited)`.
 - `endTimestamp` - number, unix timestamp in milliseconds - Sets the timestamp to which the search will be performed, starting with `startTimestamp`. When `searchDirection` is `previous`, `endTimestamp` must be less then `startTimestamp`. Defaults to `null` (search can be stopped after reaching `resultCountLimit`).
-- `onlyRaw` - boolean - Disabling decoding messages. If it is true, message body will be empty in all messages. Default `false`
+- `onlyRaw` - boolean - Disabling decoding messages. If it is true, message body will be empty in all messages. Default `false` 
 - `responseFormats` - text, accepts multiple values - sets response formats. Possible values: BASE_64, PROTO_PARSED, JSON_PARSED. default value - BASE_64 & PROTO_PARSED.
 
 `http://localhost:8080/search/sse/messages/group` - creates an SSE channel of messages that matches the requested group for the requested time period
@@ -65,8 +65,7 @@ spec:
 #   keepAliveTimeout: 5000 # timeout in milliseconds. keep_alive sending frequency
 #   maxBufferDecodeQueue: 10000 # buffer size for messages that sent to decode but anwers hasn't been received 
 #   decodingTimeout: 60000 # timeout expecting answers from codec. 
-#   batchSize: 100 # batch size from codecs 
-#   responseFormats: string list # resolve data for selected formats only. (allowed values: BASE_64, PARSED)
+#   batchSize: 100 # batch size from codecs
 #   codecUsePinAttributes: true # send raw message to specified codec (true) or send to all codecs (false) 
 #   responseFormats: string list # resolve data for selected formats only. (allowed values: BASE_64, PARSED)
     

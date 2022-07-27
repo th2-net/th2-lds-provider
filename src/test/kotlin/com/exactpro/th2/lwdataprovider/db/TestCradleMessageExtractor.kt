@@ -37,6 +37,7 @@ import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.configuration.CustomConfigurationClass
 import com.exactpro.th2.lwdataprovider.grpc.toGrpcDirection
 import com.exactpro.th2.lwdataprovider.grpc.toInstant
+import com.google.protobuf.ByteString
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -203,17 +204,9 @@ internal class TestCradleMessageExtractor {
                 .index(index)
                 .timestamp(instant)
                 .content(
-                    RawMessage.newBuilder().apply {
-                        metadataBuilder.apply {
-                            id = MessageID.newBuilder()
-                                .setDirection(direction.toGrpcDirection())
-                                .setSequence(index)
-                                .setConnectionId(ConnectionID.newBuilder().setSessionAlias(alias))
-                                .build()
-                            timestamp = instant.toTimestamp()
-                        }
-                    }.build().toByteArray()
+                    "abc".toByteArray()
                 )
+                .metadata("com.exactpro.th2.cradle.grpc.protocol", "abc")
                 .build()
         }
     }

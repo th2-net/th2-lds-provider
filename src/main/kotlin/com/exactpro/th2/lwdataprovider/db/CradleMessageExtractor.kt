@@ -19,16 +19,15 @@ package com.exactpro.th2.lwdataprovider.db
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.messages.StoredGroupMessageBatch
 import com.exactpro.cradle.messages.StoredMessage
-import com.exactpro.cradle.messages.StoredMessageBatch
 import com.exactpro.cradle.messages.StoredMessageFilter
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.message.plusAssign
 import com.exactpro.th2.lwdataprovider.MessageRequestContext
 import com.exactpro.th2.lwdataprovider.RabbitMqDecoder
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
+import com.exactpro.th2.lwdataprovider.grpc.toRawMessage
 import mu.KotlinLogging
 import java.time.Instant
 import java.util.LinkedList
@@ -122,7 +121,9 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         val id = storedMessage.id.toString()
         val decodingStep = startStep("decoding")
         val tmp = createMessageDetails(id, 0, storedMessage) { decodingStep.finish() }
-        tmp.rawMessage = startStep("raw_message_parsing").use { RawMessage.parseFrom(storedMessage.content) }.also {
+        tmp.rawMessage = startStep("raw_message_parsing").use {
+            storedMessage.toRawMessage()
+        }.also {
             builder.addGroupsBuilder() += it
         }
         return tmp
@@ -133,7 +134,9 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
     ): RequestedMessageDetails {
         val id = storedMessage.id.toString()
         return createMessageDetails(id, 0, storedMessage).apply {
-            rawMessage = startStep("raw_message_parsing").use { RawMessage.parseFrom(storedMessage.content) }
+            rawMessage = startStep("raw_message_parsing").use {
+                storedMessage.toRawMessage()
+            }
             responseMessage()
             notifyMessage()
         }
@@ -155,7 +158,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                 msgId = storedMessageBatch.id
                 val id = storedMessageBatch.id.toString()
                 val tmp = requestContext.createMessageDetails(id, time, storedMessageBatch)
-                tmp.rawMessage = RawMessage.parseFrom(storedMessageBatch.content)
+                tmp.rawMessage = storedMessageBatch.toRawMessage()
                 tmp.responseMessage()
                 msgCount++
             }
@@ -183,7 +186,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             val time = System.currentTimeMillis()
             val decodingStep = if (onlyRaw) null else requestContext.startStep("decoding")
             val tmp = requestContext.createMessageDetails(message.id.toString(), time, message) { decodingStep?.finish() }
-            tmp.rawMessage = RawMessage.parseFrom(message.content)
+            tmp.rawMessage = message.toRawMessage()
             requestContext.loadedMessages += 1
 
             if (onlyRaw) {

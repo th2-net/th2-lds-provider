@@ -16,13 +16,17 @@
 
 package com.exactpro.th2.lwdataprovider.grpc
 
+import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.grpc.ConnectionID
 import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.MessageID
+import com.exactpro.th2.common.grpc.RawMessage
+import com.exactpro.th2.common.message.toTimestamp
 import com.exactpro.th2.dataprovider.grpc.MessageStream
 import com.exactpro.th2.dataprovider.grpc.TimeRelation
 import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
+import com.google.protobuf.ByteString
 import com.google.protobuf.Timestamp
 import java.time.Instant
 
@@ -63,4 +67,17 @@ fun StoredMessageId.toGrpcMessageId(): MessageID {
 
 fun MessageStream.toProviderMessageStreams(): ProviderMessageStream {
     return ProviderMessageStream(this.name, this.direction.toCradleDirection())
+}
+
+fun StoredMessage.toRawMessage(): RawMessage {
+    val message = this
+    return RawMessage.newBuilder().apply {
+        metadataBuilder.apply {
+            putAllProperties(message.metadata?.toMap() ?: emptyMap())
+            id = message.id.toGrpcMessageId()
+            timestamp = message.timestamp.toTimestamp()
+            protocol = message.protocol ?: ""
+        }.build()
+        body = ByteString.copyFrom(message.content)
+    }.build()
 }

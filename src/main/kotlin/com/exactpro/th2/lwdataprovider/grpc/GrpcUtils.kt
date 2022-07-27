@@ -28,6 +28,7 @@ import com.exactpro.th2.dataprovider.grpc.TimeRelation
 import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
 import com.google.protobuf.ByteString
 import com.google.protobuf.Timestamp
+import com.google.protobuf.UnsafeByteOperations
 import java.time.Instant
 
 fun Timestamp.toInstant() : Instant = Instant.ofEpochSecond(this.seconds, this.nanos.toLong())
@@ -78,6 +79,6 @@ fun StoredMessage.toRawMessage(): RawMessage {
             timestamp = message.timestamp.toTimestamp()
             protocol = message.protocol ?: ""
         }.build()
-        body = ByteString.copyFrom(message.content)
+        body = UnsafeByteOperations.unsafeWrap(message.content)
     }.build()
 }

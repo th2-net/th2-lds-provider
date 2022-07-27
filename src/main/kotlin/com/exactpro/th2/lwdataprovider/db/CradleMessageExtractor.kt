@@ -20,7 +20,6 @@ import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
 import com.exactpro.cradle.messages.StoredGroupMessageBatch
 import com.exactpro.cradle.messages.StoredMessage
-import com.exactpro.cradle.messages.StoredMessageBatch
 import com.exactpro.cradle.messages.StoredMessageFilter
 import com.exactpro.cradle.messages.StoredMessageId
 import mu.KotlinLogging

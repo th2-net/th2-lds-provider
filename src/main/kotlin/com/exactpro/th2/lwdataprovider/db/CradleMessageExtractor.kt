@@ -133,7 +133,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                     putAllProperties(storedMessage.metadata?.toMap() ?: emptyMap())
                     idBuilder.mergeFrom(storedMessage.id.toGrpcMessageId())
                     timestampBuilder.mergeFrom(storedMessage.timestamp.toTimestamp())
-                    protocol = storedMessage.protocol
+                    protocol = storedMessage.protocol ?: ""
                 }.build()
                 body = ByteString.copyFrom(storedMessage.content)
             }.build()
@@ -154,7 +154,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                         putAllProperties(storedMessage.metadata?.toMap() ?: emptyMap())
                         idBuilder.mergeFrom(storedMessage.id.toGrpcMessageId())
                         timestampBuilder.mergeFrom(storedMessage.timestamp.toTimestamp())
-                        protocol = storedMessage.protocol
+                        protocol = storedMessage.protocol ?: ""
                     }.build()
                     body = ByteString.copyFrom(storedMessage.content)
                 }.build()
@@ -185,7 +185,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                         putAllProperties(storedMessageBatch.metadata?.toMap() ?: emptyMap())
                         idBuilder.mergeFrom(storedMessageBatch.id.toGrpcMessageId())
                         timestampBuilder.mergeFrom(storedMessageBatch.timestamp.toTimestamp())
-                        protocol = storedMessageBatch.protocol
+                        protocol = storedMessageBatch.protocol ?: ""
                     }.build()
                     body = ByteString.copyFrom(storedMessageBatch.content)
                 }.build()
@@ -221,7 +221,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                     putAllProperties(message.metadata?.toMap() ?: emptyMap())
                     idBuilder.mergeFrom(message.id.toGrpcMessageId())
                     timestampBuilder.mergeFrom(message.timestamp.toTimestamp())
-                    protocol = message.protocol
+                    protocol = message.protocol ?: ""
                 }.build()
                 body
                 body = ByteString.copyFrom(message.content)

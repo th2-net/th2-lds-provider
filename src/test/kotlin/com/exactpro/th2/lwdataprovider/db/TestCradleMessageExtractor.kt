@@ -175,7 +175,13 @@ internal class TestCradleMessageExtractor {
     }
 
     private class MockRequestContext(channelMessages: ResponseHandler) : MessageRequestContext(channelMessages) {
-        override fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage, onResponse: () -> Unit): RequestedMessageDetails {
+        override fun createMessageDetails(
+            id: String,
+            time: Long,
+            storedMessage: StoredMessage,
+            responseFormats: List<String>,
+            onResponse: () -> Unit
+        ): RequestedMessageDetails {
             return createMockDetails(id)
         }
 

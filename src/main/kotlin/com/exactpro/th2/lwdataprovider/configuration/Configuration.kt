@@ -32,6 +32,8 @@ class CustomConfigurationClass(
     val grpcBackPressure : Boolean? = null,
     val bufferPerQuery: Int? = null,
     val groupRequestBuffer: Int? = null,
+    val codecUsePinAttributes: Boolean = true,
+    val responseFormats: List<String> = emptyList()
 )
 
 class Configuration(customConfiguration: CustomConfigurationClass) {
@@ -44,10 +46,17 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     val responseQueueSize: Int = VariableBuilder.getVariable(customConfiguration::responseQueueSize, 1000)
     val execThreadPoolSize: Int = VariableBuilder.getVariable(customConfiguration::execThreadPoolSize, 10)
     val batchSize: Int = VariableBuilder.getVariable(customConfiguration::batchSize, 100)
-    val mode: Mode = VariableBuilder.getVariable(customConfiguration::mode, Mode.HTTP) { Mode.valueOf(it.uppercase(Locale.getDefault())) }
+    val mode: Mode = VariableBuilder.getVariable(
+        customConfiguration::mode,
+        Mode.HTTP
+    ) { Mode.valueOf(it.uppercase(Locale.getDefault())) }
     val grpcBackPressure: Boolean = VariableBuilder.getVariable(customConfiguration::grpcBackPressure, false)
     val bufferPerQuery: Int = VariableBuilder.getVariable(customConfiguration::bufferPerQuery, 0)
     val groupRequestBuffer: Int = VariableBuilder.getVariable(customConfiguration::groupRequestBuffer, 1000)
+    val codecUsePinAttributes: Boolean =
+        VariableBuilder.getVariable(customConfiguration::codecUsePinAttributes, true)
+    val responseFormats: List<String> =
+        VariableBuilder.getVariable(customConfiguration::responseFormats, emptyList())
 }
 
 enum class Mode {

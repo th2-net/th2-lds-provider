@@ -84,8 +84,7 @@ abstract class MessageRequestContext (
    }
 
    fun allDataLoadedFromCradle() = allMessagesRequested.set(true)
-
-   abstract fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage, onResponse: () -> Unit = {}): RequestedMessageDetails
+    abstract fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage, responseFormats: List<String>, onResponse: () -> Unit = {}): RequestedMessageDetails;
    abstract fun addStreamInfo();
 
    override fun onMessageSent() {
@@ -137,6 +136,7 @@ abstract class RequestedMessageDetails (
    @Volatile var time: Long,
    val storedMessage: StoredMessage,
    protected open val context: MessageRequestContext,
+   val responseFormats: List<String>,
    var parsedMessage: List<Message>? = null,
    var rawMessage: RawMessage? = null,
    private val onResponse: () -> Unit = {}

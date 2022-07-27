@@ -39,7 +39,8 @@ data class SseMessageSearchRequest(
     val attachedEvents: Boolean,
     val lookupLimitDays: Int?,
     val resumeFromIdsList: List<StoredMessageId>?,
-    val onlyRaw: Boolean
+    val onlyRaw: Boolean,
+    val responseFormats: List<String>?
 ) {
 
     companion object {
@@ -86,7 +87,8 @@ data class SseMessageSearchRequest(
         keepOpen = parameters["keepOpen"]?.firstOrNull()?.toBoolean() ?: false,
         attachedEvents = parameters["attachedEvents"]?.firstOrNull()?.toBoolean() ?: false,
         lookupLimitDays = parameters["lookupLimitDays"]?.firstOrNull()?.toInt(),
-        onlyRaw = parameters["onlyRaw"]?.firstOrNull()?.toBoolean() ?: false
+        onlyRaw = parameters["onlyRaw"]?.firstOrNull()?.toBoolean() ?: false,
+        responseFormats = parameters["responseFormats"]
     )
 
     constructor(grpcRequest: MessageSearchRequest) : this(
@@ -99,7 +101,8 @@ data class SseMessageSearchRequest(
         keepOpen = if (grpcRequest.hasKeepOpen()) grpcRequest.keepOpen.value else false,
         attachedEvents = false, // disabled
         lookupLimitDays = null,
-        onlyRaw = false // NOT SUPPORTED in GRPC
+        onlyRaw = false, // NOT SUPPORTED in GRPC
+        responseFormats = grpcRequest.responseFormatsList
     )
 
     private fun checkEndTimestamp() {

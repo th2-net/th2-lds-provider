@@ -148,7 +148,7 @@ open class GrpcDataProviderImpl(
         val grpcResponseHandler = GrpcResponseHandler(queue)
         val context = GrpcMessageRequestContext(grpcResponseHandler, maxMessagesPerRequest = configuration.bufferPerQuery)
         val loadingStep = context.startStep("messages_loading")
-        searchMessagesHandler.loadMessages(requestParams, context)
+        searchMessagesHandler.loadMessages(requestParams, context, configuration)
         try {
             processResponse(responseObserver, grpcResponseHandler, context, loadingStep::finish) { it.message }
         } catch (ex: Exception) {

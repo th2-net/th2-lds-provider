@@ -16,9 +16,7 @@
 
 package com.exactpro.th2.lwdataprovider
 
-import com.exactpro.th2.common.grpc.MessageBatch
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import com.exactpro.th2.common.grpc.RawMessageBatch
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.QueueAttribute
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
@@ -37,7 +35,11 @@ class RabbitMqDecoder(private val configuration: Configuration,
     companion object {
         private val logger = KotlinLogging.logger { }
     }
-    
+
+    fun sendAllBatchMessage(batch: MessageGroupBatch) {
+        this.messageRouterRawBatch.sendAll(batch, QueueAttribute.RAW.value)
+    }
+
     fun sendBatchMessage(batch: MessageGroupBatch, session: String) {
         this.messageRouterRawBatch.send(batch, session, QueueAttribute.RAW.value)
     }

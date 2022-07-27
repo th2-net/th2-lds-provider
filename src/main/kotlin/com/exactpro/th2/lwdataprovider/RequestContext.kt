@@ -19,13 +19,14 @@ package com.exactpro.th2.lwdataprovider
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.RawMessage
+import com.exactpro.th2.lwdataprovider.grpc.toRawMessage
 
 class RequestedMessageDetails(
     val storedMessage: StoredMessage,
     private val onResponse: (RequestedMessageDetails) -> Unit = {}
 ) {
     val id: String = storedMessage.id.toString()
-    val rawMessage: RawMessage = RawMessage.parseFrom(storedMessage.content)
+    val rawMessage: RawMessage = storedMessage.toRawMessage()
     @Volatile
     var time: Long = 0
     var parsedMessage: List<Message>? = null

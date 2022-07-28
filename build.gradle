@@ -68,7 +68,7 @@ dependencies {
     implementation('net.jpountz.lz4:lz4:1.3.0') {
         because('cassandra driver requires lz4 impl in classpath for compression')
     }
-    implementation 'com.exactpro.th2:grpc-data-provider:1.1.0-th2-3597-2410121472-SNAPSHOT'
+    implementation 'com.exactpro.th2:grpc-data-provider:1.1.0-raw-message-field-message-group-response-2755972373-SNAPSHOT'
 
     implementation 'io.github.microutils:kotlin-logging:2.1.23'
 

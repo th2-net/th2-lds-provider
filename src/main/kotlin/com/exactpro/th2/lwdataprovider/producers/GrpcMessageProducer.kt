@@ -30,19 +30,20 @@ class GrpcMessageProducer {
 
     companion object {
 
-        fun createMessage(rawMessage: RequestedMessageDetails): MessageGroupResponse {
-            val storedMessage = rawMessage.storedMessage
-            val responseFormats = rawMessage.responseFormats
+        fun createMessage(requestDetails: RequestedMessageDetails): MessageGroupResponse {
+            val storedMessage = requestDetails.storedMessage
+            val responseFormats = requestDetails.responseFormats
 
             return MessageGroupResponse.newBuilder().apply {
                 messageId = convertMessageId(storedMessage.id)
                 timestamp = convertTimestamp(storedMessage.timestamp)
 
                 if (responseFormats.isEmpty() || responseFormats.contains("BASE_64")) {
-                    bodyRaw = rawMessage.rawMessage?.body
+                    bodyRaw = requestDetails.rawMessage?.body
+                    rawMessage = requestDetails.rawMessage
                 }
                 if (responseFormats.isEmpty() || responseFormats.contains("PARSED")) {
-                    rawMessage.parsedMessage?.forEach {
+                    requestDetails.parsedMessage?.forEach {
                         addMessageItem(MessageGroupItem.newBuilder().setMessage(it).build())
                     }
                 }

@@ -16,16 +16,11 @@
 
 package com.exactpro.th2.lwdataprovider.http
 
-import com.exactpro.th2.lwdataprovider.EventRequestContext
+import com.exactpro.th2.lwdataprovider.SseResponseHandler
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
-import com.exactpro.th2.lwdataprovider.entities.filters.PredicateFactory
-import com.exactpro.th2.lwdataprovider.entities.filters.events.EventBodyFilter
-import com.exactpro.th2.lwdataprovider.entities.filters.events.EventNameFilter
-import com.exactpro.th2.lwdataprovider.entities.filters.events.EventStatusFilter
-import com.exactpro.th2.lwdataprovider.entities.filters.events.EventTypeFilter
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.BaseEventEntity
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
@@ -42,15 +37,6 @@ class GetEventsServlet
      )
     : SseServlet() {
 
-    val eventFiltersPredicateFactory: PredicateFactory<BaseEventEntity> = PredicateFactory(
-        mapOf(
-            EventTypeFilter.filterInfo to EventTypeFilter.Companion::build,
-            EventNameFilter.filterInfo to EventNameFilter.Companion::build,
-            EventBodyFilter.filterInfo to EventBodyFilter.Companion::build,
-            EventStatusFilter.filterInfo to EventStatusFilter.Companion::build
-        )
-    )
-
     companion object {
         private val logger = KotlinLogging.logger { }
     }
@@ -63,18 +49,16 @@ class GetEventsServlet
         val queryParametersMap = getParameters(req)
         logger.info { "Received search sse event request with parameters: $queryParametersMap" }
 
-        val filterPredicate =
-            eventFiltersPredicateFactory.build(queryParametersMap)
-        val request = SseEventSearchRequest(queryParametersMap, filterPredicate)
+        val request = SseEventSearchRequest(queryParametersMap)
         request.checkRequest()
         
         val queue = ArrayBlockingQueue<SseEvent>(configuration.responseQueueSize)
-        val sseResponseBuilder = SseResponseBuilder(jacksonMapper)
-        val reqContext = EventRequestContext(sseResponseBuilder, queryParametersMap, channelMessages = queue)
+        val sseResponseBuilder = SseResponseHandler(queue, SseResponseBuilder(jacksonMapper))
+        val reqContext = SseEventRequestContext(sseResponseBuilder, queryParametersMap)
         keepAliveHandler.addKeepAliveData(reqContext)
         searchEventsHandler.loadEvents(request, reqContext)
 
-        this.waitAndWrite(queue, resp)
+        this.waitAndWrite(queue, resp, reqContext)
         logger.info { "Processing search sse events request finished" }
         keepAliveHandler.removeKeepAliveData(reqContext)
     }

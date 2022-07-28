@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,19 @@
  * limitations under the License.
  ******************************************************************************/
 
-package com.exactpro.th2.lwdataprovider.entities.filters
+package com.exactpro.th2.lwdataprovider
 
-import com.exactpro.th2.lwdataprovider.entities.filters.info.FilterInfo
+class LwDataProviderException: Exception {
 
-interface Filter<T> {
-    val negative: Boolean
-    val conjunct: Boolean
-    fun match(element: T): Boolean
-    fun getInfo(): FilterInfo
+    constructor() : super()
+    constructor(message: String?) : super(message)
+    constructor(message: String?, cause: Throwable?) : super(message, cause)
+    constructor(cause: Throwable?) : super(cause)
+    constructor(message: String?, cause: Throwable?, enableSuppression: Boolean, writableStackTrace: Boolean) : super(
+        message,
+        cause,
+        enableSuppression,
+        writableStackTrace
+    )
+
 }

@@ -17,27 +17,29 @@
 package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.th2.common.grpc.MessageBatch
+import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.RawMessageBatch
 import com.exactpro.th2.common.schema.message.MessageRouter
+import com.exactpro.th2.common.schema.message.QueueAttribute
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.workers.CodecMessageListener
 import com.exactpro.th2.lwdataprovider.workers.DecodeQueueBuffer
 import mu.KotlinLogging
 
 class RabbitMqDecoder(private val configuration: Configuration, 
-                      private val messageRouterParsedBatch: MessageRouter<MessageBatch>,
-                      private val messageRouterRawBatch: MessageRouter<RawMessageBatch>) {
+                      private val messageRouterParsedBatch: MessageRouter<MessageGroupBatch>,
+                      private val messageRouterRawBatch: MessageRouter<MessageGroupBatch>) {
     
     var decodeBuffer = DecodeQueueBuffer(configuration.maxBufferDecodeQueue)
-    var parsedMonitor = messageRouterParsedBatch.subscribeAll(CodecMessageListener(decodeBuffer), "from_codec")
+    var parsedMonitor = messageRouterParsedBatch.subscribeAll(CodecMessageListener(decodeBuffer), QueueAttribute.PARSED.value, "from_codec")
 
 
     companion object {
         private val logger = KotlinLogging.logger { }
     }
     
-    fun sendBatchMessage(batch: RawMessageBatch, session: String) {
-        this.messageRouterRawBatch.send(batch, session)
+    fun sendBatchMessage(batch: MessageGroupBatch, session: String) {
+        this.messageRouterRawBatch.send(batch, session, QueueAttribute.RAW.value)
     }
     
     fun registerMessage(message: RequestedMessageDetails) {

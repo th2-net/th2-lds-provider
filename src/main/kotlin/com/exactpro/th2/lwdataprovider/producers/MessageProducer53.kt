@@ -54,7 +54,7 @@ class MessageProducer53 {
             )
         }
 
-        public fun convertToOneMessage (messages: List<Message>): Message {
+        fun convertToOneMessage (messages: List<Message>): Message {
             return when (messages.size) {
                 1 -> messages[0]
                 else -> messages[0].toBuilder().run {

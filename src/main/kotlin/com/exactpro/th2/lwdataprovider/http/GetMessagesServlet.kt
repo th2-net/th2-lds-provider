@@ -16,11 +16,8 @@
 
 package com.exactpro.th2.lwdataprovider.http
 
-import com.exactpro.th2.lwdataprovider.CustomJsonFormatter
-import com.exactpro.th2.lwdataprovider.MessageRequestContext
+import com.exactpro.th2.lwdataprovider.*
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
-import com.exactpro.th2.lwdataprovider.SseEvent
-import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
@@ -56,14 +53,16 @@ class GetMessagesServlet (
         
         val queue = ArrayBlockingQueue<SseEvent>(configuration.responseQueueSize)
         val sseResponseBuilder = SseResponseBuilder(jacksonMapper)
-        val reqContext = MessageRequestContext(sseResponseBuilder, queryParametersMap, channelMessages = queue,
-            jsonFormatter = customJsonFormatter)
-        keepAliveHandler.addKeepAliveData(reqContext)
-        searchMessagesHandler.loadMessages(request, reqContext)
+        val sseResponse = SseResponseHandler(queue, sseResponseBuilder)
+        val reqContext = MessageSseRequestContext(sseResponse, queryParametersMap, maxMessagesPerRequest = configuration.bufferPerQuery)
+        reqContext.startStep("messages_loading").use {
+            keepAliveHandler.addKeepAliveData(reqContext)
+            searchMessagesHandler.loadMessages(request, reqContext)
 
-        this.waitAndWrite(queue, resp)
-        keepAliveHandler.removeKeepAliveData(reqContext)
-        logger.info { "Processing search sse messages request finished" }
+            this.waitAndWrite(queue, resp, reqContext)
+            keepAliveHandler.removeKeepAliveData(reqContext)
+            logger.info { "Processing search sse messages request finished" }
+        }
     }
     
 

@@ -17,9 +17,9 @@
 package com.exactpro.th2.lwdataprovider
 
 
-import kotlinx.atomicfu.locks.ReentrantLock
-import kotlinx.atomicfu.locks.withLock
 import java.io.Writer
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 class NoSseResponseWriter (private val writer: Writer) {
     

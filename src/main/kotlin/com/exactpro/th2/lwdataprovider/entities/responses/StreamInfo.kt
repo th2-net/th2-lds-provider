@@ -19,9 +19,6 @@ package com.exactpro.th2.lwdataprovider.entities.responses
 import com.exactpro.cradle.Direction
 import com.exactpro.cradle.TimeRelation
 import com.exactpro.cradle.messages.StoredMessageId
-import com.exactpro.th2.dataprovider.grpc.Stream
-import com.exactpro.th2.lwdataprovider.cradleDirectionToGrpc
-import com.exactpro.th2.lwdataprovider.convertToProto
 import java.time.Instant
 
 data class StreamInfo(val stream: Pair<String, Direction>, val keepOpen: Boolean, val startTimestamp: Instant) {
@@ -83,11 +80,4 @@ data class StreamInfo(val stream: Pair<String, Direction>, val keepOpen: Boolean
         }
     }
 
-    fun convertToProto(): Stream {
-        return Stream.newBuilder()
-            .setDirection(cradleDirectionToGrpc(stream.second))
-            .setSession(stream.first).also { builder ->
-                lastElement?.let { builder.setLastId(it.convertToProto()) }
-            }.build()
-    }
 }

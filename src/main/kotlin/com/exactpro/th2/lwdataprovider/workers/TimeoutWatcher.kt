@@ -17,6 +17,7 @@
 package com.exactpro.th2.lwdataprovider.workers
 
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
+import mu.KotlinLogging
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
@@ -25,23 +26,30 @@ class TimerWatcher (private val decodeBuffer: DecodeQueueBuffer,
 ) {
     
     private val timeout: Long = configuration.decodingTimeout
-    private val running = AtomicBoolean(false)
+    @Volatile
+    private var running: Boolean = false
     private var thread: Thread? = null
+
+    companion object {
+        private val logger = KotlinLogging.logger { }
+    }
     
 
     fun start() {
-        thread = thread(name="timeout-watcher", start = true) { run() }
+        running = true
+        thread?.interrupt()
+        thread = thread(name="timeout-watcher", start = true, priority = 2) { run() }
     }
 
     fun stop() {
-        running.set(false)
+        running = false
         thread?.interrupt()
     }
     
     private fun run() {
-        
-        running.set(true)
-        while (running.get()) {
+
+        logger.debug { "Timeout watcher started" }
+        while (running) {
             val currentTime = System.currentTimeMillis()
             var mintime = currentTime
 
@@ -55,7 +63,7 @@ class TimerWatcher (private val decodeBuffer: DecodeQueueBuffer,
                         val list = decodeBuffer.removeById(entry.key)
                         list?.forEach {
                             it.parsedMessage = null
-                            it.responseMessage53()
+                            it.responseMessage()
                             it.notifyMessage()
                         }
                         if (list != null && list.isNotEmpty()) {
@@ -69,9 +77,17 @@ class TimerWatcher (private val decodeBuffer: DecodeQueueBuffer,
             }
 
             val sleepTime = timeout - (System.currentTimeMillis() - mintime)
-            if (sleepTime > 0)
-                Thread.sleep(sleepTime)
+            if (sleepTime > 0) {
+                try {
+                    Thread.sleep(sleepTime)
+                } catch (e: InterruptedException) {
+                    running = false
+                    logger.warn(e) { "Someone stopped timeout watcher" }
+                    break
+                }
+            }
         }
+        logger.debug { "Timeout watcher finished" }
        
     }    
 }

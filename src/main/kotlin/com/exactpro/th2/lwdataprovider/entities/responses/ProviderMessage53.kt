@@ -18,18 +18,12 @@ package com.exactpro.th2.lwdataprovider.entities.responses
 
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageId
-import com.exactpro.th2.common.grpc.ConnectionID
-import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.Message
-import com.exactpro.th2.common.message.toTimestamp
-import com.exactpro.th2.dataprovider.grpc.MessageData
-import com.exactpro.th2.lwdataprovider.convertToProto
-import com.exactpro.th2.lwdataprovider.cradleDirectionToGrpc
 import com.exactpro.th2.lwdataprovider.entities.internal.Direction
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonRawValue
 import java.time.Instant
-import java.util.Collections
+import java.util.*
 
 @Deprecated("same format as rpt-data-provider5.3")
 data class ProviderMessage53 (
@@ -75,19 +69,4 @@ data class ProviderMessage53 (
         attachedEventIds = events,
         message = message
     )
-
-    fun convertToGrpcMessageData(): MessageData {
-        return MessageData.newBuilder()
-            .setMessageId(id.convertToProto())
-            .setTimestamp(timestamp.toTimestamp())
-            .setDirection(cradleDirectionToGrpc(id.direction))
-            .setSessionId(ConnectionID.newBuilder().setSessionAlias(id.streamName))
-            .setMessageType(messageType)
-            .addAllAttachedEventIds(attachedEventIds.map { EventID.newBuilder().setId(it).build() })
-            .also { builder ->
-                body?.let { builder.setBody(body) }
-                bodyBase64?.let { builder.setBodyBase64(bodyBase64) }
-                message?.let { builder.setMessage(it) }
-            }.build()
-    }
 }

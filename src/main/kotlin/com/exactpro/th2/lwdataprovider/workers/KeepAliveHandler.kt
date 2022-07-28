@@ -18,6 +18,7 @@ package com.exactpro.th2.lwdataprovider.workers
 
 import com.exactpro.th2.lwdataprovider.RequestContext
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
+import mu.KotlinLogging
 import java.util.ArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
@@ -28,12 +29,16 @@ class KeepAliveHandler(private val configuration: Configuration) {
     private val running = AtomicBoolean(false)
     private val timeout = configuration.keepAliveTimeout
     private var thread: Thread? = null
+
+    companion object {
+        private val logger = KotlinLogging.logger { }
+    }
     
-    fun addKeepAliveData(requestContext: RequestContext) {
+    @Synchronized fun addKeepAliveData(requestContext: RequestContext) {
         data.add(requestContext)
     }
 
-    fun removeKeepAliveData(requestContext: RequestContext) {
+    @Synchronized fun removeKeepAliveData(requestContext: RequestContext) {
         data.remove(requestContext)
     }
     
@@ -49,6 +54,7 @@ class KeepAliveHandler(private val configuration: Configuration) {
     private fun run() {
 
         running.set(true)
+        logger.debug { "Keep alive handler started" }
         
         while (running.get()) {
             
@@ -60,12 +66,13 @@ class KeepAliveHandler(private val configuration: Configuration) {
             try {
                 Thread.sleep(timeout)
             } catch (e: InterruptedException) {
-                running.set(false)
-                TODO("add logging")
+                if (running.get()) {
+                    running.set(false)
+                    logger.warn(e) { "Someone stopped keep alive handler" }
+                }
             }
-            
         }
-        
-        
+
+        logger.debug { "Keep alive handler finished" }
     }
 }

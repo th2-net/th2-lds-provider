@@ -17,65 +17,65 @@
 package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.th2.lwdataprovider.entities.responses.BaseEventEntity
-import org.testng.Assert
-import org.testng.annotations.Test
+import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Test
 
 class EventBodyConverter {
     
     @Test
     fun test1 () {
-        val from:String? = ""
-        val toExp:String = "{}"
+        val from = ""
+        val toExp = "{}"
 
-        Assert.assertEquals(BaseEventEntity.checkAndConvertBody(from), toExp)
+        Assertions.assertEquals(toExp, BaseEventEntity.checkAndConvertBody(from))
     }
 
     @Test
     fun test2 () {
         val from:String? = null
-        val toExp:String = "{}"
+        val toExp = "{}"
 
-        Assert.assertEquals(BaseEventEntity.checkAndConvertBody(from), toExp)
+        Assertions.assertEquals(toExp, BaseEventEntity.checkAndConvertBody(from))
     }
 
     @Test
     fun test3 () {
-        val from:String? = "{'abc': 'abc'}"
-        val toExp:String = from!!
+        val from = "{'abc': 'abc'}"
+        val toExp:String = from
 
-        Assert.assertEquals(BaseEventEntity.checkAndConvertBody(from), toExp)
+        Assertions.assertEquals(toExp, BaseEventEntity.checkAndConvertBody(from))
     }
 
     @Test
     fun test4 () {
-        val from:String? = "[{'abc': 'abc'}, {'abc': 'abc'}]"
-        val toExp:String = from!!
+        val from = "[{'abc': 'abc'}, {'abc': 'abc'}]"
+        val toExp:String = from
 
-        Assert.assertEquals(BaseEventEntity.checkAndConvertBody(from), toExp)
+        Assertions.assertEquals(toExp, BaseEventEntity.checkAndConvertBody(from))
     }
 
     @Test
     fun test5 () {
-        val from:String? = "abd33422"
-        val toExp:String = "\"" + from!! + "\""
+        val from = "abd33422"
+        val toExp:String = "\"" + from + "\""
 
-        Assert.assertEquals(BaseEventEntity.checkAndConvertBody(from), toExp)
+        Assertions.assertEquals(toExp, BaseEventEntity.checkAndConvertBody(from))
     }
 
     @Test
     fun test6 () {
-        val from:String? = "abd\"33422"
-        val toExp:String = "\"abd\\\"33422\""
+        val from = "abd\"33422"
+        val toExp = "\"abd\\\"33422\""
 
-        Assert.assertEquals(BaseEventEntity.checkAndConvertBody(from), toExp)
+        Assertions.assertEquals(toExp, BaseEventEntity.checkAndConvertBody(from))
     }
 
     @Test
     fun test7 () {
-        val from:String? = "]"
-        val toExp:String = "\"]\""
+        val from = "]"
+        val toExp = "\"]\""
 
-        Assert.assertEquals(BaseEventEntity.checkAndConvertBody(from), toExp)
+        Assertions.assertEquals(toExp, BaseEventEntity.checkAndConvertBody(from))
     }
 
 

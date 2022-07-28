@@ -16,70 +16,102 @@
 
 package com.exactpro.th2.lwdataprovider.handlers
 
-import com.exactpro.cradle.Direction
 import com.exactpro.cradle.TimeRelation.AFTER
-import com.exactpro.cradle.messages.*
-import com.exactpro.th2.lwdataprovider.*
+import com.exactpro.cradle.messages.StoredMessageFilterBuilder
+import com.exactpro.cradle.messages.StoredMessageId
+import com.exactpro.th2.lwdataprovider.MessageRequestContext
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
-import io.prometheus.client.Counter
 import mu.KotlinLogging
-import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.ExecutorService
+import kotlin.math.max
 
 class SearchMessagesHandler(
     private val cradleMsgExtractor: CradleMessageExtractor,
-    private val threadPool: ThreadPoolExecutor
+    private val threadPool: ExecutorService
 ) {
     companion object {
         private val logger = KotlinLogging.logger { }
+    }
 
-        private val processedMessageCount = Counter.build(
-            "processed_message_count", "Count of processed Message"
-        ).register()
+    fun extractStreamNames(): Collection<String> {
+        logger.info { "Getting stream names" }
+        return cradleMsgExtractor.getStreams();
     }
     
     fun loadMessages(request: SseMessageSearchRequest, requestContext: MessageRequestContext) {
         
-        if (request.stream == null) {
+        if (request.stream == null && request.resumeFromIdsList.isNullOrEmpty()) {
             return;
         }
 
         threadPool.execute {
             try {
-                request.stream.forEach { stream ->
 
-                    for (direction in Direction.values()) {
+                var limitReached = false;
+                if (!request.resumeFromIdsList.isNullOrEmpty()) {
+                    request.resumeFromIdsList.forEach { resumeFromId ->
+                        requestContext.streamInfo.registerSession(resumeFromId.streamName, resumeFromId.direction)
+                        if (limitReached)
+                            return@forEach;
+                        if (!requestContext.contextAlive)
+                            return@execute;
+                        val filter = StoredMessageFilterBuilder().apply {
+                            streamName().isEqualTo(resumeFromId.streamName)
+                            direction().isEqualTo(resumeFromId.direction)
+                            if (request.searchDirection == AFTER) {
+                                index().isGreaterThanOrEqualTo(resumeFromId.index)
+                            } else {
+                                index().isLessThanOrEqualTo(resumeFromId.index)
+                            }
+
+                            request.startTimestamp?.let { timestampFrom().isGreaterThanOrEqualTo(it) }
+                            request.endTimestamp?.let { timestampTo().isLessThan(it) }
+                            request.resultCountLimit?.let { limit(max(it - requestContext.loadedMessages, 0)) }
+
+                        }.build()
+
+                        if (!request.onlyRaw)
+                            cradleMsgExtractor.getMessages(filter, requestContext)
+                        else
+                            cradleMsgExtractor.getRawMessages(filter, requestContext)
+                        limitReached = request.resultCountLimit != null && request.resultCountLimit <= requestContext.loadedMessages
+                    }
+                } else {
+                    request.stream?.forEach { (stream, direction) ->
+                        requestContext.streamInfo.registerSession(stream, direction)
+                        if (limitReached)
+                            return@forEach;
+                        if (!requestContext.contextAlive)
+                            return@execute;
+
                         val filter = StoredMessageFilterBuilder().apply {
                             streamName().isEqualTo(stream)
                             direction().isEqualTo(direction)
                             request.startTimestamp?.let { timestampFrom().isGreaterThanOrEqualTo(it) }
                             request.endTimestamp?.let { timestampTo().isLessThan(it) }
-                            request.resultCountLimit?.let { limit(it) }
-
-                            request.resumeFromIdsList?.get(0)?.let {
-                                if (request.searchDirection == AFTER) {
-                                    index().isGreaterThanOrEqualTo(it.index)
-                                } else {
-                                    index().isLessThanOrEqualTo(it.index)
-                                }
-                            }
+                            request.resultCountLimit?.let { limit(max(it - requestContext.loadedMessages, 0)) }
                         }.build()
 
                         if (!request.onlyRaw)
                             cradleMsgExtractor.getMessages(filter, requestContext)
-                        else 
+                        else
                             cradleMsgExtractor.getRawMessages(filter, requestContext)
+
+                        limitReached = request.resultCountLimit != null && request.resultCountLimit <= requestContext.loadedMessages
                     }
                 }
+
                 requestContext.allDataLoadedFromCradle()
                 if (requestContext.requestedMessages.isEmpty()) {
+                    requestContext.addStreamInfo()
                     requestContext.finishStream()
                 }
             } catch (e: Exception) {
                 logger.error("Error getting messages", e)
-                requestContext.channelMessages.put(SseEvent("{ \"message\": \"${e.message}\" }", EventType.ERROR))
-                requestContext.channelMessages.put(SseEvent(event = EventType.CLOSE))
+                requestContext.writeErrorMessage(e.message?:"")
+                requestContext.finishStream()
             }
         }
     }
@@ -95,8 +127,8 @@ class SearchMessagesHandler(
                 }
             } catch (e: Exception) {
                 logger.error("Error getting messages", e)
-                requestContext.channelMessages.put(SseEvent("{ \"message\": \"${e.message}\" }", EventType.ERROR))
-                requestContext.channelMessages.put(SseEvent(event = EventType.CLOSE))
+                requestContext.writeErrorMessage(e.message?:"")
+                requestContext.finishStream()
             }
         }
     }

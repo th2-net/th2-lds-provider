@@ -22,8 +22,8 @@ import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.grpc.MessageMetadata
 import com.exactpro.th2.lwdataprovider.workers.CodecMessageListener
-import org.testng.Assert
-import org.testng.annotations.Test
+import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Test
 
 class TestIterator {
     
@@ -47,7 +47,7 @@ class TestIterator {
 
         val messageIterator = CodecMessageListener.MessageIterator(arrayList.iterator()).asSequence().toList()
 
-        Assert.assertEquals(messageIterator, arrayList2)
+        Assertions.assertEquals(arrayList2, messageIterator)
     }
 
     @Test
@@ -59,7 +59,7 @@ class TestIterator {
 
         val messageIterator = CodecMessageListener.MessageIterator(arrayList.iterator()).asSequence().toList()
 
-        Assert.assertEquals(messageIterator, arrayList2)
+        Assertions.assertEquals(arrayList2, messageIterator)
     }
 
     @Test
@@ -71,7 +71,7 @@ class TestIterator {
 
         val messageIterator = CodecMessageListener.MessageIterator(arrayList.iterator()).asSequence().toList()
 
-        Assert.assertEquals(messageIterator, arrayList2)
+        Assertions.assertEquals(arrayList2, messageIterator)
     }
 
     @Test
@@ -84,7 +84,7 @@ class TestIterator {
 
         val messageIterator = CodecMessageListener.MessageIterator(arrayList.iterator()).asSequence().toList()
 
-        Assert.assertEquals(messageIterator, arrayList2)
+        Assertions.assertEquals(arrayList2, messageIterator)
     }
 
     @Test
@@ -97,7 +97,7 @@ class TestIterator {
 
         val messageIterator = CodecMessageListener.MessageIterator(arrayList.iterator()).asSequence().toList()
 
-        Assert.assertEquals(messageIterator, arrayList2)
+        Assertions.assertEquals(arrayList2, messageIterator)
     }
 
 

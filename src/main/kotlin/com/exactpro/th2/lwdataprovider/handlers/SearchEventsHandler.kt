@@ -16,29 +16,29 @@
 
 package com.exactpro.th2.lwdataprovider.handlers
 
-import com.exactpro.th2.lwdataprovider.*
 import com.exactpro.th2.lwdataprovider.db.CradleEventExtractor
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
+import com.exactpro.th2.lwdataprovider.http.EventRequestContext
 import mu.KotlinLogging
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.ThreadPoolExecutor
 
 class SearchEventsHandler(
     private val cradle: CradleEventExtractor,
-    private val threadPool: ThreadPoolExecutor
+    private val threadPool: ExecutorService
 ) {
     companion object {
         private val logger = KotlinLogging.logger { }
     }
     
     fun loadEvents(request: SseEventSearchRequest, requestContext: EventRequestContext) {
-
         threadPool.execute {
             try {
                 cradle.getEvents(request, requestContext)
             } catch (e: Exception) {
-                requestContext.channelMessages.put(SseEvent("{ \"message\": \"${e.message}\" }", EventType.ERROR))
-                requestContext.channelMessages.put(SseEvent(event = EventType.CLOSE))
+                requestContext.writeErrorMessage(e.message?:"")
+                requestContext.finishStream()
             }
         }
     }
@@ -49,8 +49,8 @@ class SearchEventsHandler(
             try {
                 cradle.getSingleEvents(request, requestContext)
             } catch (e: Exception) {
-                requestContext.channelMessages.put(SseEvent("{ \"message\": \"${e.message}\" }", EventType.ERROR))
-                requestContext.channelMessages.put(SseEvent(event = EventType.CLOSE))
+                requestContext.writeErrorMessage(e.message?:"")
+                requestContext.finishStream()
             }
         }
     }

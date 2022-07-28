@@ -16,9 +16,9 @@
 
 package com.exactpro.th2.lwdataprovider.http
 
-import io.ktor.http.HttpHeaders
+import org.eclipse.jetty.http.HttpHeader
 import org.eclipse.jetty.http.HttpStatus
-import java.util.Random
+import java.util.*
 import javax.servlet.http.HttpServlet
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
@@ -36,7 +36,7 @@ class GetTestSpeedServlet() : HttpServlet() {
 
         resp!!.contentType = "text/event-stream"
         resp.status = HttpStatus.OK_200
-        resp.addHeader(HttpHeaders.CacheControl, "no-cache, no-store")
+        resp.addHeader(HttpHeader.CACHE_CONTROL.asString(), "no-cache, no-store")
         resp.outputStream.use {
             for (i in 1..1024)
                 it.write(str, 0, str.size)

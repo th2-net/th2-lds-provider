@@ -16,11 +16,8 @@
 
 package com.exactpro.th2.lwdataprovider.http
 
-import com.exactpro.th2.lwdataprovider.EventRequestContext
-import com.exactpro.th2.lwdataprovider.EventType
+import com.exactpro.th2.lwdataprovider.*
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
-import com.exactpro.th2.lwdataprovider.SseEvent
-import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
@@ -57,12 +54,12 @@ class GetOneEvent
         logger.info { "Received get message request (${req.pathInfo}) with parameters: $queryParametersMap" }
 
         val toEventIds = toEventIds(eventId, queue)
-        var reqContext:EventRequestContext? = null
+        var reqContext:SseEventRequestContext? = null
         if (toEventIds != null) {
             val request = GetEventRequest(toEventIds.first, toEventIds.second, queryParametersMap )
 
-            val sseResponseBuilder = SseResponseBuilder(jacksonMapper)
-            reqContext = EventRequestContext(sseResponseBuilder, queryParametersMap, channelMessages = queue)
+            val sseResponseBuilder = SseResponseHandler(queue, SseResponseBuilder(jacksonMapper))
+            reqContext = SseEventRequestContext(sseResponseBuilder, queryParametersMap)
             keepAliveHandler.addKeepAliveData(reqContext)
             searchEventsHandler.loadOneEvent(request, reqContext)
         }

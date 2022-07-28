@@ -16,6 +16,9 @@
 
 package com.exactpro.th2.lwdataprovider.entities.requests
 
+import com.exactpro.th2.common.grpc.MessageID
+import com.exactpro.th2.lwdataprovider.grpc.toStoredMessageId
+
 
 data class GetMessageRequest(
     val msgId: String,
@@ -25,6 +28,11 @@ data class GetMessageRequest(
     constructor(msgId: String, parameters: Map<String, List<String>>) : this(
         msgId = msgId,
         onlyRaw = parameters["onlyRaw"]?.firstOrNull()?.toBoolean() ?: false
+    )
+
+    constructor(msgId: MessageID) : this(
+        msgId = msgId.toStoredMessageId().toString(),
+        onlyRaw = false
     )
 }
 

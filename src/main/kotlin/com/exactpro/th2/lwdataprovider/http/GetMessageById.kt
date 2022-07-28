@@ -17,11 +17,7 @@
 package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.cradle.Direction
-import com.exactpro.th2.lwdataprovider.CustomJsonFormatter
-import com.exactpro.th2.lwdataprovider.EventType
-import com.exactpro.th2.lwdataprovider.MessageRequestContext
-import com.exactpro.th2.lwdataprovider.SseEvent
-import com.exactpro.th2.lwdataprovider.SseResponseBuilder
+import com.exactpro.th2.lwdataprovider.*
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
@@ -29,7 +25,7 @@ import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.gson.Gson
 import mu.KotlinLogging
-import java.util.Collections
+import java.util.*
 import java.util.concurrent.ArrayBlockingQueue
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
@@ -67,8 +63,8 @@ class GetMessageById (
             val request = GetMessageRequest(newMsgId, queryParametersMap)
 
             val sseResponseBuilder = SseResponseBuilder(jacksonMapper)
-            reqContext = MessageRequestContext(sseResponseBuilder, queryParametersMap, channelMessages = queue,
-                jsonFormatter = customJsonFormatter)
+            val sseResponse = SseResponseHandler(queue, sseResponseBuilder)
+            reqContext = MessageSseRequestContext(sseResponse, queryParametersMap)
             keepAliveHandler.addKeepAliveData(reqContext)
             searchMessagesHandler.loadOneMessage(request, reqContext)
         }
@@ -85,8 +81,8 @@ class GetMessageById (
             if (split.size == 3 && split[2].all { it.isDigit() }) {
                 if (Direction.byLabel(split[1]) != null)
                     return msgId
-                else if (Direction.byLabel(split[1].toLowerCase()) != null)
-                    return split[0] + ":" + split[1].toLowerCase() + ":" + split[2]
+                else if (Direction.byLabel(split[1].lowercase(Locale.getDefault())) != null)
+                    return split[0] + ":" + split[1].lowercase(Locale.getDefault()) + ":" + split[2]
             }
         }
         

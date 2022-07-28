@@ -18,9 +18,9 @@ package com.exactpro.th2.lwdataprovider
 
 
 import com.exactpro.th2.lwdataprovider.http.SseBufferedWriter
-import kotlinx.atomicfu.locks.ReentrantLock
-import kotlinx.atomicfu.locks.withLock
 import java.io.Writer
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 class SseResponseWriter (private val srcWriter: Writer){
     
@@ -41,9 +41,7 @@ class SseResponseWriter (private val srcWriter: Writer){
 
     private fun eventWrite(event: SseEvent) {
         lock.withLock {
-            if (event.event != null) {
-                this.writer.write("event: ", event.event.toString(), "\n")
-            }
+            this.writer.write("event: ", event.event.toString(), "\n")
 
             this.writer.write("data: ", event.data, "\n")
             

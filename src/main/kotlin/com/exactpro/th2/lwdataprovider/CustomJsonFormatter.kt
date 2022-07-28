@@ -26,7 +26,7 @@ class CustomJsonFormatter  {
     private val sb1 : StringBuilder = StringBuilder()
     
     companion object {
-        private const val QUOTE_CHAR = '"'.toInt()
+        private const val QUOTE_CHAR = '"'.code
     }
     
     fun print(msg : Message) : String {

@@ -32,6 +32,8 @@ class HttpServer(private val context: Context) {
 
     private val jacksonMapper = context.jacksonMapper
     private val configuration = context.configuration
+
+    private var httpServer: Server? = null
     
     
     fun run() {
@@ -40,6 +42,7 @@ class HttpServer(private val context: Context) {
         val keepAliveHandler = this.context.keepAliveHandler
         
         val server = Server()
+        httpServer = server
         val connector = ServerConnector(server)
         connector.host = configuration.hostname
         connector.port = configuration.port
@@ -76,6 +79,11 @@ class HttpServer(private val context: Context) {
         server.start()
 
         logger.info { "serving on: http://${configuration.hostname}:${configuration.port}" }
+    }
+
+    fun stop() {
+        httpServer?.stop()
+        logger.info { "http server stopped" }
     }
     
 }

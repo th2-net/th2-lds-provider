@@ -16,57 +16,11 @@
 
 package com.exactpro.th2.lwdataprovider
 
-import com.exactpro.cradle.messages.StoredMessageFilter
-import com.exactpro.cradle.messages.StoredMessageId
-import com.exactpro.cradle.testevents.BatchedStoredTestEventMetadata
-import com.exactpro.cradle.testevents.StoredTestEventId
-import com.exactpro.cradle.testevents.StoredTestEventMetadata
-import com.exactpro.th2.common.grpc.ConnectionID
-import com.exactpro.th2.common.grpc.MessageID
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.prometheus.client.Gauge
 import io.prometheus.client.Histogram
-import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.*
 import mu.KotlinLogging
-import java.io.IOException
-import java.time.Instant
-import java.util.concurrent.Executors
-import kotlin.coroutines.coroutineContext
-import kotlin.system.measureTimeMillis
 
 private val logger = KotlinLogging.logger { }
-
-suspend fun ObjectMapper.asStringSuspend(data: Any?): String {
-    val mapper = this
-
-    return withContext(Dispatchers.IO) {
-        mapper.writeValueAsString(data)
-    }
-}
-
-fun StoredMessageFilter.convertToString(): String {
-    val filter = this
-
-    return "(limit=${filter.limit} " +
-            "direction=${filter.direction?.value} " +
-            "timestampFrom=${filter.timestampFrom?.value} " +
-            "timestampTo=${filter.timestampTo?.value} " +
-            "stream=${filter.streamName?.value} " +
-            "indexValue=${filter.index?.value} " +
-            "indexOperation=${filter.index?.operation?.name}"
-}
-
-suspend fun <T> logTime(methodName: String, lambda: suspend () -> T): T? {
-    return withContext(coroutineContext) {
-        var result: T? = null
-
-        measureTimeMillis { result = lambda.invoke() }
-            .also { logger.debug { "cradle: $methodName took ${it}ms" } }
-
-        result
-    }
-}
 
 data class Metrics(
     private val histogramTime: Histogram,
@@ -92,80 +46,4 @@ data class Metrics(
         gauge.dec()
         timer.observeDuration()
     }
-}
-
-suspend fun <T> logMetrics(metrics: Metrics, lambda: suspend () -> T): T? {
-    return withContext(coroutineContext) {
-        val timer = metrics.startObserve()
-        try {
-            lambda.invoke()
-        } finally {
-            metrics.stopObserve(timer)
-        }
-    }
-}
-
-private val writerDispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
-
-
-fun minInstant(first: Instant, second: Instant): Instant {
-    return if (first.isBefore(second)) {
-        first
-    } else {
-        second
-    }
-}
-
-fun maxInstant(first: Instant, second: Instant): Instant {
-    return if (first.isAfter(second)) {
-        first
-    } else {
-        second
-    }
-}
-
-
-fun Instant.isBeforeOrEqual(other: Instant): Boolean {
-    return this.isBefore(other) || this == other
-}
-
-fun Instant.isAfterOrEqual(other: Instant): Boolean {
-    return this.isAfter(other) || this == other
-}
-
-
-suspend fun <E> ReceiveChannel<E>.receiveAvailable(): List<E> {
-    val allMessages = mutableListOf<E>()
-    allMessages.add(receive())
-    var next = poll()
-    while (next != null) {
-        allMessages.add(next)
-        next = poll()
-    }
-    return allMessages
-}
-
-
-fun StoredTestEventMetadata.tryToGetTestEvents(parentEventId: StoredTestEventId? = null): Collection<BatchedStoredTestEventMetadata>? {
-    return try {
-        this.batchMetadata?.testEvents?.let { events ->
-            if (parentEventId != null) {
-                events.filter { it.parentId == parentEventId }
-            } else {
-                events
-            }
-        }
-    } catch (e: IOException) {
-        logger.error(e) { }
-        null
-    }
-}
-
-
-fun StoredMessageId.convertToProto(): MessageID {
-    return MessageID.newBuilder()
-        .setSequence(index)
-        .setDirection(cradleDirectionToGrpc(direction))
-        .setConnectionId(ConnectionID.newBuilder().setSessionAlias(streamName))
-        .build()
 }

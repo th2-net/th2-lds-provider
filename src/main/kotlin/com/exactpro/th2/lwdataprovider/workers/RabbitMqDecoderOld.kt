@@ -17,9 +17,11 @@
 package com.exactpro.th2.lwdataprovider.workers
 
 import com.exactpro.th2.common.grpc.MessageBatch
+import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.grpc.RawMessageBatch
 import com.exactpro.th2.common.schema.message.MessageRouter
+import com.exactpro.th2.common.schema.message.QueueAttribute
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import java.util.concurrent.BlockingQueue
@@ -31,7 +33,7 @@ import kotlin.concurrent.thread
 
 @Deprecated("use 2nd version")
 class RabbitMqDecoderOld (private val queue: BlockingQueue<List<RequestedMessageDetails>>, private val configuration: Configuration,
-                          private val messageRouterParsedBatch: MessageRouter<MessageBatch>,
+                          private val messageRouterParsedBatch: MessageRouter<MessageGroupBatch>,
                           private val messageRouterRawBatch: MessageRouter<RawMessageBatch>,
                           private val toWriteQueue: BlockingQueue<RequestedMessageDetails>
 ) {
@@ -40,7 +42,7 @@ class RabbitMqDecoderOld (private val queue: BlockingQueue<List<RequestedMessage
     var decodeBuffer = DecodeQueueBuffer()
     var lock = ReentrantLock()
     var cond: Condition = lock.newCondition()
-    var parsedMonitor = messageRouterParsedBatch.subscribeAll(CodecMessageListener(decodeBuffer), "from_codec")
+    var parsedMonitor = messageRouterParsedBatch.subscribeAll(CodecMessageListener(decodeBuffer), QueueAttribute.PARSED.value, "from_codec")
     
     
     var thread: Thread? = null

@@ -22,11 +22,9 @@ import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.responses.BaseEventEntity
 import com.exactpro.th2.dataprovider.grpc.EventSearchRequest
 import com.exactpro.th2.dataprovider.grpc.TimeRelation.*
-import com.exactpro.th2.lwdataprovider.entities.filters.FilterPredicate
 import java.time.Instant
 
 data class SseEventSearchRequest(
-    val filterPredicate: FilterPredicate<BaseEventEntity>,
     val startTimestamp: Instant?,
     val parentEvent: ProviderEventId?,
     val searchDirection: TimeRelation,
@@ -47,8 +45,7 @@ data class SseEventSearchRequest(
         }
     }
 
-    constructor(parameters: Map<String, List<String>>, filterPredicate: FilterPredicate<BaseEventEntity>) : this(
-        filterPredicate = filterPredicate,
+    constructor(parameters: Map<String, List<String>>) : this(
         startTimestamp = parameters["startTimestamp"]?.firstOrNull()?.let { Instant.ofEpochMilli(it.toLong()) },
         parentEvent = parameters["parentEvent"]?.firstOrNull()?.let { ProviderEventId(it) },
         searchDirection = parameters["searchDirection"]?.firstOrNull()?.let {
@@ -63,8 +60,7 @@ data class SseEventSearchRequest(
         attachedMessages = parameters["attachedMessages"]?.firstOrNull()?.toBoolean() ?: false
     )
 
-    constructor(request: EventSearchRequest, filterPredicate: FilterPredicate<BaseEventEntity>) : this(
-        filterPredicate = filterPredicate,
+    constructor(request: EventSearchRequest) : this(
         startTimestamp = if (request.hasStartTimestamp())
             request.startTimestamp.let {
                 Instant.ofEpochSecond(it.seconds, it.nanos.toLong())

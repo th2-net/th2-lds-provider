@@ -17,13 +17,12 @@
 package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.cradle.CradleManager
-import com.exactpro.th2.common.grpc.MessageBatch
-import com.exactpro.th2.common.grpc.RawMessageBatch
+import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration
 import com.exactpro.th2.common.schema.message.MessageRouter
-import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.CradleEventExtractor
+import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
@@ -32,6 +31,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.ThreadPoolExecutor
 
@@ -45,8 +45,8 @@ class Context(
         .disable(SerializationFeature.INDENT_OUTPUT),
 
     val cradleManager: CradleManager,
-    val messageRouterRawBatch: MessageRouter<RawMessageBatch>,
-    val messageRouterParsedBatch: MessageRouter<MessageBatch>,
+    val messageRouterRawBatch: MessageRouter<MessageGroupBatch>,
+    val messageRouterParsedBatch: MessageRouter<MessageGroupBatch>,
     val grpcConfig: GrpcConfiguration,
     val keepAliveHandler: KeepAliveHandler = KeepAliveHandler(configuration),
     
@@ -55,7 +55,7 @@ class Context(
     val cradleEventExtractor: CradleEventExtractor = CradleEventExtractor(cradleManager),
     val cradleMsgExtractor: CradleMessageExtractor = CradleMessageExtractor(configuration, cradleManager, mqDecoder),
     
-    val pool: ThreadPoolExecutor = Executors.newFixedThreadPool(configuration.execThreadPoolSize) as ThreadPoolExecutor,
+    val pool: ExecutorService = Executors.newFixedThreadPool(configuration.execThreadPoolSize),
     val searchMessagesHandler: SearchMessagesHandler = SearchMessagesHandler(
         cradleMsgExtractor,
         pool

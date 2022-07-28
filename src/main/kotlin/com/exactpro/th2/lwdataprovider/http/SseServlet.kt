@@ -17,9 +17,10 @@
 package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.th2.lwdataprovider.EventType
+import com.exactpro.th2.lwdataprovider.RequestContext
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseWriter
-import io.ktor.http.HttpHeaders
+import org.eclipse.jetty.http.HttpHeader
 import org.eclipse.jetty.http.HttpStatus
 import java.util.concurrent.BlockingQueue
 import javax.servlet.http.HttpServlet
@@ -28,10 +29,14 @@ import javax.servlet.http.HttpServletResponse
 
 open class SseServlet : HttpServlet() {
     
-    protected open fun waitAndWrite(queue: BlockingQueue<SseEvent>, resp: HttpServletResponse) {
+    protected open fun waitAndWrite(
+        queue: BlockingQueue<SseEvent>,
+        resp: HttpServletResponse,
+        reqContext: RequestContext
+    ) {
         resp.contentType = "text/event-stream"
         resp.status = HttpStatus.OK_200
-        resp.addHeader(HttpHeaders.CacheControl, "no-cache, no-store")
+        resp.addHeader(HttpHeader.CACHE_CONTROL.asString(), "no-cache, no-store")
         
         val writer = SseResponseWriter(resp.writer)
 
@@ -43,8 +48,9 @@ open class SseServlet : HttpServlet() {
                 inProcess = false
             } else {
                 writer.writeEvent(event)
+                reqContext.onMessageSent()
             }
-        }        
+        }
     }
 
     protected fun getParameters(req: HttpServletRequest): Map<String, List<String>> {

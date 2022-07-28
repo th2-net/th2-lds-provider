@@ -16,9 +16,12 @@
 
 package com.exactpro.th2.lwdataprovider.workers
 
+import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.MessageBatch
+import com.exactpro.th2.common.grpc.MessageGroup
+import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.schema.message.MessageListener
 import mu.KotlinLogging
@@ -26,8 +29,7 @@ import java.util.Collections
 
 class CodecMessageListener(
     private val decodeQueue: DecodeQueueBuffer
-)
-    : MessageListener<MessageBatch>  {
+) : MessageListener<MessageGroupBatch>  {
     
     private fun buildMessageIdString(messageId: MessageID) : String {
         return messageId.connectionId.sessionAlias + ":" + 
@@ -38,21 +40,22 @@ class CodecMessageListener(
         private val logger = KotlinLogging.logger { }
     }
     
-    override fun handler(consumerTag: String?, message: MessageBatch?) {
+    override fun handler(consumerTag: String, message: MessageGroupBatch) {
 
-        if (message == null)
-            return
-
-        MessageIterator.iterable(message.messagesList).forEach { messages ->
-            val messageIdStr = buildMessageIdString(messages.first().metadata.id)
+        message.groupsList.forEach { group ->
+            if (group.messagesList.any { !it.hasMessage() }) {
+                reportIncorrectGroup(group)
+                return@forEach
+            }
+            val messageIdStr = buildMessageIdString(group.messagesList.first().message.metadata.id)
 
             val msgIdQueue = decodeQueue.removeById(messageIdStr)
             if (msgIdQueue != null) {
-                logger.debug { "Received message from codec $messageIdStr. Count of awaiters: ${msgIdQueue.size}. Messages count: ${messages.size}" }
+                logger.debug { "Received message from codec $messageIdStr. Count of awaiters: ${msgIdQueue.size}. Messages count: ${group.messagesCount}" }
 
                 msgIdQueue.forEach {
-                    it.parsedMessage = messages
-                    it.responseMessage53()
+                    it.parsedMessage = group.messagesList.map { anyMsg -> anyMsg.message }
+                    it.responseMessage()
                     it.notifyMessage()
                 }
             } else {
@@ -61,6 +64,22 @@ class CodecMessageListener(
         }
 
         decodeQueue.checkAndUnlock()
+    }
+
+    private fun reportIncorrectGroup(group: MessageGroup) {
+        logger.error {
+            "some messages in group are not parsed: ${
+                group.messagesList.joinToString(",") {
+                    "${it.kindCase} ${
+                        when (it.kindCase) {
+                            AnyMessage.KindCase.MESSAGE -> buildMessageIdString(it.message.metadata.id)
+                            AnyMessage.KindCase.RAW_MESSAGE -> buildMessageIdString(it.rawMessage.metadata.id)
+                            AnyMessage.KindCase.KIND_NOT_SET, null -> null
+                        }
+                    }"
+                }
+            }"
+        }
     }
 
     class MessageIterator(private val srcIterator: Iterator<Message>) : Iterator<List<Message>> {

@@ -23,6 +23,7 @@ import com.exactpro.th2.lwdataprovider.entities.responses.EventTreeNode
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage
 import com.fasterxml.jackson.databind.ObjectMapper
+import java.util.*
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -33,11 +34,11 @@ enum class EventType {
     MESSAGE, EVENT, CLOSE, ERROR, KEEP_ALIVE, MESSAGE_IDS;
 
     override fun toString(): String {
-        return super.toString().toLowerCase()
+        return super.toString().lowercase(Locale.getDefault())
     }
 }
 
-data class SseEvent(val data: String = "empty data", val event: EventType? = null, val metadata: String? = null) {
+data class SseEvent(val data: String = "empty data", val event: EventType, val metadata: String? = null) {
     companion object {
         fun build(jacksonMapper: ObjectMapper, event: EventTreeNode, counter: AtomicLong): SseEvent {
             return SseEvent(

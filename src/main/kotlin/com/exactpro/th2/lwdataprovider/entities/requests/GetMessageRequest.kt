@@ -17,17 +17,20 @@
 package com.exactpro.th2.lwdataprovider.entities.requests
 
 import com.exactpro.th2.common.grpc.MessageID
+import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat
 import com.exactpro.th2.lwdataprovider.grpc.toStoredMessageId
 
 
 data class GetMessageRequest(
     val msgId: String,
-    val onlyRaw: Boolean
+    val onlyRaw: Boolean,
+    val responseFormats: List<ResponseFormat>? = listOf(ResponseFormat.ALL)
 ) {
 
     constructor(msgId: String, parameters: Map<String, List<String>>) : this(
         msgId = msgId,
-        onlyRaw = parameters["onlyRaw"]?.firstOrNull()?.toBoolean() ?: false
+        onlyRaw = parameters["onlyRaw"]?.firstOrNull()?.toBoolean() ?: false,
+        responseFormats = parameters["responseFormats"]?.map { x -> ResponseFormat.valueOf(x) }
     )
 
     constructor(msgId: MessageID) : this(

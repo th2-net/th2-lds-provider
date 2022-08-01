@@ -19,6 +19,7 @@ package com.exactpro.th2.lwdataprovider.http
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.RawMessage
+import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat
 import com.exactpro.th2.lwdataprovider.*
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
@@ -39,7 +40,7 @@ class MessageSseRequestContext (
     maxMessagesPerRequest = maxMessagesPerRequest) {
 
 
-    override fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage, responseFormats: List<String>, onResponse: () -> Unit) : RequestedMessageDetails {
+    override fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage, responseFormats: List<ResponseFormat>, onResponse: () -> Unit) : RequestedMessageDetails {
         return SseRequestedMessageDetails(id, time, storedMessage, this, responseFormats, onResponse)
     }
 
@@ -54,7 +55,7 @@ class SseRequestedMessageDetails(
     time: Long,
     storedMessage: StoredMessage,
     override val context: MessageSseRequestContext,
-    responseFormats: List<String>,
+    responseFormats: List<ResponseFormat>,
     onResponse: () -> Unit,
     parsedMessage: List<Message>? = null,
     rawMessage: RawMessage? = null

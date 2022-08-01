@@ -36,12 +36,12 @@ class RabbitMqDecoder(private val configuration: Configuration,
         private val logger = KotlinLogging.logger { }
     }
 
-    fun sendAllBatchMessage(batch: MessageGroupBatch) {
-        this.messageRouterRawBatch.sendAll(batch, QueueAttribute.RAW.value)
-    }
-
-    fun sendBatchMessage(batch: MessageGroupBatch, session: String) {
-        this.messageRouterRawBatch.send(batch, session, QueueAttribute.RAW.value)
+    fun sendBatchMessage(batch: MessageGroupBatch, session: String, codecUsePinAttributes: Boolean) {
+        if (codecUsePinAttributes) {
+            this.messageRouterRawBatch.send(batch, session, QueueAttribute.RAW.value)
+        } else {
+            this.messageRouterRawBatch.sendAll(batch, QueueAttribute.RAW.value)
+        }
     }
     
     fun registerMessage(message: RequestedMessageDetails) {

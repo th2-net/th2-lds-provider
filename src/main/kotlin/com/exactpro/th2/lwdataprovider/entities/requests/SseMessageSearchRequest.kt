@@ -20,6 +20,7 @@ import com.exactpro.cradle.Direction
 import com.exactpro.cradle.TimeRelation
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest
+import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat
 import com.exactpro.th2.dataprovider.grpc.MessageStreamPointer
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
 import com.exactpro.th2.lwdataprovider.grpc.toInstant
@@ -27,7 +28,6 @@ import com.exactpro.th2.lwdataprovider.grpc.toProviderMessageStreams
 import com.exactpro.th2.lwdataprovider.grpc.toProviderRelation
 import com.exactpro.th2.lwdataprovider.grpc.toStoredMessageId
 import java.time.Instant
-import kotlin.streams.toList
 
 data class SseMessageSearchRequest(
     val startTimestamp: Instant?,
@@ -39,8 +39,10 @@ data class SseMessageSearchRequest(
     val attachedEvents: Boolean,
     val lookupLimitDays: Int?,
     val resumeFromIdsList: List<StoredMessageId>?,
+    @Deprecated("Use responseFormats instead", ReplaceWith("responseFormats",
+        "com.exactpro.th2.lwdataprovider.entities.requests"), DeprecationLevel.WARNING)
     val onlyRaw: Boolean,
-    val responseFormats: List<String>?
+    val responseFormats: List<ResponseFormat>? = listOf(ResponseFormat.ALL)
 ) {
 
     companion object {
@@ -88,7 +90,7 @@ data class SseMessageSearchRequest(
         attachedEvents = parameters["attachedEvents"]?.firstOrNull()?.toBoolean() ?: false,
         lookupLimitDays = parameters["lookupLimitDays"]?.firstOrNull()?.toInt(),
         onlyRaw = parameters["onlyRaw"]?.firstOrNull()?.toBoolean() ?: false,
-        responseFormats = parameters["responseFormats"]
+        responseFormats = parameters["responseFormats"]?.map { x -> ResponseFormat.valueOf(x) }
     )
 
     constructor(grpcRequest: MessageSearchRequest) : this(

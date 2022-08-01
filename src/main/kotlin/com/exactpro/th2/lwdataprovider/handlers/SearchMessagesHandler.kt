@@ -27,6 +27,7 @@ import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 import mu.KotlinLogging
 import java.util.concurrent.ExecutorService
 import kotlin.math.max
+import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat
 
 class SearchMessagesHandler(
     private val cradleMsgExtractor: CradleMessageExtractor,
@@ -73,9 +74,9 @@ class SearchMessagesHandler(
 
                         }.build()
 
-                        val responseFormats = request.responseFormats ?: configuration.responseFormats
-                        if (request.onlyRaw || (responseFormats.contains("BASE_64") && responseFormats.size == 1)) {
-                            cradleMsgExtractor.getRawMessages(filter, requestContext)
+                        val responseFormats = request.responseFormats ?: configuration.defaultResponseFormats
+                        if (request.onlyRaw || (responseFormats.contains(ResponseFormat.BASE_64) && responseFormats.size == 1)) {
+                            cradleMsgExtractor.getRawMessages(filter, requestContext, responseFormats)
                         } else {
                             cradleMsgExtractor.getMessages(filter, requestContext, responseFormats)
                         }
@@ -97,9 +98,9 @@ class SearchMessagesHandler(
                             request.resultCountLimit?.let { limit(max(it - requestContext.loadedMessages, 0)) }
                         }.build()
 
-                        val responseFormats = request.responseFormats ?: configuration.responseFormats
-                        if (request.onlyRaw || (responseFormats.contains("BASE_64") && responseFormats.size == 1)) {
-                            cradleMsgExtractor.getRawMessages(filter, requestContext)
+                        val responseFormats = request.responseFormats ?: configuration.defaultResponseFormats
+                        if (request.onlyRaw || (responseFormats.contains(ResponseFormat.BASE_64) && responseFormats.size == 1)) {
+                            cradleMsgExtractor.getRawMessages(filter, requestContext, responseFormats)
                         } else {
                             cradleMsgExtractor.getMessages(filter, requestContext, responseFormats)
                         }

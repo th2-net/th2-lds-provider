@@ -19,6 +19,7 @@ package com.exactpro.th2.lwdataprovider
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.RawMessage
+import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import io.prometheus.client.Histogram
 import mu.KotlinLogging
@@ -85,7 +86,7 @@ abstract class MessageRequestContext (
 
    fun allDataLoadedFromCradle() = allMessagesRequested.set(true)
 
-    abstract fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage, responseFormats: List<String>, onResponse: () -> Unit = {}): RequestedMessageDetails;
+    abstract fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage, responseFormats: List<ResponseFormat>, onResponse: () -> Unit = {}): RequestedMessageDetails;
    abstract fun addStreamInfo();
 
    override fun onMessageSent() {
@@ -137,7 +138,7 @@ abstract class RequestedMessageDetails (
    @Volatile var time: Long,
    val storedMessage: StoredMessage,
    protected open val context: MessageRequestContext,
-   val responseFormats: List<String>,
+   val responseFormats: List<ResponseFormat>,
    var parsedMessage: List<Message>? = null,
    var rawMessage: RawMessage? = null,
    private val onResponse: () -> Unit = {}

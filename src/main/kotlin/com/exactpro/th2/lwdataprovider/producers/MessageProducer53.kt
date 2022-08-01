@@ -23,6 +23,9 @@ import com.exactpro.th2.lwdataprovider.CustomJsonFormatter
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import java.util.Base64
+import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat.PARSED
+import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat.BASE_64
+import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat.ALL
 
 @Deprecated("for 5.3 messages")
 class MessageProducer53 {
@@ -35,8 +38,8 @@ class MessageProducer53 {
             return ProviderMessage53(
                 rawMessage.storedMessage,
                 convertToOneMessage?.let { formatter.print(it) } ?: "{}",
-                if (responseFormats.isEmpty() || responseFormats.contains("PARSED")) convertToOneMessage else null,
-                if (responseFormats.isEmpty() || responseFormats.contains("BASE_64")) {
+                if (responseFormats.isEmpty() || responseFormats.contains(ALL) || responseFormats.contains(PARSED)) convertToOneMessage else null,
+                if (responseFormats.isEmpty() || responseFormats.contains(ALL) || responseFormats.contains(BASE_64)) {
                     rawMessage.rawMessage?.let { Base64.getEncoder().encodeToString(it.body.toByteArray()) }
                 } else null,
                 if (convertToOneMessage != null) convertToOneMessage.metadata.messageType else ""

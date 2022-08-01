@@ -23,6 +23,7 @@ import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.message.plusAssign
+import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat
 import com.exactpro.th2.lwdataprovider.MessageRequestContext
 import com.exactpro.th2.lwdataprovider.RabbitMqDecoder
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
@@ -44,7 +45,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
     fun getStreams(): Collection<String> = storage.streams
     
-    fun getMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext, responseFormats: List<String>) {
+    fun getMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext, responseFormats: List<ResponseFormat>) {
 
         var msgCount = 0
         val time = measureTimeMillis { 
@@ -80,12 +81,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                         decoder.registerMessage(it)
                         requestContext.registerMessage(it)
                     }
-                    if (codecUsePinAttributes) {
-                        decoder.sendBatchMessage(builder.build(), sessionName)
-                    } else {
-                        decoder.sendAllBatchMessage(builder.build())
-                    }
-
+                    decoder.sendBatchMessage(builder.build(), sessionName, codecUsePinAttributes)
                     messageBuffer.clear()
                     builder.clear()
                     msgCount += msgBufferCount
@@ -106,11 +102,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             }
             
             if (msgBufferCount > 0) {
-                if (codecUsePinAttributes) {
-                    decoder.sendBatchMessage(builder.build(), sessionName)
-                } else {
-                    decoder.sendAllBatchMessage(builder.build())
-                }
+                decoder.sendBatchMessage(builder.build(), sessionName, codecUsePinAttributes)
 
                 val sendingTime = System.currentTimeMillis()
                 messageBuffer.forEach { 
@@ -130,7 +122,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
     }
 
 
-    fun getRawMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext) {
+    fun getRawMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext, responseFormats: List<ResponseFormat>) {
 
         var msgCount = 0
         val time = measureTimeMillis {
@@ -145,7 +137,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                 }
                 msgId = storedMessageBatch.id
                 val id = storedMessageBatch.id.toString()
-                val tmp = requestContext.createMessageDetails(id, time, storedMessageBatch, emptyList())
+                val tmp = requestContext.createMessageDetails(id, time, storedMessageBatch, responseFormats)
                 tmp.rawMessage = RawMessage.parseFrom(storedMessageBatch.content)
                 tmp.responseMessage()
                 msgCount++
@@ -187,12 +179,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                     .build()
                 decoder.registerMessage(tmp)
                 requestContext.registerMessage(tmp)
-                if (codecUsePinAttributes) {
-                    decoder.sendBatchMessage(msgBatch, message.streamName)
-                } else {
-                    decoder.sendAllBatchMessage(msgBatch)
-                }
-
+                decoder.sendBatchMessage(msgBatch, message.streamName, codecUsePinAttributes)
             }
             
         }

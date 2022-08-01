@@ -22,6 +22,9 @@ import com.exactpro.th2.common.grpc.ConnectionID
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.dataprovider.grpc.MessageGroupItem
 import com.exactpro.th2.dataprovider.grpc.MessageGroupResponse
+import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat.BASE_64
+import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat.PARSED
+import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat.ALL
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.google.protobuf.Timestamp
 import java.time.Instant
@@ -38,10 +41,10 @@ class GrpcMessageProducer {
                 messageId = convertMessageId(storedMessage.id)
                 timestamp = convertTimestamp(storedMessage.timestamp)
 
-                if (responseFormats.isEmpty() || responseFormats.contains("BASE_64")) {
+                if (responseFormats.isEmpty() || responseFormats.contains(ALL) || responseFormats.contains(BASE_64)) {
                     bodyRaw = rawMessage.rawMessage?.body
                 }
-                if (responseFormats.isEmpty() || responseFormats.contains("PARSED")) {
+                if (responseFormats.isEmpty() || responseFormats.contains(ALL) || responseFormats.contains(PARSED)) {
                     rawMessage.parsedMessage?.forEach {
                         addMessageItem(MessageGroupItem.newBuilder().setMessage(it).build())
                     }

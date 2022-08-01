@@ -19,6 +19,7 @@ package com.exactpro.th2.lwdataprovider.grpc
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.RawMessage
+import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat
 import com.exactpro.th2.dataprovider.grpc.MessageSearchResponse
 import com.exactpro.th2.dataprovider.grpc.MessageStreamPointers
 import com.exactpro.th2.lwdataprovider.GrpcResponseHandler
@@ -42,7 +43,7 @@ class GrpcMessageRequestContext (
     maxMessagesPerRequest = maxMessagesPerRequest) {
 
 
-    override fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage, responseFormats: List<String>, onResponse: () -> Unit): GrpcRequestedMessageDetails {
+    override fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage, responseFormats: List<ResponseFormat>, onResponse: () -> Unit): GrpcRequestedMessageDetails {
         return GrpcRequestedMessageDetails(id, time, storedMessage, this, responseFormats, onResponse)
     }
 
@@ -58,7 +59,7 @@ class GrpcRequestedMessageDetails(
     time: Long,
     storedMessage: StoredMessage,
     override val context: GrpcMessageRequestContext,
-    responseFormats: List<String>,
+    responseFormats: List<ResponseFormat>,
     onResponse: () -> Unit,
     parsedMessage: List<Message>? = null,
     rawMessage: RawMessage? = null

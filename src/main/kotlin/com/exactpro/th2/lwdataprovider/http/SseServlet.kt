@@ -38,7 +38,7 @@ open class SseServlet : HttpServlet() {
         resp.contentType = "text/event-stream"
         resp.status = HttpStatus.OK_200
         resp.addHeader(HttpHeader.CACHE_CONTROL.asString(), "no-cache, no-store")
-        
+
         val writer = SseResponseWriter(resp.writer)
 
         var inProcess = true
@@ -48,7 +48,9 @@ open class SseServlet : HttpServlet() {
                 writer.closeWriter()
                 inProcess = false
             } else {
-                if (!skipSend || event.event == EventType.KEEP_ALIVE) {
+                if (skipSend) {
+                    writer.writeEvent(EMPTY_EVENT)
+                } else {
                     writer.writeEvent(event)
                 }
                 reqContext.onMessageSent()
@@ -59,5 +61,8 @@ open class SseServlet : HttpServlet() {
     protected fun getParameters(req: HttpServletRequest): Map<String, List<String>> {
         return req.parameterMap.mapValues { it.value.toList() }
     }
-    
+
+    companion object {
+        private val EMPTY_EVENT = SseEvent(event = EventType.EVENT)
+    }
 }

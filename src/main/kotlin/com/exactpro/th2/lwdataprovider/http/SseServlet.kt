@@ -32,7 +32,8 @@ open class SseServlet : HttpServlet() {
     protected open fun waitAndWrite(
         queue: BlockingQueue<SseEvent>,
         resp: HttpServletResponse,
-        reqContext: RequestContext
+        reqContext: RequestContext,
+        skipSend: Boolean = false,
     ) {
         resp.contentType = "text/event-stream"
         resp.status = HttpStatus.OK_200
@@ -47,7 +48,9 @@ open class SseServlet : HttpServlet() {
                 writer.closeWriter()
                 inProcess = false
             } else {
-                writer.writeEvent(event)
+                if (!skipSend) {
+                    writer.writeEvent(event)
+                }
                 reqContext.onMessageSent()
             }
         }

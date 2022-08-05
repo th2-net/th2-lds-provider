@@ -33,6 +33,7 @@ import java.time.LocalTime
 import java.time.temporal.ChronoUnit
 import java.util.Collections
 import java.util.stream.Collectors
+import kotlin.system.measureTimeMillis
 
 
 class CradleEventExtractor (private val cradleManager: CradleManager) {
@@ -132,7 +133,15 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
             val startTime = System.currentTimeMillis()
             logger.info { "Extracting events from ${splitByDate.first} to ${splitByDate.second} processed."}
             val testEvents = storage.getTestEvents(splitByDate.first, splitByDate.second)
-            processEvents(testEvents, requestContext, counter)
+            val iterator = testEvents.iterator()
+            var next: StoredTestEventWrapper? = null
+            while (iterator.hasNext()) {
+                next = iterator.next()
+            }
+            if (next != null) {
+                logger.info { "last event: ${next.id}" }
+            }
+//            processEvents(testEvents, requestContext, counter)
             logger.info { "Events for this period loaded. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms"}
             if (requestContext.isLimitReached()) {
                 logger.info { "Loading events stopped: Reached events limit" }

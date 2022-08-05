@@ -18,13 +18,14 @@ package com.exactpro.th2.lwdataprovider
 
 
 import com.exactpro.th2.lwdataprovider.http.SseBufferedWriter
+import java.io.BufferedWriter
 import java.io.Writer
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 class SseResponseWriter (private val srcWriter: Writer){
     
-    private val writer: SseBufferedWriter = SseBufferedWriter(srcWriter)
+    private val writer = BufferedWriter(srcWriter)
     
     private val lock = ReentrantLock()
 
@@ -41,16 +42,23 @@ class SseResponseWriter (private val srcWriter: Writer){
 
     private fun eventWrite(event: SseEvent) {
         lock.withLock {
-            this.writer.write("event: ", event.event.typeName, "\n")
+            with(writer) {
+                writer.write("event: ", event.event.typeName, "\n")
 
-            this.writer.write("data: ", event.data, "\n")
-            
-            if (event.metadata != null) {
-                this.writer.write("id: ", event.metadata, "\n")
+
+                write("data: ", event.data, "\n")
+
+                if (event.metadata != null) {
+                    write("id: ", event.metadata, "\n")
+                }
+
+                write("\n")
+//                this.writer.finishMessage()
             }
-
-            this.writer.write('\n')
-            this.writer.finishMessage()
         }
+    }
+
+    private fun BufferedWriter.write(vararg strings: String) {
+        strings.forEach(this::write)
     }
 }

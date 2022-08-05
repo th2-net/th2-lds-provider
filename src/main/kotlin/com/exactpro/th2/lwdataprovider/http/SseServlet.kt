@@ -48,7 +48,7 @@ open class SseServlet : HttpServlet() {
                 writer.closeWriter()
                 inProcess = false
             } else {
-                if (!skipSend) {
+                if (!skipSend || event.event == EventType.KEEP_ALIVE) {
                     writer.writeEvent(event)
                 }
                 reqContext.onMessageSent()

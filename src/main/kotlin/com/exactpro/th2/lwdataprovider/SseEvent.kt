@@ -33,9 +33,9 @@ import java.util.concurrent.atomic.AtomicLong
 enum class EventType {
     MESSAGE, EVENT, CLOSE, ERROR, KEEP_ALIVE, MESSAGE_IDS;
 
-    override fun toString(): String {
-        return super.toString().lowercase(Locale.getDefault())
-    }
+    val typeName: String = name.lowercase(Locale.getDefault())
+
+    override fun toString(): String = typeName
 }
 
 data class SseEvent(val data: String = "empty data", val event: EventType, val metadata: String? = null) {

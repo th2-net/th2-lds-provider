@@ -82,8 +82,6 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
                 return
             }
             val batchEventBody = EventProducer.fromBatchEvent(testEvent, batch)
-            batchEventBody.body = String(testEvent.content)
-            batchEventBody.attachedMessageIds = loadAttachedMessages(testEvent.messageIds)
 
             requestContext.processEvent(batchEventBody.convertToEvent())
         } else {
@@ -177,14 +175,6 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
         return "total events: $total, single events: $singleEvents, batches: $batches, events sent: $events, sent content size (KB): ${totalContentSize / 1024}"
     }
     
-    private fun loadAttachedMessages(messageIds: Collection<StoredMessageId>?): Set<String> {
-        return if (messageIds != null) {
-            messageIds.stream().map { t -> t.toString() }.collect(Collectors.toSet())
-        } else {
-            Collections.emptySet()
-        }
-    }
-    
     private fun processEvents(
         testEvents: Iterable<StoredTestEventWrapper>,
         requestContext: EventRequestContext,
@@ -195,8 +185,6 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
             if (testEvent.isSingle) {
                 val singleEv = testEvent.asSingle()
                 val event = EventProducer.fromSingleEvent(singleEv)
-                event.body = String(singleEv.content)
-                event.attachedMessageIds = loadAttachedMessages(singleEv.messageIds)
                 count.total++;
                 if (!filter.match(event)) {
                     continue
@@ -212,8 +200,6 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
                 val eventsList = batch.testEvents
                 for (batchEvent in eventsList) {
                     val batchEventBody = EventProducer.fromBatchEvent(batchEvent, batch)
-                    batchEventBody.body = String(batchEvent.content)
-                    batchEventBody.attachedMessageIds = loadAttachedMessages(batchEvent.messageIds)
                     count.total++
                     if (!filter.match(batchEventBody)) {
                         continue

@@ -21,6 +21,8 @@ import com.exactpro.cradle.testevents.StoredTestEventMetadata
 import com.exactpro.cradle.testevents.StoredTestEventWrapper
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.fasterxml.jackson.annotation.JsonRawValue
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.google.gson.Gson
 import java.time.Instant
 
@@ -35,28 +37,21 @@ data class BaseEventEntity(
     val startTimestamp: Instant,
 
     val parentEventId: ProviderEventId?,
-    val successful: Boolean
-) {
-
-    var attachedMessageIds: Set<String> = emptySet()
-
+    val successful: Boolean,
+    val attachedMessageIds: Set<String> = emptySet(),
     @JsonRawValue
-    var body: String? = null
+    val body: String? = null,
+) {
     
     companion object {
-        private val gson = Gson()
-        
+        private val mapper = jacksonObjectMapper()
         fun checkAndConvertBody(srcBody: String?) : String {
             return if (srcBody.isNullOrEmpty()) {
                 "{}"
+            } else if (srcBody.first().let {  it == '[' || it == '{'} && srcBody.last().let { it == ']' || it == '}'}) {
+                srcBody
             } else {
-                val firstChar = srcBody[0]
-                val lastChar = srcBody[srcBody.length - 1]
-                if ((firstChar == '[' || firstChar == '{') && (lastChar == ']' || lastChar == '}')) {
-                    srcBody
-                } else {
-                    gson.toJson(srcBody)
-                }
+                mapper.writeValueAsString(srcBody)
             }
         }
         

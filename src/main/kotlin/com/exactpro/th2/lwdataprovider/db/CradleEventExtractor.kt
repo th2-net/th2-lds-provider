@@ -44,7 +44,7 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
     }
 
     fun getEvents(filter: SseEventSearchRequest, requestContext: EventRequestContext) {
-        var dates = splitByDates(filter.startTimestamp, filter.endTimestamp)
+        val dates = splitByDates(filter.startTimestamp, filter.endTimestamp)
         if (filter.resultCountLimit != null && filter.resultCountLimit > 0) {
             requestContext.eventsLimit = filter.resultCountLimit
         }
@@ -80,8 +80,6 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
                 return
             }
             val batchEventBody = EventProducer.fromBatchEvent(testEvent, batch)
-            batchEventBody.body = String(testEvent.content)
-            batchEventBody.attachedMessageIds = loadAttachedMessages(testEvent.messageIds)
 
             requestContext.processEvent(batchEventBody.convertToEvent())
         } else {
@@ -166,24 +164,15 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
         }
     }
     
-    private fun loadAttachedMessages(messageIds: Collection<StoredMessageId>?): Set<String> {
-        return if (messageIds != null) {
-            messageIds.stream().map { t -> t.toString() }.collect(Collectors.toSet())
-        } else {
-            Collections.emptySet()
-        }
-    }
-    
     private fun processEvents(
         testEvents: Iterable<StoredTestEventWrapper>,
-        requestContext: EventRequestContext, count: LongCounter
+        requestContext: EventRequestContext,
+        count: LongCounter
     ) {
         for (testEvent in testEvents) {
             if (testEvent.isSingle) {
                 val singleEv = testEvent.asSingle()
                 val event = EventProducer.fromSingleEvent(singleEv)
-                event.body = String(singleEv.content)
-                event.attachedMessageIds = loadAttachedMessages(singleEv.messageIds)
                 count.value++
                 requestContext.processEvent(event.convertToEvent())
                 requestContext.addProcessedEvents(1)
@@ -192,8 +181,6 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
                 val eventsList = batch.testEvents
                 for (batchEvent in eventsList) {
                     val batchEventBody = EventProducer.fromBatchEvent(batchEvent, batch)
-                    batchEventBody.body = String(batchEvent.content)
-                    batchEventBody.attachedMessageIds = loadAttachedMessages(batchEvent.messageIds)
 
                     requestContext.processEvent(batchEventBody.convertToEvent())
                     count.value++

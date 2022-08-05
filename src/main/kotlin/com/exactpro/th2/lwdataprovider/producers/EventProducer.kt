@@ -16,10 +16,13 @@
 
 package com.exactpro.th2.lwdataprovider.producers
 
+import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.testevents.*
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.responses.BaseEventEntity
 import mu.KotlinLogging
+import java.util.Collections
+import java.util.stream.Collectors
 
 class EventProducer() {
 
@@ -50,13 +53,15 @@ class EventProducer() {
                 storedEvent.endTimestamp,
                 storedEvent.startTimestamp,
                 storedEvent.parentId?.let { ProviderEventId(null, storedEvent.parentId) },
-                storedEvent.isSuccess
+                storedEvent.isSuccess,
+                loadAttachedMessages(storedEvent.messageIds),
+                storedEvent.content.toString(Charsets.UTF_8),
             )
-            
         }
 
         fun fromBatchEvent(
-            storedEvent: BatchedStoredTestEvent, batch: StoredTestEventBatch
+            storedEvent: BatchedStoredTestEvent,
+            batch: StoredTestEventBatch,
         ): BaseEventEntity {
             return BaseEventEntity(
                 "event",
@@ -67,13 +72,21 @@ class EventProducer() {
                 storedEvent.type ?: "",
                 storedEvent.endTimestamp,
                 storedEvent.startTimestamp,
-                storedEvent.parentId?.let { ProviderEventId(
-                    batch.getTestEvent(storedEvent.parentId)?.let { batch.id },
-                    storedEvent.parentId) },
-                storedEvent.isSuccess
+                storedEvent.parentId?.let {
+                    ProviderEventId(
+                        batch.getTestEvent(storedEvent.parentId)?.let { batch.id /*if the parent in the current batch*/ },
+                        storedEvent.parentId
+                    )
+                },
+                storedEvent.isSuccess,
+                loadAttachedMessages(storedEvent.messageIds),
+                storedEvent.content.toString(Charsets.UTF_8),
             )
         }
+
+        private fun loadAttachedMessages(messageIds: Collection<StoredMessageId>?): Set<String> {
+            return messageIds?.asSequence()?.map { t -> t.toString() }?.toSet() ?: Collections.emptySet()
+        }
     }
-    
 
 }

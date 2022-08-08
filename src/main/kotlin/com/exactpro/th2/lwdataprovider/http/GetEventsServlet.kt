@@ -57,7 +57,7 @@ class GetEventsServlet
         keepAliveHandler.addKeepAliveData(reqContext)
         searchEventsHandler.loadEvents(request, reqContext)
 
-        this.waitAndWrite(queue, resp, reqContext, skipSend = true)
+        this.waitAndWrite(queue, resp, reqContext, skipSend = false)
         logger.info { "Processing search sse events request finished" }
         keepAliveHandler.removeKeepAliveData(reqContext)
     }

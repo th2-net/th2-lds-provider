@@ -75,7 +75,7 @@ class SearchMessagesHandler(
                         }.build()
 
                         val responseFormats = request.responseFormats ?: configuration.defaultResponseFormats
-                        if (request.onlyRaw || (responseFormats.contains(ResponseFormat.BASE_64) && responseFormats.size == 1)) {
+                        if (isOnlyRaw(request, responseFormats)) {
                             cradleMsgExtractor.getRawMessages(filter, requestContext, responseFormats)
                         } else {
                             cradleMsgExtractor.getMessages(filter, requestContext, responseFormats)
@@ -99,7 +99,7 @@ class SearchMessagesHandler(
                         }.build()
 
                         val responseFormats = request.responseFormats ?: configuration.defaultResponseFormats
-                        if (request.onlyRaw || (responseFormats.contains(ResponseFormat.BASE_64) && responseFormats.size == 1)) {
+                        if (isOnlyRaw(request, responseFormats)) {
                             cradleMsgExtractor.getRawMessages(filter, requestContext, responseFormats)
                         } else {
                             cradleMsgExtractor.getMessages(filter, requestContext, responseFormats)
@@ -137,6 +137,10 @@ class SearchMessagesHandler(
                 requestContext.finishStream()
             }
         }
+    }
+
+    private fun isOnlyRaw(request: SseMessageSearchRequest, responseFormats: List<ResponseFormat>) : Boolean{
+        return request.onlyRaw || (responseFormats.contains(ResponseFormat.BASE_64) && responseFormats.size == 1)
     }
 }
 

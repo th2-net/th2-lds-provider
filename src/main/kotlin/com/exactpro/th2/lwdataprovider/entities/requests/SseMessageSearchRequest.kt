@@ -39,8 +39,7 @@ data class SseMessageSearchRequest(
     val attachedEvents: Boolean,
     val lookupLimitDays: Int?,
     val resumeFromIdsList: List<StoredMessageId>?,
-    @Deprecated("Use responseFormats instead", ReplaceWith("responseFormats",
-        "com.exactpro.th2.lwdataprovider.entities.requests"), DeprecationLevel.WARNING)
+    @Deprecated("Use responseFormats instead")
     val onlyRaw: Boolean,
     val responseFormats: List<ResponseFormat>? = listOf(ResponseFormat.ALL)
 ) {

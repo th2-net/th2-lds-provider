@@ -19,6 +19,7 @@ package com.exactpro.th2.lwdataprovider.producers
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.message.addFields
 import com.exactpro.th2.common.message.messageType
+import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat
 import com.exactpro.th2.lwdataprovider.CustomJsonFormatter
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
@@ -33,15 +34,13 @@ class MessageProducer53 {
     companion object {
 
         fun createMessage(rawMessage: RequestedMessageDetails, formatter: CustomJsonFormatter): ProviderMessage53 {
-            val convertToOneMessage = rawMessage.parsedMessage?.let { convertToOneMessage(it) }
             val responseFormats = rawMessage.responseFormats
+            val convertToOneMessage = if (isParsedFormat(responseFormats)) rawMessage.parsedMessage?.let { convertToOneMessage(it) } else null
             return ProviderMessage53(
                 rawMessage.storedMessage,
                 convertToOneMessage?.let { formatter.print(it) } ?: "{}",
-                if (responseFormats.isEmpty() || responseFormats.contains(ALL) || responseFormats.contains(PARSED)) convertToOneMessage else null,
-                if (responseFormats.isEmpty() || responseFormats.contains(ALL) || responseFormats.contains(BASE_64)) {
-                    rawMessage.rawMessage?.let { Base64.getEncoder().encodeToString(it.body.toByteArray()) }
-                } else null,
+                if (isParsedFormat(responseFormats)) convertToOneMessage else null,
+                if (isBase64Format(responseFormats)) rawMessage.rawMessage?.let { Base64.getEncoder().encodeToString(it.body.toByteArray()) } else null,
                 if (convertToOneMessage != null) convertToOneMessage.metadata.messageType else ""
             )
         }
@@ -89,6 +88,13 @@ class MessageProducer53 {
             }
         }
 
+        private fun isParsedFormat(responseFormats: List<ResponseFormat>) : Boolean{
+            return responseFormats.isEmpty() || responseFormats.contains(ALL) || responseFormats.contains(PARSED)
+        }
+
+        private fun isBase64Format(responseFormats: List<ResponseFormat>) : Boolean{
+            return responseFormats.isEmpty() || responseFormats.contains(ALL) || responseFormats.contains(BASE_64)
+        }
     }
 
 }

@@ -33,7 +33,7 @@ class CustomConfigurationClass {
     val grpcBackPressure : Boolean? = null
     val bufferPerQuery: Int? = null
     val codecUsePinAttributes: Boolean = true
-    val defaultResponseFormats: List<ResponseFormat> = listOf(ResponseFormat.ALL)
+    val defaultResponseFormats: List<ResponseFormat>? = null
 }
 
 class Configuration(customConfiguration: CustomConfigurationClass) {

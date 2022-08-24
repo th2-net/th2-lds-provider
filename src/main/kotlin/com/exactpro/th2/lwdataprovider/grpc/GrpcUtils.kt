@@ -22,9 +22,25 @@ import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.dataprovider.grpc.MessageStream
 import com.exactpro.th2.dataprovider.grpc.TimeRelation
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
 import com.google.protobuf.Timestamp
 import java.time.Instant
+
+fun List<com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat>?.toLocalResponseFormats() : List<ResponseFormat> {
+    val list : MutableList<ResponseFormat> = ArrayList()
+    if (this.isNullOrEmpty())  {
+        list.add(ResponseFormat.ALL)
+    } else
+        for (i in this) {
+            when (i.name) {
+                ResponseFormat.ALL.name -> list.add(ResponseFormat.ALL)
+                ResponseFormat.BASE_64.name -> list.add(ResponseFormat.BASE_64)
+                ResponseFormat.PARSED.name -> list.add(ResponseFormat.PARSED)
+            }
+        }
+    return  list.toList()
+}
 
 fun Timestamp.toInstant() : Instant = Instant.ofEpochSecond(this.seconds, this.nanos.toLong())
 

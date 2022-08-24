@@ -22,12 +22,12 @@ import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.lwdataprovider.MessageRequestContext
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 import mu.KotlinLogging
 import java.util.concurrent.ExecutorService
 import kotlin.math.max
-import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat
 
 class SearchMessagesHandler(
     private val cradleMsgExtractor: CradleMessageExtractor,

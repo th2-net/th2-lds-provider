@@ -19,14 +19,15 @@ package com.exactpro.th2.lwdataprovider.producers
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.message.addFields
 import com.exactpro.th2.common.message.messageType
-import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat
 import com.exactpro.th2.lwdataprovider.CustomJsonFormatter
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat.ALL
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat.BASE_64
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat.PARSED
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import java.util.Base64
-import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat.PARSED
-import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat.BASE_64
-import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat.ALL
+
 
 @Deprecated("for 5.3 messages")
 class MessageProducer53 {

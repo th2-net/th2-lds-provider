@@ -20,10 +20,11 @@ import com.exactpro.cradle.Direction
 import com.exactpro.cradle.TimeRelation
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest
-import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat
 import com.exactpro.th2.dataprovider.grpc.MessageStreamPointer
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.grpc.toInstant
+import com.exactpro.th2.lwdataprovider.grpc.toLocalResponseFormats
 import com.exactpro.th2.lwdataprovider.grpc.toProviderMessageStreams
 import com.exactpro.th2.lwdataprovider.grpc.toProviderRelation
 import com.exactpro.th2.lwdataprovider.grpc.toStoredMessageId
@@ -103,7 +104,7 @@ data class SseMessageSearchRequest(
         attachedEvents = false, // disabled
         lookupLimitDays = null,
         onlyRaw = false, // NOT SUPPORTED in GRPC
-        responseFormats = grpcRequest.responseFormatsList
+        responseFormats = grpcRequest.responseFormatsList.toLocalResponseFormats()
     )
 
     private fun checkEndTimestamp() {

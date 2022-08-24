@@ -22,10 +22,10 @@ import com.exactpro.th2.common.grpc.ConnectionID
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.dataprovider.grpc.MessageGroupItem
 import com.exactpro.th2.dataprovider.grpc.MessageGroupResponse
-import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat.BASE_64
-import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat.PARSED
-import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat.ALL
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat.ALL
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat.BASE_64
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat.PARSED
 import com.google.protobuf.Timestamp
 import java.time.Instant
 

@@ -17,7 +17,7 @@
 package com.exactpro.th2.lwdataprovider.entities.requests
 
 import com.exactpro.th2.common.grpc.MessageID
-import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.grpc.toStoredMessageId
 
 

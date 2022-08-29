@@ -24,6 +24,9 @@ import com.exactpro.th2.dataprovider.grpc.MessageStream
 import com.exactpro.th2.dataprovider.grpc.TimeRelation
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
+import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat.ALL
+import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat.BASE_64
+import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat.PARSED
 import com.google.protobuf.Timestamp
 import java.time.Instant
 
@@ -32,11 +35,12 @@ fun List<com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat>
     if (this.isNullOrEmpty())  {
         list.add(ResponseFormat.ALL)
     } else
-        for (i in this) {
-            when (i.name) {
-                ResponseFormat.ALL.name -> list.add(ResponseFormat.ALL)
-                ResponseFormat.BASE_64.name -> list.add(ResponseFormat.BASE_64)
-                ResponseFormat.PARSED.name -> list.add(ResponseFormat.PARSED)
+        for (responseFormat in this) {
+            when (responseFormat) {
+                ALL -> list.add(ResponseFormat.ALL)
+                BASE_64 -> list.add(ResponseFormat.BASE_64)
+                PARSED -> list.add(ResponseFormat.PARSED)
+                else -> {}
             }
         }
     return  list.toList()

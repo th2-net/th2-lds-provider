@@ -20,10 +20,14 @@ import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
 import com.exactpro.cradle.Direction
 import com.exactpro.cradle.TimeRelation
+import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.message.direction
 import com.exactpro.th2.common.message.message
 import com.exactpro.th2.common.message.messageType
+import com.exactpro.th2.common.message.sequence
+import com.exactpro.th2.common.message.sessionAlias
 import com.exactpro.th2.lwdataprovider.Decoder
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
@@ -31,13 +35,22 @@ import com.exactpro.th2.lwdataprovider.configuration.CustomConfigurationClass
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
+import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
+import com.exactpro.th2.lwdataprovider.grpc.toCradleDirection
+import com.exactpro.th2.lwdataprovider.util.createBatches
 import com.exactpro.th2.lwdataprovider.util.createCradleStoredMessage
+import com.exactpro.th2.lwdataprovider.util.validateMessagesOrder
+import mu.KotlinLogging
+import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argThat
 import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.atMost
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.inOrder
@@ -57,7 +70,8 @@ import strikt.assertions.isNull
 import strikt.assertions.single
 import strikt.assertions.withElementAt
 import java.time.Instant
-import java.util.*
+import java.time.temporal.ChronoUnit
+import java.util.Queue
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
@@ -383,6 +397,83 @@ internal class TestSearchMessagesHandler {
         verifyNoInteractions(decoder)
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun `stops pulling if data out of range exist`(offsetNewData: Boolean) {
+        val startTimestamp = Instant.now()
+        val firstEndTimestamp = startTimestamp.plus(10L, ChronoUnit.MINUTES)
+        val endTimestamp = firstEndTimestamp.plus(10L, ChronoUnit.MINUTES)
+        val aliasesCount = 5
+        val increase = 5L
+        val firstBatchMessagesCount = (firstEndTimestamp.epochSecond - startTimestamp.epochSecond) / increase
+        val firstMessagesPerAlias = firstBatchMessagesCount / aliasesCount
+
+        val lastBatchMessagesCount = (endTimestamp.epochSecond - firstEndTimestamp.epochSecond) / increase
+        val lastMessagesPerAlias = lastBatchMessagesCount / aliasesCount
+
+        val firstBatches = createBatches(
+            firstMessagesPerAlias,
+            aliasesCount,
+            overlapCount = 0,
+            increase,
+            startTimestamp,
+            firstEndTimestamp,
+        )
+        val lastBatches = createBatches(
+            lastMessagesPerAlias,
+            aliasesCount,
+            overlapCount = 0,
+            increase,
+            firstEndTimestamp,
+            endTimestamp,
+            aliasIndexOffset = if (offsetNewData) aliasesCount else 0
+        )
+        val outsideBatches = createBatches(
+            10,
+            1,
+            0,
+            increase,
+            endTimestamp.plusNanos(1),
+            endTimestamp.plus(5, ChronoUnit.MINUTES),
+        )
+        val group = "test"
+        val firstRequestMessagesCount = firstBatches.sumOf { it.messageCount }
+        val secondRequestMessagesCount = lastBatches.sumOf { it.messageCount }
+        val messagesCount = firstRequestMessagesCount + secondRequestMessagesCount
+
+        whenever(storage.getGroupedMessageBatches(eq(group), eq(startTimestamp), eq(endTimestamp)))
+            .thenReturn(firstBatches)
+        whenever(storage.getGroupedMessageBatches(eq(group), eq(firstBatches.maxOf { it.lastTimestamp }), eq(endTimestamp)))
+            .thenReturn(lastBatches)
+        whenever(storage.getLastMessageBatchForGroup(eq(group))).thenReturn(firstBatches.last(), outsideBatches.last())
+
+        val handler = spy(MessageResponseHandlerTestImpl(measurement))
+        val request = MessagesGroupRequest(
+            groups = setOf("test"),
+            startTimestamp,
+            endTimestamp,
+            sort = true,
+            rawOnly = true,
+            keepOpen = true
+        )
+        LOGGER.info { "Request: $request" }
+        searchHandler.loadMessageGroups(request, handler, measurement)
+
+        val captor = argumentCaptor<RequestedMessageDetails>()
+        verify(handler, atMost(messagesCount)).handleNext(captor.capture())
+        val messages: List<RequestedMessageDetails> = captor.allValues
+        Assertions.assertEquals(messagesCount, messages.size) {
+            val missing: List<StoredMessage> = (firstBatches.asSequence() + lastBatches.asSequence()).flatMap { it.messages }.filter { stored ->
+                messages.none {
+                    val raw = it.rawMessage
+                    raw.sessionAlias == stored.streamName && raw.sequence == stored.index && raw.direction.toCradleDirection() == stored.direction
+                }
+            }.toList()
+            "Missing ${missing.size} message(s): $missing"
+        }
+        validateMessagesOrder(messages, messagesCount)
+    }
+
     private fun createSearchRequest(streams: List<ProviderMessageStream>, isRawOnly: Boolean): SseMessageSearchRequest = SseMessageSearchRequest(
         startTimestamp = Instant.now(),
         endTimestamp = Instant.now(),
@@ -395,6 +486,10 @@ internal class TestSearchMessagesHandler {
         onlyRaw = isRawOnly,
         resumeFromIdsList = null,
     )
+
+    companion object {
+        private val LOGGER = KotlinLogging.logger { }
+    }
 }
 
 private open class TestDecoder : Decoder {

@@ -159,6 +159,7 @@ internal class TestRabbitMqDecoder {
         val builder = MessageGroupBatch.newBuilder()
         val details = RequestedMessageDetails(
             createCradleStoredMessage(alias, Direction.FIRST, index),
+            group = null,
             onResponse,
         )
         decoder.sendBatchMessage(builder, listOf(details), alias)

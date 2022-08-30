@@ -42,6 +42,12 @@ class SseMessageSearchRequest(
     endTimestamp: Instant?,
     val responseFormats: Set<String>? = null
 ) {
+    init {
+        if (keepOpen) {
+            requireNotNull(startTimestamp) { "the start timestamp must be specified if keep open is used" }
+            requireNotNull(endTimestamp) { "the end timestamp must be specified if keep open is used" }
+        }
+    }
 
     val endTimestamp : Instant
 

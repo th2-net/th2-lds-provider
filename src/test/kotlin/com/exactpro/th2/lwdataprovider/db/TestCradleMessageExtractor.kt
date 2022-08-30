@@ -18,20 +18,13 @@ package com.exactpro.th2.lwdataprovider.db
 
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
-import com.exactpro.cradle.Direction
-import com.exactpro.cradle.messages.MessageToStore
-import com.exactpro.cradle.messages.MessageToStoreBuilder
 import com.exactpro.cradle.messages.StoredGroupMessageBatch
 import com.exactpro.cradle.messages.StoredMessage
-import com.exactpro.cradle.messages.StoredMessageId
-import com.exactpro.th2.common.grpc.ConnectionID
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import com.exactpro.th2.common.grpc.MessageID
-import com.exactpro.th2.common.grpc.RawMessage
-import com.exactpro.th2.common.message.toTimestamp
 import com.exactpro.th2.common.schema.message.MessageRouter
-import com.exactpro.th2.lwdataprovider.grpc.toInstant
-import com.google.protobuf.ByteString
+import com.exactpro.th2.lwdataprovider.util.createBatches
+import com.exactpro.th2.lwdataprovider.util.validateOrder
+import mu.KotlinLogging
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -59,25 +52,6 @@ internal class TestCradleMessageExtractor {
     private val measurement: DataMeasurement = mock {
         on { start(any()) } doReturn mock { }
     }
-
-    private fun createBatches(messagesPerBatch: Long, batchesCount: Int, overlapCount: Long, increase: Long): List<StoredGroupMessageBatch> =
-        ArrayList<StoredGroupMessageBatch>().apply {
-            val startSeconds = startTimestamp.epochSecond
-            repeat(batchesCount) {
-                val start = Instant.ofEpochSecond(startSeconds + it * increase * (messagesPerBatch - overlapCount), startTimestamp.nano.toLong())
-                add(StoredGroupMessageBatch().apply {
-                    createStoredMessages(
-                        "test$it",
-                        0,
-                        start,
-                        messagesPerBatch,
-                        direction = if (it % 2 == 0) Direction.FIRST else Direction.SECOND,
-                        incSeconds = increase,
-                        endTimestamp,
-                    ).forEach(this::addMessage)
-                })
-            }
-        }
 
     private lateinit var storage: CradleStorage
 
@@ -127,14 +101,16 @@ internal class TestCradleMessageExtractor {
             messagesPerBatch = messagesPerBatch,
             batchesCount = batchesCount,
             overlapCount = overlap,
-            increase = increase
+            increase = increase,
+            startTimestamp = startTimestamp,
+            end = endTimestamp,
         )
         whenever(storage.getGroupedMessageBatches(eq("test"), eq(startTimestamp), eq(endTimestamp))).thenReturn(batchesList)
 
         val sink = spy(StoredMessageDataSink())
-        extractor.getMessagesGroup("test", startTimestamp, endTimestamp, true, sink, measurement)
+        extractor.getMessagesGroup("test", CradleGroupRequest(startTimestamp, endTimestamp, sort = true), sink, measurement)
 
-        verify(sink, atMost(messagesCount.toInt())).onNext(any<Collection<StoredMessage>>())
+        verify(sink, atMost(messagesCount.toInt())).onNext(any(), any<Collection<StoredMessage>>())
         verify(sink, never()).onError(any<String>())
         val messages = sink.messages
         Assertions.assertEquals(messagesCount.toInt(), messages.size) {
@@ -143,50 +119,12 @@ internal class TestCradleMessageExtractor {
         validateOrder(messages, messagesCount.toInt())
     }
 
-    private fun validateOrder(messages: List<StoredMessage>, expectedUniqueMessages: Int) {
-        var prevMessage: StoredMessage? = null
-        val ids = HashSet<StoredMessageId>(expectedUniqueMessages)
-        for (message in messages) {
-            ids += message.id
-            prevMessage?.also {
-                Assertions.assertTrue(it.timestamp <= message.timestamp) {
-                    "Unordered messages: $it and $message"
-                }
-            }
-            prevMessage = message
-        }
-        Assertions.assertEquals(expectedUniqueMessages, ids.size) {
-            "Unexpected number of IDs: $ids"
-        }
-    }
-
-    private fun createStoredMessages(
-        alias: String,
-        startSequence: Long,
-        startTimestamp: Instant,
-        count: Long,
-        direction: Direction = Direction.FIRST,
-        incSeconds: Long = 10L,
-        maxTimestamp: Instant,
-    ): List<MessageToStore> {
-        return (0 until count).map {
-            val index = startSequence + it
-            val instant = startTimestamp.plusSeconds(incSeconds * it).coerceAtMost(maxTimestamp)
-            MessageToStoreBuilder()
-                .direction(direction)
-                .streamName(alias)
-                .index(index)
-                .timestamp(instant)
-                .content(
-                    "abc".toByteArray()
-                )
-                .metadata("com.exactpro.th2.cradle.grpc.protocol", "abc")
-                .build()
-        }
+    companion object {
+        private val LOGGER = KotlinLogging.logger { }
     }
 }
 
-private open class StoredMessageDataSink : DataSink<StoredMessage> {
+private open class StoredMessageDataSink : MessageDataSink<String, StoredMessage> {
     val messages: MutableList<StoredMessage> = arrayListOf()
     override val canceled: CancellationReason?
         get() = null
@@ -197,7 +135,7 @@ private open class StoredMessageDataSink : DataSink<StoredMessage> {
     override fun completed() {
     }
 
-    override fun onNext(data: StoredMessage) {
+    override fun onNext(marker: String, data: StoredMessage) {
         messages += data
     }
 }

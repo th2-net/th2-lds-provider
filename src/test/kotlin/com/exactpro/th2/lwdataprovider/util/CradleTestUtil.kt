@@ -17,7 +17,9 @@
 package com.exactpro.th2.lwdataprovider.util
 
 import com.exactpro.cradle.Direction
+import com.exactpro.cradle.messages.MessageToStore
 import com.exactpro.cradle.messages.MessageToStoreBuilder
+import com.exactpro.cradle.messages.StoredGroupMessageBatch
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.testevents.StoredTestEventId
@@ -51,4 +53,56 @@ fun createEventToStore(
     isSuccess = true
     startTimestamp = start.plusSeconds(1)
     endTimestamp = end.minusSeconds(1)
+}
+
+fun createBatches(
+    messagesPerBatch: Long,
+    batchesCount: Int,
+    overlapCount: Long,
+    increase: Long,
+    startTimestamp: Instant,
+    end: Instant,
+    aliasIndexOffset: Int = 0,
+): List<StoredGroupMessageBatch> =
+    ArrayList<StoredGroupMessageBatch>().apply {
+        val startSeconds = startTimestamp.epochSecond
+        repeat(batchesCount) {
+            val start = Instant.ofEpochSecond(startSeconds + it * increase * (messagesPerBatch - overlapCount), startTimestamp.nano.toLong())
+            add(StoredGroupMessageBatch().apply {
+                createStoredMessages(
+                    "test${it + aliasIndexOffset}",
+                    Instant.now().run { epochSecond * 1_000_000_000 + nano },
+                    start,
+                    messagesPerBatch,
+                    direction = if (it % 2 == 0) Direction.FIRST else Direction.SECOND,
+                    incSeconds = increase,
+                    end,
+                ).forEach(this::addMessage)
+            })
+        }
+    }
+
+fun createStoredMessages(
+    alias: String,
+    startSequence: Long,
+    startTimestamp: Instant,
+    count: Long,
+    direction: Direction = Direction.FIRST,
+    incSeconds: Long = 10L,
+    maxTimestamp: Instant,
+): List<MessageToStore> {
+    return (0 until count).map {
+        val index = startSequence + it
+        val instant = startTimestamp.plusSeconds(incSeconds * it).coerceAtMost(maxTimestamp)
+        MessageToStoreBuilder()
+            .direction(direction)
+            .streamName(alias)
+            .index(index)
+            .timestamp(instant)
+            .content(
+                "abc".toByteArray()
+            )
+            .metadata("com.exactpro.th2.cradle.grpc.protocol", "abc")
+            .build()
+    }
 }

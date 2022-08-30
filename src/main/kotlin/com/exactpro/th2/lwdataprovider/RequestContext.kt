@@ -23,6 +23,7 @@ import com.exactpro.th2.lwdataprovider.grpc.toRawMessage
 
 class RequestedMessageDetails(
     val storedMessage: StoredMessage,
+    val group: String? = null,
     private val onResponse: (RequestedMessageDetails) -> Unit = {}
 ) {
     val id: String = storedMessage.id.toString()

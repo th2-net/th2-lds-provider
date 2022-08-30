@@ -19,6 +19,7 @@ package com.exactpro.th2.lwdataprovider.http
 import com.exactpro.th2.lwdataprovider.EventType
 import com.exactpro.th2.lwdataprovider.KeepAliveListener
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
+import com.exactpro.th2.lwdataprovider.ResponseHandler
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
@@ -89,7 +90,7 @@ class DataIndexer {
 class HttpEventResponseHandler(
     private val buffer: BlockingQueue<SseEvent>,
     private val builder: SseResponseBuilder,
-) : AbstractCancelableHandler<Event>(), KeepAliveListener {
+) : AbstractCancelableHandler(), ResponseHandler<Event>, KeepAliveListener {
     private val indexer = DataIndexer()
 
     private val scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()

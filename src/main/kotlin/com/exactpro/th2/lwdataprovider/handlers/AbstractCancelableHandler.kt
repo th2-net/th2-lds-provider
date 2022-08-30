@@ -18,7 +18,7 @@ package com.exactpro.th2.lwdataprovider.handlers
 
 import com.exactpro.th2.lwdataprovider.CancelableResponseHandler
 
-abstract class AbstractCancelableHandler<IN> : CancelableResponseHandler<IN> {
+abstract class AbstractCancelableHandler : CancelableResponseHandler {
     @Volatile
     private var alive = true
     override val isAlive: Boolean

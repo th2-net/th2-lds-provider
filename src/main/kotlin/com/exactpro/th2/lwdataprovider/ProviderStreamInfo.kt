@@ -22,21 +22,38 @@ import com.exactpro.th2.dataprovider.grpc.MessageStream
 import com.exactpro.th2.dataprovider.grpc.MessageStreamPointer
 import com.exactpro.th2.lwdataprovider.grpc.toGrpcDirection
 import com.exactpro.th2.lwdataprovider.grpc.toGrpcMessageId
+import java.time.Instant
 
 class ProviderStreamInfo {
 
     private val streams: MutableMap<String, StreamDetails> = LinkedHashMap()
 
-    fun registerMessage(msg: StoredMessageId?) {
-        if (msg == null)
+    val lastIDs: List<StoredMessageId>
+        get() = streams.values.map { details -> details.msgId }
+
+    fun lastIDsForGroup(group: String): List<StoredMessageId> = streams.values.asSequence()
+        .filter { it.group == group }
+        .map { it.msgId }
+        .toList()
+    fun lastTimestampForGroup(group: String): Instant = streams.values.asSequence()
+        .filter { it.group == group }
+        .maxOfOrNull { it.timestamp }
+        ?: Instant.MIN
+
+    fun registerMessage(msg: StoredMessageId?, timestamp: Instant?, group: String? = null) {
+        if (msg == null || timestamp == null)
             return
-        streams.computeIfAbsent(msg.streamName + msg.direction.label) {
-            StreamDetails(msg.streamName, msg.direction)
-        }.msgId = msg
+        val key: String = msg.run { streamName + direction.label }
+        streams.computeIfAbsent(key) {
+            StreamDetails(msg.streamName, msg.direction, group)
+        }.apply {
+            msgId = msg
+            this.timestamp = timestamp
+        }
     }
 
-    fun registerSession(streamName: String, direction: Direction) {
-        streams.computeIfAbsent(streamName + direction.label) {StreamDetails(streamName, direction)}
+    fun registerSession(streamName: String, direction: Direction, group: String? = null) {
+        streams.computeIfAbsent(streamName + direction.label) { StreamDetails(streamName, direction, group) }
     }
 
 
@@ -54,6 +71,10 @@ class ProviderStreamInfo {
 
 }
 
-data class StreamDetails(val streamName: String, val direction: Direction,
-                         var msgId: StoredMessageId = StoredMessageId(streamName, direction, 0L)
+data class StreamDetails(
+    val streamName: String,
+    val direction: Direction,
+    val group: String?,
+    var msgId: StoredMessageId = StoredMessageId(streamName, direction, 0L),
+    var timestamp: Instant = Instant.MIN,
 )

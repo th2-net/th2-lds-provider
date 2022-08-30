@@ -16,19 +16,20 @@
 
 package com.exactpro.th2.lwdataprovider.handlers
 
+import com.exactpro.cradle.Direction
 import com.exactpro.cradle.Order
 import com.exactpro.cradle.TimeRelation.AFTER
-import com.exactpro.cradle.TimeRelation.BEFORE
 import com.exactpro.cradle.messages.StoredMessageFilterBuilder
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.lwdataprovider.MessageRequestContext
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
+import com.exactpro.th2.lwdataprovider.db.CradleGroupRequest
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
-import com.exactpro.th2.lwdataprovider.http.MessageSseRequestContext
 import mu.KotlinLogging
+import java.time.Instant
 import java.util.concurrent.ExecutorService
 import kotlin.math.max
 
@@ -54,7 +55,7 @@ class SearchMessagesHandler(
         threadPool.execute {
             try {
 
-                var limitReached = false;
+                var limitReached = false
                 if (!request.resumeFromIdsList.isNullOrEmpty()) {
                     request.resumeFromIdsList.forEach { resumeFromId ->
                         requestContext.streamInfo.registerSession(resumeFromId.streamName, resumeFromId.direction)
@@ -62,28 +63,8 @@ class SearchMessagesHandler(
                             return@forEach;
                         if (!requestContext.contextAlive)
                             return@execute;
-                        val filter = StoredMessageFilterBuilder().apply {
-                            streamName().isEqualTo(resumeFromId.streamName)
-                            direction().isEqualTo(resumeFromId.direction)
-                            if (request.searchDirection == AFTER) {
-                                index().isGreaterThanOrEqualTo(resumeFromId.index)
-                            } else {
-                                index().isLessThanOrEqualTo(resumeFromId.index)
-                            }
-
-                            request.startTimestamp?.let { timestampFrom().isGreaterThanOrEqualTo(it) }
-                            request.endTimestamp?.let { timestampTo().isLessThan(it) }
-                            request.resultCountLimit?.let { limit(max(it - requestContext.loadedMessages, 0)) }
-
-                        }.build()
-
-                        val responseFormats = request.responseFormats ?: configuration.responseFormats
-                        if (request.onlyRaw || (responseFormats.contains("BASE_64") && responseFormats.size == 1)) {
-                            cradleMsgExtractor.getRawMessages(filter, requestContext)
-                        } else {
-                            cradleMsgExtractor.getMessages(filter, requestContext, responseFormats)
-                        }
-                        limitReached = request.resultCountLimit != null && request.resultCountLimit <= requestContext.loadedMessages
+                        loadByResumeId(resumeFromId, request, requestContext, configuration)
+                        limitReached = requestContext.limitReached(request)
                     }
                 } else {
                     request.stream?.forEach { (stream, direction) ->
@@ -92,34 +73,19 @@ class SearchMessagesHandler(
                             return@forEach;
                         if (!requestContext.contextAlive)
                             return@execute;
-                        val order = if(request.searchDirection == AFTER) {
-                            Order.DIRECT
-                        } else {
-                            Order.REVERSE
-                        }
-                        val filter = StoredMessageFilterBuilder().apply {
-                            streamName().isEqualTo(stream)
-                            direction().isEqualTo(direction)
-                            order(order)
-                            if(order == Order.DIRECT) {
-                                request.startTimestamp?.let { timestampFrom().isGreaterThanOrEqualTo(it) }
-                                request.endTimestamp?.let { timestampTo().isLessThan(it) }
-                            } else {
-                                request.startTimestamp?.let { timestampTo().isLessThanOrEqualTo(it) }
-                                request.endTimestamp?.let { timestampFrom().isGreaterThan(it) }
-                            }
-                            request.resultCountLimit?.let { limit(max(it - requestContext.loadedMessages, 0)) }
-                        }.build()
+                        loadByStream(stream, direction, request, requestContext, configuration)
 
-                        val responseFormats = request.responseFormats ?: configuration.responseFormats
-                        if (request.onlyRaw || (responseFormats.contains("BASE_64") && responseFormats.size == 1)) {
-                            cradleMsgExtractor.getRawMessages(filter, requestContext)
-                        } else {
-                            cradleMsgExtractor.getMessages(filter, requestContext, responseFormats)
-                        }
-
-                        limitReached = request.resultCountLimit != null && request.resultCountLimit <= requestContext.loadedMessages
+                        limitReached = requestContext.limitReached(request)
                     }
+                }
+
+                if (request.keepOpen && !limitReached) {
+                    val lastTimestamp = checkNotNull(request.endTimestamp) { "end timestamp is null" }
+                    val order = orderFrom(request)
+                    val allLoaded = hashSetOf<Stream>()
+                    do {
+                        val continuePulling = pullUpdates(request, order, lastTimestamp, requestContext, configuration, allLoaded)
+                    } while (continuePulling)
                 }
 
                 requestContext.allDataLoadedFromCradle()
@@ -159,10 +125,23 @@ class SearchMessagesHandler(
 
         threadPool.execute {
             try {
+                val parameters = CradleGroupRequest(request.startTimestamp, request.endTimestamp, request.sort, request.rawOnly)
                 request.groups.forEach { group ->
                     logger.debug { "Executing request for group $group" }
-                    cradleMsgExtractor.getMessagesGroup(group, request.startTimestamp, request.endTimestamp, request.sort, request.rawOnly, requestContext)
+                    cradleMsgExtractor.getMessagesGroup(
+                        group,
+                        parameters,
+                        requestContext
+                    )
                     logger.debug { "Executing of request for group $group has been finished" }
+                }
+
+                if (request.keepOpen) {
+                    val lastTimestamp: Instant = request.endTimestamp
+                    val allGroupLoaded = hashSetOf<String>()
+                    do {
+                        val keepPulling = pullUpdates(request, lastTimestamp, requestContext, parameters, allGroupLoaded)
+                    } while (keepPulling)
                 }
 
                 requestContext.allDataLoadedFromCradle()
@@ -175,6 +154,189 @@ class SearchMessagesHandler(
                 requestContext.writeErrorMessage(ex.message ?: "")
                 requestContext.finishStream()
             }
+        }
+    }
+
+    private fun pullUpdates(
+        request: MessagesGroupRequest,
+        lastTimestamp: Instant,
+        requestContext: MessageRequestContext,
+        parameters: CradleGroupRequest,
+        allLoaded: MutableSet<String>,
+    ): Boolean {
+        var allDataLoaded = true
+        request.groups.forEach { group ->
+            if (group in allLoaded) {
+                logger.trace { "Skip pulling data for group $group because all data is already loaded" }
+                return@forEach
+            }
+            logger.info { "Pulling updates for group $group" }
+            val hasDataOutsideRange = cradleMsgExtractor.hasMessagesInGroupAfter(group, lastTimestamp)
+            if (hasDataOutsideRange) {
+                logger.info { "All data in requested range is loaded for group $group" }
+                allLoaded += group
+            }
+            logger.info { "Requesting additional data for group $group" }
+            val lastGroupTimestamp = requestContext.streamInfo.lastTimestampForGroup(group)
+                .coerceAtLeast(request.startTimestamp)
+            val newParameters = if (lastGroupTimestamp == request.startTimestamp) {
+                parameters
+            } else {
+                val lastIdByStream: Map<Pair<String, Direction>, StoredMessageId> = requestContext.streamInfo.lastIDsForGroup(group)
+                    .associateBy { it.streamName to it.direction }
+                parameters.copy(
+                    start = lastGroupTimestamp,
+                    preFilter = { msg ->
+                        val stream = msg.run { streamName to direction }
+                        lastIdByStream[stream]?.run {
+                            msg.index > index
+                        } ?: true
+                    }
+                )
+            }
+            cradleMsgExtractor.getMessagesGroup(group, newParameters, requestContext)
+            logger.info { "Data has been loaded for group $group" }
+            allDataLoaded = allDataLoaded and hasDataOutsideRange
+        }
+        return !allDataLoaded
+    }
+
+    private data class Stream(val name: String, val direction: Direction)
+    private fun pullUpdates(
+        request: SseMessageSearchRequest,
+        order: Order,
+        lastTimestamp: Instant,
+        requestContext: MessageRequestContext,
+        configuration: Configuration,
+        allLoaded: MutableSet<Stream>,
+    ): Boolean {
+        var limitReached = false
+        var allDataLoaded = true
+
+        val lastReceivedIDs: List<StoredMessageId> = requestContext.streamInfo.lastIDs
+        fun StoredMessageId.shortString(): String = "$streamName:${direction.label}"
+        fun StoredMessageId.toStream(): Stream = Stream(streamName, direction)
+
+        lastReceivedIDs.forEach { messageId ->
+            if (limitReached) {
+                return false
+            }
+            val stream = messageId.toStream()
+            if (stream in allLoaded) {
+                logger.trace { "Skip pulling data for $stream because all data is loaded" }
+                return@forEach
+            }
+            logger.info { "Pulling data for ${messageId.shortString()}" }
+            val hasDataOutside = hasDataOutsideRequestRange(order, messageId, lastTimestamp)
+            if (hasDataOutside) {
+                logger.info { "All data is loaded for ${messageId.shortString()}" }
+                allLoaded += stream
+            }
+            if (messageId.index == 0L) {
+                loadByStream(messageId.streamName, messageId.direction, request, requestContext, configuration)
+            } else {
+                loadByResumeId(messageId, request, requestContext, configuration)
+            }
+
+            allDataLoaded = allDataLoaded and hasDataOutside
+            limitReached = requestContext.limitReached(request)
+        }
+        return !allDataLoaded && !limitReached
+    }
+
+    private fun hasDataOutsideRequestRange(order: Order, it: StoredMessageId, lastTimestamp: Instant): Boolean = when (order) {
+        Order.DIRECT -> cradleMsgExtractor.hasMessagesAfter(it, lastTimestamp)
+        Order.REVERSE -> cradleMsgExtractor.hasMessagesBefore(it, lastTimestamp)
+    }
+
+    private fun MessageRequestContext.limitReached(request: SseMessageSearchRequest): Boolean =
+        request.resultCountLimit != null && request.resultCountLimit <= loadedMessages
+
+    private fun loadByResumeId(
+        resumeFromId: StoredMessageId,
+        request: SseMessageSearchRequest,
+        requestContext: MessageRequestContext,
+        configuration: Configuration,
+    ) {
+        val filter = StoredMessageFilterBuilder().apply {
+            streamName().isEqualTo(resumeFromId.streamName)
+            direction().isEqualTo(resumeFromId.direction)
+            val order = orderFrom(request)
+            order(order)
+            indexFilter(request, resumeFromId)
+            timestampsFilter(order, request)
+            limitFilter(request, requestContext)
+        }.build()
+
+        val responseFormats = request.responseFormats ?: configuration.responseFormats
+        if (request.onlyRaw || (responseFormats.contains("BASE_64") && responseFormats.size == 1)) {
+            cradleMsgExtractor.getRawMessages(filter, requestContext)
+        } else {
+            cradleMsgExtractor.getMessages(filter, requestContext, responseFormats)
+        }
+    }
+
+    private fun loadByStream(
+        stream: String,
+        direction: Direction,
+        request: SseMessageSearchRequest,
+        requestContext: MessageRequestContext,
+        configuration: Configuration,
+    ) {
+        val order = orderFrom(request)
+        val filter = StoredMessageFilterBuilder().apply {
+            streamName().isEqualTo(stream)
+            direction().isEqualTo(direction)
+            order(order)
+            timestampsFilter(order, request)
+            limitFilter(request, requestContext)
+        }.build()
+
+        val responseFormats = request.responseFormats ?: configuration.responseFormats
+        if (request.onlyRaw || (responseFormats.contains("BASE_64") && responseFormats.size == 1)) {
+            cradleMsgExtractor.getRawMessages(filter, requestContext)
+        } else {
+            cradleMsgExtractor.getMessages(filter, requestContext, responseFormats)
+        }
+    }
+
+    private fun StoredMessageFilterBuilder.limitFilter(
+        request: SseMessageSearchRequest,
+        requestContext: MessageRequestContext,
+    ) {
+        request.resultCountLimit?.let { limit(max(it - requestContext.loadedMessages, 0)) }
+    }
+
+    private fun orderFrom(request: SseMessageSearchRequest): Order {
+        val order = if (request.searchDirection == AFTER) {
+            Order.DIRECT
+        } else {
+            Order.REVERSE
+        }
+        return order
+    }
+
+    private fun StoredMessageFilterBuilder.timestampsFilter(
+        order: Order,
+        request: SseMessageSearchRequest,
+    ) {
+        if (order == Order.DIRECT) {
+            request.startTimestamp?.let { timestampFrom().isGreaterThanOrEqualTo(it) }
+            request.endTimestamp?.let { timestampTo().isLessThan(it) }
+        } else {
+            request.startTimestamp?.let { timestampTo().isLessThanOrEqualTo(it) }
+            request.endTimestamp?.let { timestampFrom().isGreaterThan(it) }
+        }
+    }
+
+    private fun StoredMessageFilterBuilder.indexFilter(
+        request: SseMessageSearchRequest,
+        resumeFromId: StoredMessageId,
+    ) {
+        if (request.searchDirection == AFTER) {
+            index().isGreaterThanOrEqualTo(resumeFromId.index)
+        } else {
+            index().isLessThanOrEqualTo(resumeFromId.index)
         }
     }
 }

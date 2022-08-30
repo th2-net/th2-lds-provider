@@ -42,6 +42,12 @@ data class SseMessageSearchRequest(
     val onlyRaw: Boolean,
     val responseFormats: List<String>?
 ) {
+    init {
+        if (keepOpen) {
+            requireNotNull(startTimestamp) { "the start timestamp must be specified if keep open is used" }
+            requireNotNull(endTimestamp) { "the end timestamp must be specified if keep open is used" }
+        }
+    }
 
     companion object {
         private fun asCradleTimeRelation(value: String): TimeRelation {

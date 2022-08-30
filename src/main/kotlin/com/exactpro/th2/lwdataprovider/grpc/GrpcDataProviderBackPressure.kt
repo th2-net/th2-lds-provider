@@ -49,7 +49,7 @@ class GrpcDataProviderBackPressure(
     override fun <T> processResponse(
         responseObserver: StreamObserver<T>,
         buffer: BlockingQueue<GrpcEvent>,
-        handler: CancelableResponseHandler<*>,
+        handler: CancelableResponseHandler,
         onFinished: () -> Unit,
         converter: (GrpcEvent) -> T?
     ) {

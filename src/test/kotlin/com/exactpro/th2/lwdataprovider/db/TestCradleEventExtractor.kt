@@ -64,7 +64,7 @@ internal class TestCradleEventExtractor {
             )
         ).whenever(storage).getTestEvents(eq(start), eq(end))
 
-        val sink: DataSink<Event> = mock { }
+        val sink: EventDataSink<Event> = mock { }
         extractor.getEvents(createRequest(start, end), sink)
         val event = argumentCaptor<Event>()
         verify(sink).onNext(event.capture())
@@ -88,7 +88,7 @@ internal class TestCradleEventExtractor {
             )
         ).whenever(storage).getTestEvents(eq(start), eq(end))
 
-        val sink: DataSink<Event> = mock { }
+        val sink: EventDataSink<Event> = mock { }
         extractor.getEvents(createRequest(start, end), sink)
         val event = argumentCaptor<Event>()
         verify(sink).onNext(event.capture())
@@ -117,7 +117,7 @@ internal class TestCradleEventExtractor {
             )
         ).whenever(storage).getTestEvents(eq(start.plus(1, ChronoUnit.DAYS)), eq(end))
 
-        val sink: DataSink<Event> = mock { }
+        val sink: EventDataSink<Event> = mock { }
         extractor.getEvents(createRequest(start, end), sink)
         val event = argumentCaptor<Event>()
         verify(sink, times(2)).onNext(event.capture())
@@ -138,7 +138,7 @@ internal class TestCradleEventExtractor {
             )
         ).whenever(storage).getTestEvent(eq(StoredTestEventId("test")))
 
-        val sink: DataSink<Event> = mock { }
+        val sink: EventDataSink<Event> = mock { }
         extractor.getSingleEvents(GetEventRequest(null, "test"), sink)
         val event = argumentCaptor<Event>()
         verify(sink).onNext(event.capture())
@@ -160,7 +160,7 @@ internal class TestCradleEventExtractor {
             )
         ).whenever(storage).getTestEvent(eq(StoredTestEventId("batch")))
 
-        val sink: DataSink<Event> = mock { }
+        val sink: EventDataSink<Event> = mock { }
         extractor.getSingleEvents(GetEventRequest("batch", "test"), sink)
         val event = argumentCaptor<Event>()
         verify(sink).onNext(event.capture())
@@ -169,7 +169,7 @@ internal class TestCradleEventExtractor {
 
     @Test
     fun `reports unknown event`() {
-        val sink: DataSink<Event> = mock { }
+        val sink: EventDataSink<Event> = mock { }
         extractor.getSingleEvents(GetEventRequest(null, "test"), sink)
         val event = argumentCaptor<Event>()
         verify(sink, never()).onNext(event.capture())

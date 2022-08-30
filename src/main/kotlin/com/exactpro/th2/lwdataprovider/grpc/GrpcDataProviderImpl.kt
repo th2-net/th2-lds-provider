@@ -91,7 +91,7 @@ open class GrpcDataProviderImpl(
 
     private fun <T> processSingle(
         responseObserver: StreamObserver<T>,
-        handler: CancelableResponseHandler<*>,
+        handler: CancelableResponseHandler,
         buffer: BlockingQueue<GrpcEvent>,
         sender: (GrpcEvent) -> Unit,
     ) {
@@ -161,7 +161,7 @@ open class GrpcDataProviderImpl(
         try {
             searchMessagesHandler.loadMessageGroups(requestParams, handler, dataMeasurement)
             processResponse(responseObserver, queue, handler, { /*finish step*/ }) {
-                it.message?.apply {
+                it.message?.get()?.apply {
                     LOGGER.trace { "Sending message ${this.message.messageId.toStoredMessageId()}" }
                 }
             }
@@ -174,7 +174,7 @@ open class GrpcDataProviderImpl(
     protected open fun <T> processResponse(
         responseObserver: StreamObserver<T>,
         buffer: BlockingQueue<GrpcEvent>,
-        handler: CancelableResponseHandler<*>,
+        handler: CancelableResponseHandler,
         onFinished: () -> Unit = {},
         converter: (GrpcEvent) -> T?
     ) {
@@ -199,7 +199,7 @@ open class GrpcDataProviderImpl(
         }
     }
 
-    protected fun onClose(handler: CancelableResponseHandler<*>) {
+    protected fun onClose(handler: CancelableResponseHandler) {
         handler.complete()
     }
 }

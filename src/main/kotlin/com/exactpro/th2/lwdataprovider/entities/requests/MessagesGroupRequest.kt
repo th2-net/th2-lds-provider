@@ -26,6 +26,7 @@ data class MessagesGroupRequest(
     val endTimestamp: Instant,
     val sort: Boolean,
     val rawOnly: Boolean,
+    val keepOpen: Boolean,
 ) {
     init {
         check(startTimestamp <= endTimestamp) { "$START_TIMESTAMP_PARAM must be greater than $END_TIMESTAMP_PARAM" }
@@ -36,6 +37,7 @@ data class MessagesGroupRequest(
         private const val END_TIMESTAMP_PARAM = "endTimestamp"
         private const val SORT_PARAMETER = "sort"
         private const val RAW_ONLY_PARAMETER = "onlyRaw"
+        private const val KEEP_OPEN_PARAMETER = "keepOpen"
 
         @JvmStatic
         fun fromParametersMap(map: Map<String, List<String>>): MessagesGroupRequest =
@@ -45,6 +47,7 @@ data class MessagesGroupRequest(
                 extractInstant(map, END_TIMESTAMP_PARAM),
                 map.booleanOrDefault(SORT_PARAMETER, false),
                 map.booleanOrDefault(RAW_ONLY_PARAMETER, false),
+                map.booleanOrDefault(KEEP_OPEN_PARAMETER, false),
             )
 
         @JvmStatic
@@ -57,6 +60,7 @@ data class MessagesGroupRequest(
                 if (request.hasEndTimestamp()) request.endTimestamp.toInstant() else error("missing end timestamp"),
                 if (request.hasSort()) request.sort.value else false,
                 request.rawOnly,
+                request.keepOpen,
             )
 
         private fun Map<String, List<String>>.booleanOrDefault(name: String, default: Boolean): Boolean {

@@ -44,7 +44,7 @@ class CradleEventExtractor(
         private val logger = KotlinLogging.logger { }
     }
 
-    fun getEvents(filter: SseEventSearchRequest, sink: DataSink<Event>) {
+    fun getEvents(filter: SseEventSearchRequest, sink: EventDataSink<Event>) {
         val dates = splitByDates(
             requireNotNull(filter.startTimestamp) { "start timestamp is not set" },
             requireNotNull(filter.endTimestamp) { "end timestamp is not set" }
@@ -64,7 +64,7 @@ class CradleEventExtractor(
         }
     }
 
-    fun getSingleEvents(filter: GetEventRequest, sink: DataSink<Event>) {
+    fun getSingleEvents(filter: GetEventRequest, sink: EventDataSink<Event>) {
         logger.info { "Extracting single event $filter" }
         val batchId = filter.batchId
         val eventId = StoredTestEventId(filter.eventId)
@@ -128,7 +128,7 @@ class CradleEventExtractor(
 
     private fun getEventByDates(
         dates: Collection<Pair<Instant, Instant>>,
-        sink: DataSink<Event>,
+        sink: EventDataSink<Event>,
         filter: DataFilter<BaseEventEntity>,
         eventSupplier: (Instant, Instant) -> Iterable<StoredTestEventWrapper>,
     ) {
@@ -147,7 +147,7 @@ class CradleEventExtractor(
 
     private fun processEvents(
         testEvents: Iterable<StoredTestEventWrapper>,
-        sink: DataSink<Event>,
+        sink: EventDataSink<Event>,
         count: ProcessingInfo,
         filter: DataFilter<BaseEventEntity>,
     ) {

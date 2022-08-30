@@ -24,6 +24,7 @@ import java.util.concurrent.CompletableFuture
 
 class RequestedMessageDetails(
     val storedMessage: StoredMessage,
+    val group: String? = null,
     private val onResponse: ((RequestedMessageDetails) -> Unit)? = null
 ) {
     val id: String = storedMessage.id.toString()

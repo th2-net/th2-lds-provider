@@ -24,6 +24,7 @@ import com.exactpro.th2.dataprovider.grpc.MessageStreamPointers
 import com.exactpro.th2.lwdataprovider.GrpcResponseHandler
 import com.exactpro.th2.lwdataprovider.MessageRequestContext
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.exactpro.th2.lwdataprovider.producers.GrpcMessageProducer
 import java.util.concurrent.ConcurrentHashMap
@@ -42,8 +43,8 @@ class GrpcMessageRequestContext (
     maxMessagesPerRequest = maxMessagesPerRequest) {
 
 
-    override fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage, onResponse: () -> Unit): GrpcRequestedMessageDetails {
-        return GrpcRequestedMessageDetails(id, time, storedMessage, this, onResponse)
+    override fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage, responseFormats: List<ResponseFormat>, onResponse: () -> Unit): GrpcRequestedMessageDetails {
+        return GrpcRequestedMessageDetails(id, time, storedMessage, this, responseFormats, onResponse)
     }
 
     override fun addStreamInfo() {
@@ -58,10 +59,11 @@ class GrpcRequestedMessageDetails(
     time: Long,
     storedMessage: StoredMessage,
     override val context: GrpcMessageRequestContext,
+    responseFormats: List<ResponseFormat>,
     onResponse: () -> Unit,
     parsedMessage: List<Message>? = null,
     rawMessage: RawMessage? = null
-) : RequestedMessageDetails(id, time, storedMessage, context, parsedMessage, rawMessage, onResponse) {
+) : RequestedMessageDetails(id, time, storedMessage, context, responseFormats, parsedMessage, rawMessage, onResponse) {
 
     override fun responseMessageInternal() {
         val msg = GrpcMessageProducer.createMessage(this)

@@ -27,6 +27,7 @@ import com.exactpro.th2.lwdataprovider.MessageRequestContext
 import com.exactpro.th2.lwdataprovider.RabbitMqDecoder
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import mu.KotlinLogging
 import kotlin.concurrent.withLock
 import kotlin.system.measureTimeMillis
@@ -36,6 +37,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
     private val storage = cradleManager.storage
     private val batchSize = configuration.batchSize
+    private val codecUsePinAttributes = configuration.codecUsePinAttributes
     
     companion object {
         private val logger = KotlinLogging.logger { }
@@ -43,7 +45,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
     fun getStreams(): Collection<String> = storage.streams
     
-    fun getMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext) {
+    fun getMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext, responseFormats: List<ResponseFormat>) {
 
         var msgCount = 0
         val time = measureTimeMillis { 
@@ -65,7 +67,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                 msgId = storedMessage.id
                 val id = storedMessage.id.toString()
                 val decodingStep = requestContext.startStep("decoding")
-                val tmp = requestContext.createMessageDetails(id, 0, storedMessage) { decodingStep.finish() }
+                val tmp = requestContext.createMessageDetails(id, 0, storedMessage, responseFormats) { decodingStep.finish() }
                 messageBuffer.add(tmp)
                 ++msgBufferCount
                 tmp.rawMessage = requestContext.startStep("raw_message_parsing").use { RawMessage.parseFrom(storedMessage.content) }.also {
@@ -79,8 +81,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                         decoder.registerMessage(it)
                         requestContext.registerMessage(it)
                     }
-                    decoder.sendBatchMessage(builder.build(), sessionName)
-
+                    decoder.sendBatchMessage(builder.build(), sessionName, codecUsePinAttributes)
                     messageBuffer.clear()
                     builder.clear()
                     msgCount += msgBufferCount
@@ -101,7 +102,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             }
             
             if (msgBufferCount > 0) {
-                decoder.sendBatchMessage(builder.build(), sessionName)
+                decoder.sendBatchMessage(builder.build(), sessionName, codecUsePinAttributes)
 
                 val sendingTime = System.currentTimeMillis()
                 messageBuffer.forEach { 
@@ -121,7 +122,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
     }
 
 
-    fun getRawMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext) {
+    fun getRawMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext, responseFormats: List<ResponseFormat>) {
 
         var msgCount = 0
         val time = measureTimeMillis {
@@ -136,7 +137,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                 }
                 msgId = storedMessageBatch.id
                 val id = storedMessageBatch.id.toString()
-                val tmp = requestContext.createMessageDetails(id, time, storedMessageBatch)
+                val tmp = requestContext.createMessageDetails(id, time, storedMessageBatch, responseFormats)
                 tmp.rawMessage = RawMessage.parseFrom(storedMessageBatch.content)
                 tmp.responseMessage()
                 msgCount++
@@ -166,7 +167,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
             val time = System.currentTimeMillis()
             val decodingStep = if (onlyRaw) null else requestContext.startStep("decoding")
-            val tmp = requestContext.createMessageDetails(message.id.toString(), time, message) { decodingStep?.finish() }
+            val tmp = requestContext.createMessageDetails(message.id.toString(), time, message, emptyList()) { decodingStep?.finish() }
             tmp.rawMessage = RawMessage.parseFrom(message.content)
             requestContext.loadedMessages += 1
             
@@ -178,7 +179,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                     .build()
                 decoder.registerMessage(tmp)
                 requestContext.registerMessage(tmp)
-                decoder.sendBatchMessage(msgBatch, message.streamName)
+                decoder.sendBatchMessage(msgBatch, message.streamName, codecUsePinAttributes)
             }
             
         }

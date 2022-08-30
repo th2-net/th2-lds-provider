@@ -20,6 +20,7 @@ import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.lwdataprovider.*
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.exactpro.th2.lwdataprovider.producers.MessageProducer53
@@ -39,8 +40,8 @@ class MessageSseRequestContext (
     maxMessagesPerRequest = maxMessagesPerRequest) {
 
 
-    override fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage, onResponse: () -> Unit) : RequestedMessageDetails {
-        return SseRequestedMessageDetails(id, time, storedMessage, this, onResponse)
+    override fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage, responseFormats: List<ResponseFormat>, onResponse: () -> Unit) : RequestedMessageDetails {
+        return SseRequestedMessageDetails(id, time, storedMessage, this, responseFormats, onResponse)
     }
 
     override fun addStreamInfo() {
@@ -54,10 +55,11 @@ class SseRequestedMessageDetails(
     time: Long,
     storedMessage: StoredMessage,
     override val context: MessageSseRequestContext,
+    responseFormats: List<ResponseFormat>,
     onResponse: () -> Unit,
     parsedMessage: List<Message>? = null,
     rawMessage: RawMessage? = null
-) : RequestedMessageDetails(id, time, storedMessage, context, parsedMessage, rawMessage, onResponse) {
+) : RequestedMessageDetails(id, time, storedMessage, context, responseFormats, parsedMessage, rawMessage, onResponse) {
 
     override fun responseMessageInternal() {
         val msg = MessageProducer53.createMessage(this, context.jsonFormatter)

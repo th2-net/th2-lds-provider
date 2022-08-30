@@ -21,8 +21,13 @@ import com.exactpro.th2.common.message.addFields
 import com.exactpro.th2.common.message.messageType
 import com.exactpro.th2.lwdataprovider.CustomJsonFormatter
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat.ALL
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat.BASE_64
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat.PARSED
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import java.util.Base64
+
 
 @Deprecated("for 5.3 messages")
 class MessageProducer53 {
@@ -30,14 +35,13 @@ class MessageProducer53 {
     companion object {
 
         fun createMessage(rawMessage: RequestedMessageDetails, formatter: CustomJsonFormatter): ProviderMessage53 {
-            val convertToOneMessage = rawMessage.parsedMessage?.let { convertToOneMessage(it) }
+            val responseFormats = rawMessage.responseFormats
+            val convertToOneMessage = if (isParsedFormat(responseFormats)) rawMessage.parsedMessage?.let { convertToOneMessage(it) } else null
             return ProviderMessage53(
                 rawMessage.storedMessage,
                 convertToOneMessage?.let { formatter.print(it) } ?: "{}",
-                convertToOneMessage,
-                rawMessage.rawMessage?.let {
-                    Base64.getEncoder().encodeToString(it.body.toByteArray())
-                },
+                if (isParsedFormat(responseFormats)) convertToOneMessage else null,
+                if (isBase64Format(responseFormats)) rawMessage.rawMessage?.let { Base64.getEncoder().encodeToString(it.body.toByteArray()) } else null,
                 if (convertToOneMessage != null) convertToOneMessage.metadata.messageType else ""
             )
         }
@@ -54,7 +58,7 @@ class MessageProducer53 {
             )
         }
 
-        fun convertToOneMessage (messages: List<Message>): Message {
+        fun convertToOneMessage(messages: List<Message>): Message {
             return when (messages.size) {
                 1 -> messages[0]
                 else -> messages[0].toBuilder().run {
@@ -85,6 +89,13 @@ class MessageProducer53 {
             }
         }
 
+        private fun isParsedFormat(responseFormats: List<ResponseFormat>) : Boolean{
+            return responseFormats.isEmpty() || responseFormats.contains(ALL) || responseFormats.contains(PARSED)
+        }
+
+        private fun isBase64Format(responseFormats: List<ResponseFormat>) : Boolean{
+            return responseFormats.isEmpty() || responseFormats.contains(ALL) || responseFormats.contains(BASE_64)
+        }
     }
 
 }

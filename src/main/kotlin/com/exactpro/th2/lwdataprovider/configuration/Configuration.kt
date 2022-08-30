@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.lwdataprovider.configuration
 
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import java.util.*
 
 
@@ -31,6 +32,8 @@ class CustomConfigurationClass {
     val mode: String? = null
     val grpcBackPressure : Boolean? = null
     val bufferPerQuery: Int? = null
+    val codecUsePinAttributes: Boolean = true
+    val defaultResponseFormats: List<ResponseFormat>? = null
 }
 
 class Configuration(customConfiguration: CustomConfigurationClass) {
@@ -47,6 +50,9 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
         customConfiguration.mode?.let { Mode.valueOf(it.uppercase(Locale.getDefault())) }, Mode.HTTP)
     val grpcBackPressure: Boolean = VariableBuilder.getVariable("grpcBackPressure", customConfiguration.grpcBackPressure, false)
     val bufferPerQuery: Int = VariableBuilder.getVariable("bufferPerQuery", customConfiguration.bufferPerQuery, 0)
+    val codecUsePinAttributes: Boolean = VariableBuilder.getVariable("codecUsePinAttributes", customConfiguration.codecUsePinAttributes, true)
+    val defaultResponseFormats: List<ResponseFormat> = VariableBuilder.getVariable("defaultResponseFormats",
+        customConfiguration.defaultResponseFormats, listOf(ResponseFormat.ALL))
 }
 
 enum class Mode {

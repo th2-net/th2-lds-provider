@@ -57,7 +57,7 @@ class GetMessagesServlet (
         val reqContext = MessageSseRequestContext(sseResponse, queryParametersMap, maxMessagesPerRequest = configuration.bufferPerQuery)
         reqContext.startStep("messages_loading").use {
             keepAliveHandler.addKeepAliveData(reqContext)
-            searchMessagesHandler.loadMessages(request, reqContext)
+            searchMessagesHandler.loadMessages(request, reqContext,configuration)
 
             this.waitAndWrite(queue, resp, reqContext)
             keepAliveHandler.removeKeepAliveData(reqContext)

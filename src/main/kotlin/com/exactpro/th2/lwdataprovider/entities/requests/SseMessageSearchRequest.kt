@@ -22,12 +22,13 @@ import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest
 import com.exactpro.th2.dataprovider.grpc.MessageStreamPointer
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.grpc.toInstant
+import com.exactpro.th2.lwdataprovider.grpc.toLocalResponseFormats
 import com.exactpro.th2.lwdataprovider.grpc.toProviderMessageStreams
 import com.exactpro.th2.lwdataprovider.grpc.toProviderRelation
 import com.exactpro.th2.lwdataprovider.grpc.toStoredMessageId
 import java.time.Instant
-import kotlin.streams.toList
 
 data class SseMessageSearchRequest(
     val startTimestamp: Instant?,
@@ -39,7 +40,9 @@ data class SseMessageSearchRequest(
     val attachedEvents: Boolean,
     val lookupLimitDays: Int?,
     val resumeFromIdsList: List<StoredMessageId>?,
-    val onlyRaw: Boolean
+    @Deprecated("Use responseFormats instead")
+    val onlyRaw: Boolean,
+    val responseFormats: List<ResponseFormat>? = listOf(ResponseFormat.ALL)
 ) {
 
     companion object {
@@ -86,7 +89,8 @@ data class SseMessageSearchRequest(
         keepOpen = parameters["keepOpen"]?.firstOrNull()?.toBoolean() ?: false,
         attachedEvents = parameters["attachedEvents"]?.firstOrNull()?.toBoolean() ?: false,
         lookupLimitDays = parameters["lookupLimitDays"]?.firstOrNull()?.toInt(),
-        onlyRaw = parameters["onlyRaw"]?.firstOrNull()?.toBoolean() ?: false
+        onlyRaw = parameters["onlyRaw"]?.firstOrNull()?.toBoolean() ?: false,
+        responseFormats = parameters["responseFormats"]?.map { x -> ResponseFormat.valueOf(x) }
     )
 
     constructor(grpcRequest: MessageSearchRequest) : this(
@@ -99,7 +103,8 @@ data class SseMessageSearchRequest(
         keepOpen = if (grpcRequest.hasKeepOpen()) grpcRequest.keepOpen.value else false,
         attachedEvents = false, // disabled
         lookupLimitDays = null,
-        onlyRaw = false // NOT SUPPORTED in GRPC
+        onlyRaw = false, // NOT SUPPORTED in GRPC
+        responseFormats = grpcRequest.responseFormatsList.toLocalResponseFormats()
     )
 
     private fun checkEndTimestamp() {

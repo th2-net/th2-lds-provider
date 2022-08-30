@@ -28,10 +28,8 @@ import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat.AL
 import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat.BASE_64
 import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat.PARSED
 import com.google.protobuf.Timestamp
-import mu.KotlinLogging
+import java.lang.IllegalArgumentException
 import java.time.Instant
-
-private val logger = KotlinLogging.logger { }
 
 fun List<com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat>?.toLocalResponseFormats() : List<ResponseFormat> {
     val list : MutableList<ResponseFormat> = ArrayList()
@@ -44,7 +42,7 @@ fun List<com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat>
                 BASE_64 -> list.add(ResponseFormat.BASE_64)
                 PARSED -> list.add(ResponseFormat.PARSED)
                 else -> {
-                    logger.error { "Unrecognized response format: $responseFormat" }
+                    throw IllegalArgumentException("Unrecognized response format")
                 }
             }
         }

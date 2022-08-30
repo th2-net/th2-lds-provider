@@ -18,21 +18,19 @@ package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.th2.dataprovider.grpc.EventResponse
 import com.exactpro.th2.dataprovider.grpc.MessageSearchResponse
-import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
-import com.google.gson.Gson
-import java.util.Collections
-import java.util.concurrent.ArrayBlockingQueue
 
-interface ResponseHandler<T> {
+interface ResponseHandler<T> : BasicResponseHandler {
+    fun handleNext(data: T)
+}
+
+interface BasicResponseHandler {
     val isAlive: Boolean
     fun complete()
     fun writeErrorMessage(text: String)
     fun writeErrorMessage(error: Throwable)
-
-    fun handleNext(data: T)
 }
 
-interface CancelableResponseHandler<T> : ResponseHandler<T> {
+interface CancelableResponseHandler : BasicResponseHandler {
     fun cancel()
 }
 

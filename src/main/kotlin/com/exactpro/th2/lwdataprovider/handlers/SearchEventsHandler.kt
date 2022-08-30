@@ -61,7 +61,7 @@ class SearchEventsHandler(
 private class EventDataSink(
     override val handler: ResponseHandler<Event>,
     limit: Int? = null,
-) : AbstractDataSink<Event>(handler, limit) {
+) : AbstractEventDataSink<Event>(handler, limit) {
 
     override fun completed() {
         handler.complete()

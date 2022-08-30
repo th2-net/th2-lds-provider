@@ -90,7 +90,7 @@ open class GrpcDataProviderImpl(
 
     private fun <T> processSingle(
         responseObserver: StreamObserver<T>,
-        handler: CancelableResponseHandler<*>,
+        handler: CancelableResponseHandler,
         buffer: BlockingQueue<GrpcEvent>,
         sender: (GrpcEvent) -> Unit,
     ) {
@@ -173,7 +173,7 @@ open class GrpcDataProviderImpl(
     protected open fun <T> processResponse(
         responseObserver: StreamObserver<T>,
         buffer: BlockingQueue<GrpcEvent>,
-        handler: CancelableResponseHandler<*>,
+        handler: CancelableResponseHandler,
         onFinished: () -> Unit = {},
         converter: (GrpcEvent) -> T?
     ) {
@@ -198,7 +198,7 @@ open class GrpcDataProviderImpl(
         }
     }
 
-    protected fun onClose(handler: CancelableResponseHandler<*>) {
+    protected fun onClose(handler: CancelableResponseHandler) {
         handler.complete()
     }
 }

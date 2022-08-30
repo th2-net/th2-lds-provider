@@ -17,6 +17,7 @@
 package com.exactpro.th2.lwdataprovider.grpc
 
 import com.exactpro.th2.lwdataprovider.GrpcEvent
+import com.exactpro.th2.lwdataprovider.ResponseHandler
 import com.exactpro.th2.lwdataprovider.entities.exceptions.HandleDataException
 import com.exactpro.th2.lwdataprovider.handlers.AbstractCancelableHandler
 import java.util.concurrent.BlockingQueue
@@ -24,7 +25,7 @@ import java.util.concurrent.BlockingQueue
 class GrpcHandler<IN>(
     private val buffer: BlockingQueue<GrpcEvent>,
     private val transform: (IN) -> GrpcEvent,
-) : AbstractCancelableHandler<IN>() {
+) : AbstractCancelableHandler(), ResponseHandler<IN> {
 
     override fun complete() {
         if (!isAlive) return

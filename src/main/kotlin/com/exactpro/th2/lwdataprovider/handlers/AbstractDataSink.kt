@@ -17,35 +17,15 @@
 package com.exactpro.th2.lwdataprovider.handlers
 
 import com.exactpro.th2.lwdataprovider.ResponseHandler
-import com.exactpro.th2.lwdataprovider.db.CancellationReason
-import com.exactpro.th2.lwdataprovider.db.DataSink
+import com.exactpro.th2.lwdataprovider.db.EventDataSink
+import com.exactpro.th2.lwdataprovider.db.MessageDataSink
 
-abstract class AbstractDataSink<T>(
-    protected open val handler: ResponseHandler<T>,
-    val limit: Int? = null,
-) : DataSink<T> {
-    init {
-        if (limit != null) {
-            require(limit > 0) { "limit must be a positive number but was $limit" }
-        }
-    }
-    private var error: String? = null
-    var loadedData: Long = 0
-        protected set
-    override val canceled: CancellationReason?
-        get() = when {
-            limit != null && limit in 1..loadedData -> CancellationReason("limit $limit has been reached")
-            !handler.isAlive -> CancellationReason("request was canceled")
-            else -> error?.let { CancellationReason("error $it") }
-        }
+abstract class AbstractEventDataSink<T>(
+    override val handler: ResponseHandler<T>,
+    limit: Int? = null,
+) : AbstractBasicDataSink(handler, limit), EventDataSink<T>
 
-    override fun onError(ex: Exception) {
-        onError(ex.message ?: ex.toString())
-    }
-
-    override fun onError(message: String) {
-        error = message
-        handler.writeErrorMessage(message)
-        handler.complete()
-    }
-}
+abstract class AbstractMessageDataSink<M, T>(
+    override val handler: ResponseHandler<T>,
+    limit: Int? = null,
+) : AbstractBasicDataSink(handler, limit), MessageDataSink<M, T>

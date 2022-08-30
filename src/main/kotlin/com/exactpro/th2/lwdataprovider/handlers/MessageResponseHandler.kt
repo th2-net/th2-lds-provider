@@ -19,6 +19,7 @@ package com.exactpro.th2.lwdataprovider.handlers
 import com.exactpro.cradle.Direction
 import com.exactpro.th2.lwdataprovider.ProviderStreamInfo
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
+import com.exactpro.th2.lwdataprovider.ResponseHandler
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import java.util.concurrent.locks.Condition
 import java.util.concurrent.locks.ReentrantLock
@@ -28,10 +29,10 @@ import kotlin.concurrent.withLock
 abstract class MessageResponseHandler(
     private val dataMeasurement: DataMeasurement,
     private val maxMessagesPerRequest: Int = 0,
-) : AbstractCancelableHandler<RequestedMessageDetails>() {
+) : AbstractCancelableHandler(), ResponseHandler<RequestedMessageDetails> {
     private val lock: ReentrantLock = ReentrantLock()
     private val condition: Condition = lock.newCondition()
-    protected val streamInfo: ProviderStreamInfo = ProviderStreamInfo()
+    val streamInfo: ProviderStreamInfo = ProviderStreamInfo()
 
     @GuardedBy("lock")
     private var messagesInProcess: Int = 0
@@ -61,8 +62,8 @@ abstract class MessageResponseHandler(
         }
     }
 
-    fun registerSession(alias: String, direction: Direction) {
-        streamInfo.registerSession(alias, direction)
+    fun registerSession(alias: String, direction: Direction, group: String? = null) {
+        streamInfo.registerSession(alias, direction, group)
     }
 
     fun dataLoaded() {
@@ -74,7 +75,7 @@ abstract class MessageResponseHandler(
 
     override fun handleNext(data: RequestedMessageDetails) {
         onMessageReceived()
-        streamInfo.registerMessage(data.storedMessage.id)
+        streamInfo.registerMessage(data.storedMessage.id, data.storedMessage.timestamp)
         try {
             handleNextInternal(data)
         } finally {

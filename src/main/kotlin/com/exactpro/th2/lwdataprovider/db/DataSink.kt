@@ -16,10 +16,18 @@
 
 package com.exactpro.th2.lwdataprovider.db
 
-interface DataSink<T> : AutoCloseable {
-    val canceled: CancellationReason?
+interface EventDataSink<T> : BaseDataSink {
     fun onNext(data: T)
     fun onNext(listData: Collection<T>): Unit = listData.forEach(::onNext)
+}
+
+interface MessageDataSink<M, T> : BaseDataSink {
+    fun onNext(marker: M, data: T)
+    fun onNext(marker: M, listData: Collection<T>): Unit = listData.forEach { onNext(marker, it) }
+}
+
+interface BaseDataSink : AutoCloseable {
+    val canceled: CancellationReason?
     fun onError(message: String)
     fun onError(ex: Exception): Unit = onError(ex.message ?: ex.toString())
     fun completed()

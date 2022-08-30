@@ -42,7 +42,7 @@ fun List<com.exactpro.th2.dataprovider.grpc.MessageSearchRequest.ResponseFormat>
                 BASE_64 -> list.add(ResponseFormat.BASE_64)
                 PARSED -> list.add(ResponseFormat.PARSED)
                 else -> {
-                    throw IllegalArgumentException("Unrecognized response format")
+                    throw IllegalArgumentException("Unrecognized response format: $responseFormat")
                 }
             }
         }

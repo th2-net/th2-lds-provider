@@ -4,6 +4,10 @@
 This component serves as a data provider for [th2-data-services](https://github.com/th2-net/th2-data-services). It will connect to the cassandra database via [cradle api](https://github.com/th2-net/cradleapi) and expose the data stored in there as REST resources.
 This component is similar to [rpt-data-provider](https://github.com/th2-net/th2-rpt-data-provider) but the last one contains additional GUI-specific logic.
 
+# Metrics
+
+* th2_ldp_decode_queue_number (Gauge) - Actual number of raw message in decode queue
+
 # API
 
 ### REST

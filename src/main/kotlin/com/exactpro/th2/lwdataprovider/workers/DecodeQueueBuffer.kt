@@ -17,8 +17,8 @@
 package com.exactpro.th2.lwdataprovider.workers
 
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
+import io.prometheus.client.Gauge
 import mu.KotlinLogging
-import java.util.ArrayList
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -27,6 +27,11 @@ class DecodeQueueBuffer(private val maxDecodeQueueSize: Int = -1) {
 
     companion object {
         private val logger = KotlinLogging.logger { }
+
+        private val DECODE_QUEUE_GAUGE = Gauge.build()
+            .name("th2_ldp_decode_queue_number")
+            .help("Actual number of raw message in decode queue")
+            .register()
     }
 
     private val decodeQueue = ConcurrentHashMap<String, MutableList<RequestedMessageDetails>>()
@@ -49,13 +54,9 @@ class DecodeQueueBuffer(private val maxDecodeQueueSize: Int = -1) {
         return decodeQueue.entries
     }
     
-    fun getSize(): Int {
-        return decodeQueue.size
-    }
-    
     @Suppress("ConvertTwoComparisonsToRangeCheck")
     fun checkAndWait() {
-        val buf = decodeQueue.size
+        val buf = getSize()
         if (maxDecodeQueueSize > 0 && buf > maxDecodeQueueSize) {
             logger.debug { "Messages in queue is more than buffer size buf and thread will be locked" }
             fullDecodeQueryLock.withLock {
@@ -66,7 +67,7 @@ class DecodeQueueBuffer(private val maxDecodeQueueSize: Int = -1) {
     }
 
     fun checkAndUnlock() {
-        if (locked && maxDecodeQueueSize > 0 && decodeQueue.size < maxDecodeQueueSize) {
+        if (locked && maxDecodeQueueSize > 0 && getSize() < maxDecodeQueueSize) {
             fullDecodeQueryLock.withLock {
                 fullDecodeQueryCond.signalAll()
                 locked = false
@@ -74,6 +75,12 @@ class DecodeQueueBuffer(private val maxDecodeQueueSize: Int = -1) {
             logger.debug { "Awaiting buffer space is unlocked" }
         }
     }
-    
+
+    private fun getSize(): Int {
+        return decodeQueue.size.also {
+            DECODE_QUEUE_GAUGE.set(it.toDouble())
+        }
+    }
+
     
 }

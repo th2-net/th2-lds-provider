@@ -50,6 +50,8 @@ class RPCCallExample {
                 }.build()).asSequence().count()
 
                 println(count)
+            } catch (e: Exception) {
+                e.printStackTrace()
             } finally {
 //                context.cancel(null)
             }

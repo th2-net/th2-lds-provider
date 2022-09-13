@@ -46,6 +46,7 @@ import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
+import io.grpc.stub.ServerCallStreamObserver
 import io.grpc.stub.StreamObserver
 import io.prometheus.client.Counter
 import mu.KotlinLogging
@@ -193,7 +194,7 @@ open class GrpcDataProviderImpl(
     }
 
     protected open fun <T> processResponse(
-        responseObserver: StreamObserver<T>,
+        responseObserver: ServerCallStreamObserver<T>,
         grpcResponseHandler: GrpcResponseHandler,
         context: RequestContext,
         onFinished: () -> Unit = {},
@@ -224,12 +225,41 @@ open class GrpcDataProviderImpl(
         }
     }
 
+    private abstract class MetricServerCallStreamObserver<T> (
+        streamObserver: StreamObserver<T>
+    ): ServerCallStreamObserver<T>() {
+        private val origin = streamObserver as ServerCallStreamObserver<T>
+
+        override fun onNext(value: T?) { origin.onNext(value) }
+
+        override fun onError(t: Throwable?) { origin.onError(t) }
+
+        override fun onCompleted() { origin.onCompleted() }
+
+        override fun isReady(): Boolean = origin.isReady
+
+        override fun setOnReadyHandler(onReadyHandler: Runnable?) { origin.setOnReadyHandler(onReadyHandler) }
+
+        override fun disableAutoInboundFlowControl() { origin.disableAutoInboundFlowControl() }
+
+        override fun request(count: Int) { origin.request(count) }
+
+        override fun setMessageCompression(enable: Boolean) { origin.setMessageCompression(enable) }
+
+        override fun isCancelled(): Boolean = origin.isCancelled
+
+        override fun setOnCancelHandler(onCancelHandler: Runnable?) { origin.setOnCancelHandler(onCancelHandler) }
+
+        override fun setCompression(compression: String?) { origin.setCompression(compression) }
+    }
+
     private class MetricEventSearchResponseObserver (
         private val metric: Counter.Child,
-        private val origin: StreamObserver<EventSearchResponse>
-    ): StreamObserver<EventSearchResponse> by origin {
+        origin: StreamObserver<EventSearchResponse>
+    ): MetricServerCallStreamObserver<EventSearchResponse>(origin) {
+
         override fun onNext(value: EventSearchResponse?) {
-            origin.onNext(value)
+            super.onNext(value)
             value?.let {
                 metric.inc()
             }
@@ -238,10 +268,11 @@ open class GrpcDataProviderImpl(
 
     private class MetricMessageSearchResponseObserver (
         private val metric: Counter.Child,
-        private val origin: StreamObserver<MessageSearchResponse>
-    ): StreamObserver<MessageSearchResponse> by origin {
+        origin: StreamObserver<MessageSearchResponse>
+    ): MetricServerCallStreamObserver<MessageSearchResponse>(origin) {
+
         override fun onNext(value: MessageSearchResponse?) {
-            origin.onNext(value)
+            super.onNext(value)
             value?.let {
                 metric.inc(value.message.messageItemCount.toDouble())
             }

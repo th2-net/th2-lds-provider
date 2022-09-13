@@ -33,7 +33,6 @@ import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import java.util.concurrent.ThreadPoolExecutor
 
 @Suppress("MemberVisibilityCanBePrivate")
 class Context(
@@ -61,4 +60,8 @@ class Context(
         pool
     ),
     val searchEventsHandler: SearchEventsHandler = SearchEventsHandler(cradleEventExtractor, pool)
-)
+) {
+    init {
+        MAX_DECODE_QUEUE_SIZE_GAUGE.set(configuration.maxBufferDecodeQueue.toDouble())
+    }
+}

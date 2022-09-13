@@ -30,9 +30,14 @@ import com.exactpro.th2.dataprovider.grpc.MessageSearchResponse
 import com.exactpro.th2.dataprovider.grpc.MessageStream
 import com.exactpro.th2.dataprovider.grpc.MessageStreamsRequest
 import com.exactpro.th2.dataprovider.grpc.MessageStreamsResponse
+import com.exactpro.th2.lwdataprovider.CradleMessageSource.GROUP
+import com.exactpro.th2.lwdataprovider.CradleMessageSource.MESSAGE
 import com.exactpro.th2.lwdataprovider.GrpcEvent
 import com.exactpro.th2.lwdataprovider.GrpcResponseHandler
+import com.exactpro.th2.lwdataprovider.ExposedInterface.GRPC
 import com.exactpro.th2.lwdataprovider.RequestContext
+import com.exactpro.th2.lwdataprovider.SEND_MESSAGES_COUNTER
+import com.exactpro.th2.lwdataprovider.SEND_EVENTS_COUNTER
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
@@ -42,6 +47,7 @@ import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import io.grpc.stub.StreamObserver
+import io.prometheus.client.Counter
 import mu.KotlinLogging
 import java.util.concurrent.ArrayBlockingQueue
 
@@ -53,6 +59,18 @@ open class GrpcDataProviderImpl(
 
     companion object {
         private val LOGGER = KotlinLogging.logger { }
+
+        private val SEND_GRPC_MESSAGES_FROM_CRADLE_MESSAGE_COUNTER = SEND_MESSAGES_COUNTER
+            .labels(GRPC.name, MESSAGE.name)
+        private val SEND_GRPC_MESSAGES_FROM_CRADLE_GROUP_COUNTER = SEND_MESSAGES_COUNTER
+            .labels(GRPC.name, GROUP.name)
+
+        private val SEND_GRPC_EVENTS_COUNTER = SEND_EVENTS_COUNTER
+            .labels(GRPC.name)
+
+        private fun StreamObserver<EventSearchResponse>.withEventMetric() = MetricEventSearchResponseObserver(SEND_GRPC_EVENTS_COUNTER, this)
+        private fun StreamObserver<MessageSearchResponse>.withMessageMetric() = MetricMessageSearchResponseObserver(SEND_GRPC_MESSAGES_FROM_CRADLE_MESSAGE_COUNTER, this)
+        private fun StreamObserver<MessageSearchResponse>.withGroupMetric() = MetricMessageSearchResponseObserver(SEND_GRPC_MESSAGES_FROM_CRADLE_GROUP_COUNTER, this)
     }
 
     override fun getEvent(request: EventID?, responseObserver: StreamObserver<EventResponse>?) {
@@ -99,14 +117,11 @@ open class GrpcDataProviderImpl(
             sender.invoke(value)
             responseObserver.onCompleted()
         }
-        context.contextAlive = false;
+        context.contextAlive = false
         grpcResponseHandler.streamClosed = true
     }
 
-    override fun searchEvents(request: EventSearchRequest?, responseObserver: StreamObserver<EventSearchResponse>?) {
-        checkNotNull(request)
-        checkNotNull(responseObserver)
-
+    override fun searchEvents(request: EventSearchRequest, responseObserver: StreamObserver<EventSearchResponse>) {
         val queue = ArrayBlockingQueue<GrpcEvent>(configuration.responseQueueSize)
         val requestParams = SseEventSearchRequest(request)
         LOGGER.info { "Loading events $requestParams" }
@@ -114,7 +129,7 @@ open class GrpcDataProviderImpl(
         val grpcResponseHandler = GrpcResponseHandler(queue)
         val context = GrpcEventRequestContext(grpcResponseHandler)
         searchEventsHandler.loadEvents(requestParams, context)
-        processResponse(responseObserver, grpcResponseHandler, context) {
+        processResponse(responseObserver.withEventMetric(), grpcResponseHandler, context) {
             if (it.event != null) {
                 EventSearchResponse.newBuilder().setEvent(it.event).build()
             } else {
@@ -137,11 +152,7 @@ open class GrpcDataProviderImpl(
         }
     }
 
-    override fun searchMessages(request: MessageSearchRequest?, responseObserver: StreamObserver<MessageSearchResponse>?) {
-
-        checkNotNull(request)
-        checkNotNull(responseObserver)
-
+    override fun searchMessages(request: MessageSearchRequest, responseObserver: StreamObserver<MessageSearchResponse>) {
         val queue = ArrayBlockingQueue<GrpcEvent>(configuration.responseQueueSize)
         val requestParams = SseMessageSearchRequest(request)
         LOGGER.info { "Loading messages $requestParams" }
@@ -150,7 +161,7 @@ open class GrpcDataProviderImpl(
         val loadingStep = context.startStep("messages_loading")
         searchMessagesHandler.loadMessages(requestParams, context, configuration)
         try {
-            processResponse(responseObserver, grpcResponseHandler, context, loadingStep::finish) { it.message }
+            processResponse(responseObserver.withMessageMetric(), grpcResponseHandler, context, loadingStep::finish) { it.message }
         } catch (ex: Exception) {
             loadingStep.finish()
             throw ex
@@ -166,7 +177,7 @@ open class GrpcDataProviderImpl(
         val loadingStep = context.startStep("messages_group_loading")
         try {
             searchMessagesHandler.loadMessageGroups(requestParams, context)
-            processResponse(responseObserver, grpcResponseHandler, context, loadingStep::finish) {
+            processResponse(responseObserver.withGroupMetric(), grpcResponseHandler, context, loadingStep::finish) {
                 it.message?.apply {
                     LOGGER.trace { "Sending message ${this.message.messageId.toStoredMessageId()}" }
                 }
@@ -178,7 +189,7 @@ open class GrpcDataProviderImpl(
     }
 
     protected open fun onCloseContext(requestContext: RequestContext) {
-        requestContext.contextAlive = false;
+        requestContext.contextAlive = false
     }
 
     protected open fun <T> processResponse(
@@ -209,6 +220,30 @@ open class GrpcDataProviderImpl(
             } else {
                 converter.invoke(event)?.let {  responseObserver.onNext(it) }
                 context.onMessageSent()
+            }
+        }
+    }
+
+    private class MetricEventSearchResponseObserver (
+        private val metric: Counter.Child,
+        private val origin: StreamObserver<EventSearchResponse>
+    ): StreamObserver<EventSearchResponse> by origin {
+        override fun onNext(value: EventSearchResponse?) {
+            origin.onNext(value)
+            value?.let {
+                metric.inc()
+            }
+        }
+    }
+
+    private class MetricMessageSearchResponseObserver (
+        private val metric: Counter.Child,
+        private val origin: StreamObserver<MessageSearchResponse>
+    ): StreamObserver<MessageSearchResponse> by origin {
+        override fun onNext(value: MessageSearchResponse?) {
+            origin.onNext(value)
+            value?.let {
+                metric.inc(value.message.messageItemCount.toDouble())
             }
         }
     }

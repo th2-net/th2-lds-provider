@@ -16,11 +16,11 @@
 
 package com.exactpro.th2.lwdataprovider
 
+import com.exactpro.th2.lwdataprovider.CradleMessageSource.Companion.CRADLE_MESSAGE_SOURCE_LABEL
+import com.exactpro.th2.lwdataprovider.ExposedInterface.Companion.INTERFACE_LABEL
+import io.prometheus.client.Counter
 import io.prometheus.client.Gauge
 import io.prometheus.client.Histogram
-import mu.KotlinLogging
-
-private val logger = KotlinLogging.logger { }
 
 data class Metrics(
     private val histogramTime: Histogram,
@@ -47,3 +47,56 @@ data class Metrics(
         timer.observeDuration()
     }
 }
+
+enum class ExposedInterface {
+    SSE,
+    GRPC;
+
+    companion object {
+        const val INTERFACE_LABEL = "interface"
+    }
+}
+
+enum class CradleMessageSource {
+    MESSAGE,
+    GROUP;
+
+    companion object {
+        const val CRADLE_MESSAGE_SOURCE_LABEL = "cradle_message_source"
+    }
+}
+
+val DECODE_QUEUE_SIZE_GAUGE: Gauge = Gauge.build()
+    .name("th2_ldp_buffer_decode_message_queue_size")
+    .help("Actual number of raw message in the decode queue")
+    .register()
+
+val MAX_DECODE_QUEUE_SIZE_GAUGE: Gauge = Gauge.build()
+    .name("th2_ldp_max_buffer_decode_message_queue_total")
+    .help("Max decode message queue capacity. It is common buffer for all requests to decode messages")
+    .register()
+
+val LOAD_MESSAGES_FROM_CRADLE_COUNTER: Counter = Counter.build()
+    .name("th2_ldp_load_messages_from_cradle_total")
+    .help("Number of messages loaded from cradle")
+    .labelNames(CRADLE_MESSAGE_SOURCE_LABEL)
+    .register()
+
+//TODO: add method label
+val LOAD_EVENTS_FROM_CRADLE_COUNTER: Counter = Counter.build()
+    .name("th2_ldp_load_events_from_cradle_total")
+    .help("Number of events loaded from cradle")
+    .register()
+
+val SEND_MESSAGES_COUNTER: Counter = Counter.build()
+    .name("th2_ldp_send_messages_total")
+    .help("Send messages via gRPC/HTTP interface")
+    .labelNames(INTERFACE_LABEL, CRADLE_MESSAGE_SOURCE_LABEL)
+    .register()
+
+//TODO: implement for sse interface
+val SEND_EVENTS_COUNTER: Counter = Counter.build()
+    .name("th2_ldp_send_events_total")
+    .help("Send events via gRPC/HTTP interface")
+    .labelNames(INTERFACE_LABEL)
+    .register()

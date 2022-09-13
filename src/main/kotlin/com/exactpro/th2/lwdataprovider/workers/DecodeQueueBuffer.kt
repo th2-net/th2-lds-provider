@@ -16,8 +16,8 @@
 
 package com.exactpro.th2.lwdataprovider.workers
 
+import com.exactpro.th2.lwdataprovider.DECODE_QUEUE_SIZE_GAUGE
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
-import io.prometheus.client.Gauge
 import mu.KotlinLogging
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantLock
@@ -27,11 +27,6 @@ class DecodeQueueBuffer(private val maxDecodeQueueSize: Int = -1) {
 
     companion object {
         private val logger = KotlinLogging.logger { }
-
-        private val DECODE_QUEUE_GAUGE = Gauge.build()
-            .name("th2_ldp_decode_queue_number")
-            .help("Actual number of raw message in decode queue")
-            .register()
     }
 
     private val decodeQueue = ConcurrentHashMap<String, MutableList<RequestedMessageDetails>>()
@@ -78,7 +73,7 @@ class DecodeQueueBuffer(private val maxDecodeQueueSize: Int = -1) {
 
     private fun getSize(): Int {
         return decodeQueue.size.also {
-            DECODE_QUEUE_GAUGE.set(it.toDouble())
+            DECODE_QUEUE_SIZE_GAUGE.set(it.toDouble())
         }
     }
 

@@ -21,6 +21,7 @@ import com.exactpro.cradle.cassandra.CassandraCradleStorage
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.cradle.testevents.StoredTestEventWrapper
+import com.exactpro.th2.lwdataprovider.LOAD_EVENTS_FROM_CRADLE_COUNTER
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
@@ -35,7 +36,7 @@ import java.util.Collections
 import java.util.stream.Collectors
 
 
-class CradleEventExtractor (private val cradleManager: CradleManager) {
+class CradleEventExtractor (cradleManager: CradleManager) {
 
     private val storage = cradleManager.storage
 
@@ -44,7 +45,7 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
     }
 
     fun getEvents(filter: SseEventSearchRequest, requestContext: EventRequestContext) {
-        var dates = splitByDates(filter.startTimestamp, filter.endTimestamp)
+        val dates = splitByDates(filter.startTimestamp, filter.endTimestamp)
         if (filter.resultCountLimit != null && filter.resultCountLimit > 0) {
             requestContext.eventsLimit = filter.resultCountLimit
         }
@@ -134,6 +135,7 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
             val startTime = System.currentTimeMillis()
             logger.info { "Extracting events from ${splitByDate.first} to ${splitByDate.second} processed."}
             val testEvents = storage.getTestEvents(splitByDate.first, splitByDate.second)
+                .toMetricIterable(LOAD_EVENTS_FROM_CRADLE_COUNTER::inc)
             processEvents(testEvents, requestContext, counter)
             logger.info { "Events for this period loaded. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms"}
             if (requestContext.isLimitReached()) {
@@ -153,6 +155,7 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
             val startTime = System.currentTimeMillis()
             logger.info { "Extracting events from ${splitByDate.first} to ${splitByDate.second} with parent ${id.eventId} processed."}
             val testEvents = storage.getTestEvents(id.eventId, splitByDate.first, splitByDate.second)
+                .toMetricIterable(LOAD_EVENTS_FROM_CRADLE_COUNTER::inc)
             processEvents(testEvents, requestContext, counter)
             logger.info { "Events for this period loaded. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms"}
             if (requestContext.isLimitReached()) {
@@ -208,7 +211,7 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
 }
 
 class LongCounter {
-    var value: Long = 0;
+    var value: Long = 0
     
     override fun toString(): String {
         return value.toString()

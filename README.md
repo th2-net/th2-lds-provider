@@ -6,7 +6,16 @@ This component is similar to [rpt-data-provider](https://github.com/th2-net/th2-
 
 # Metrics
 
-* th2_ldp_decode_queue_number (Gauge) - Actual number of raw message in decode queue
+* th2_ldp_max_buffer_decode_message_queue_total (Counter) - Max decode message queue capacity. It is common buffer for all requests to decode messages
+* th2_ldp_buffer_decode_message_queue_size (Gauge) - Actual number of raw message in the decode queue.
+* th2_ldp_load_messages_from_cradle_total(cradle_message_source) (Counter) - Number of messages loaded from cradle. 
+  * The interface label has MESSAGE, GROUP values
+* th2_ldp_load_events_from_cradle_total (Counter) - Number of events loaded from cradle.
+* th2_ldp_send_messages_total(interface, cradle_message_source) (Count) - Send messages via gRPC/SSE interface. 
+  * The interface label has SSE, GRPC values
+  * The interface label has MESSAGE, GROUP values
+* th2_ldp_send_events_total(interface) (Count) - Send events via gRPC/SSE interface.
+  * The interface label has HTTP, GRPC values
 
 # API
 

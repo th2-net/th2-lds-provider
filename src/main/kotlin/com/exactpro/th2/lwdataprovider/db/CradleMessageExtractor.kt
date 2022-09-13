@@ -24,6 +24,8 @@ import com.exactpro.cradle.messages.StoredMessageFilter
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.plusAssign
+import com.exactpro.th2.lwdataprovider.CradleMessageSource
+import com.exactpro.th2.lwdataprovider.LOAD_MESSAGES_FROM_CRADLE_COUNTER
 import com.exactpro.th2.lwdataprovider.MessageRequestContext
 import com.exactpro.th2.lwdataprovider.RabbitMqDecoder
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
@@ -49,6 +51,9 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             .thenComparing({ it.direction }) { dir1, dir2 -> -(dir1.ordinal - dir2.ordinal) } // SECOND < FIRST
             .thenComparing<String> { it.streamName }
             .thenComparingLong { it.index }
+
+        private val LOAD_MESSAGES_FROM_CRADLE_MESSAGE_COUNTER = LOAD_MESSAGES_FROM_CRADLE_COUNTER.labels(CradleMessageSource.MESSAGE.name)
+        private val LOAD_MESSAGES_FROM_CRADLE_GROUP_COUNTER = LOAD_MESSAGES_FROM_CRADLE_COUNTER.labels(CradleMessageSource.GROUP.name)
     }
 
     fun getStreams(): Collection<String> = storage.streams
@@ -58,7 +63,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         var msgCount = 0
         val time = measureTimeMillis {
             logger.info { "Executing query $filter" }
-            val iterable = getMessagesFromCradle(filter, requestContext);
+            val iterable = getMessagesFromCradle(filter, requestContext)
             val sessionName = filter.streamName.value
 
             val builder = MessageGroupBatch.newBuilder()
@@ -69,7 +74,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             for (storedMessage in iterable) {
 
                 if (!requestContext.contextAlive) {
-                    return;
+                    return
                 }
 
                 lastMsg = storedMessage
@@ -172,13 +177,13 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         var msgCount = 0
         val time = measureTimeMillis {
             logger.info { "Executing query $filter" }
-            val iterable = getMessagesFromCradle(filter, requestContext);
+            val iterable = getMessagesFromCradle(filter, requestContext)
 
             val time = System.currentTimeMillis()
             var lastMsg: StoredMessage? = null
             for (storedMessage in iterable) {
                 if (!requestContext.contextAlive) {
-                    return;
+                    return
                 }
                 lastMsg = storedMessage
                 val id = storedMessage.id.toString()
@@ -201,7 +206,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
         val time = measureTimeMillis {
             logger.info { "Extracting message: $msgId" }
-            val message = storage.getMessage(msgId);
+            val message = storage.getMessage(msgId)
 
             if (message == null) {
                 requestContext.writeErrorMessage("Message with id $msgId not found")
@@ -245,7 +250,8 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             rawOnly: Boolean
         ) = parameters
 
-        val messagesGroup: MutableIterable<StoredGroupMessageBatch> = cradleManager.storage.getGroupedMessageBatches(group, start, end)
+        val messagesGroup: Iterable<StoredGroupMessageBatch> = cradleManager.storage.getGroupedMessageBatches(group, start, end)
+            .toMetricIterable(LOAD_MESSAGES_FROM_CRADLE_GROUP_COUNTER::inc)
         val iterator = messagesGroup.iterator()
         if (!iterator.hasNext()) {
             logger.info { "Empty response received from cradle" }
@@ -433,7 +439,10 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
     }
 
     private fun getMessagesFromCradle(filter: StoredMessageFilter, requestContext: MessageRequestContext): Iterable<StoredMessage> =
-        requestContext.startStep("cradle").use { storage.getMessages(filter) }
+        requestContext.startStep("cradle").use {
+            storage.getMessages(filter)
+                .toMetricIterable(LOAD_MESSAGES_FROM_CRADLE_MESSAGE_COUNTER::inc)
+        }
 }
 
 private fun StoredGroupMessageBatch.toShortInfo(): String = "${sessionGroup}:${firstMessage.index}..${lastMessage.index} ($firstTimestamp..$lastTimestamp)"

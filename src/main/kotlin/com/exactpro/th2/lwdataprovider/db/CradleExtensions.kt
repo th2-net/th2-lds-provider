@@ -15,22 +15,22 @@
  */
 package com.exactpro.th2.lwdataprovider.db
 
-fun <T> Iterable<T>.toMetricIterable(inc: () -> Unit): Iterable<T> = MetricIterable(inc, this)
+fun <T> Iterable<T>.toMetricIterable(inc: (T) -> Unit): Iterable<T> = MetricIterable(inc, this)
 
 private class MetricIterable<T>(
-    private val inc: () -> Unit,
+    private val inc: (T) -> Unit,
     private val originalIterable: Iterable<T>,
 ) : Iterable<T> {
     override fun iterator(): Iterator<T> = MetricIterator(inc, originalIterable.iterator())
 }
 
 private class MetricIterator<T>(
-    private val inc: () -> Unit,
+    private val inc: (T) -> Unit,
     private val originalIterator: Iterator<T>
 ): Iterator<T> {
     override fun hasNext(): Boolean = originalIterator.hasNext()
 
     override fun next(): T = originalIterator.next().also {
-        inc.invoke()
+        inc.invoke(it)
     }
 }

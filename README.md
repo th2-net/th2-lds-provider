@@ -6,16 +6,26 @@ This component is similar to [rpt-data-provider](https://github.com/th2-net/th2-
 
 # Metrics
 
-* th2_ldp_max_buffer_decode_message_queue_total (Counter) - Max decode message queue capacity. It is common buffer for all requests to decode messages
-* th2_ldp_buffer_decode_message_queue_size (Gauge) - Actual number of raw message in the decode queue.
-* th2_ldp_load_messages_from_cradle_total(cradle_message_source) (Counter) - Number of messages loaded from cradle. 
-  * The interface label has MESSAGE, GROUP values
+* th2_ldp_max_decode_message_buffer_size (Gauge) - Max decode message buffer capacity. It is common buffer for all requests to decode messages
+* th2_ldp_decode_message_buffer_size (Gauge) - Actual number of raw message in decode buffer.
+
+* th2_ldp_max_response_buffer_size (Gauge) - Max message/event response buffer capacity.
+* th2_ldp_response_buffer_size (Gauge) - Actual number of message/event in response buffer.
+
+* th2_ldp_load_messages_from_cradle_total(request_id, cradle_search_message_method) (Counter) - Number of messages loaded from cradle. 
+  * The request_id label is value from pool active requests.
+  * The cradle_search_message_method label has SINGLE_MESSAGE, MESSAGES, MESSAGES_FROM_GROUP values
 * th2_ldp_load_events_from_cradle_total (Counter) - Number of events loaded from cradle.
-* th2_ldp_send_messages_total(interface, cradle_message_source) (Count) - Send messages via gRPC/SSE interface. 
-  * The interface label has SSE, GRPC values
-  * The interface label has MESSAGE, GROUP values
-* th2_ldp_send_events_total(interface) (Count) - Send events via gRPC/SSE interface.
+
+* th2_ldp_send_messages_total(request_id, interface, cradle_message_source) (Count) - Send messages via gRPC/HTTP interface. 
+  * The request_id label is value from pool active requests.
+  * The interface label has HTTP, GRPC values.
+  * The cradle_search_message_method label has SINGLE_MESSAGE, MESSAGES, MESSAGES_FROM_GROUP values.
+* th2_ldp_send_events_total(interface) (Count) - Send events via gRPC/HTTP interface.
   * The interface label has HTTP, GRPC values
+
+* th2_ldp_message_pipeline_hist_time(step) - Time spent on each step for a message
+  * The step label has cradle, messages_group_loading, messages_loading, decoding, raw_message_parsing, await_queue values
 
 # API
 

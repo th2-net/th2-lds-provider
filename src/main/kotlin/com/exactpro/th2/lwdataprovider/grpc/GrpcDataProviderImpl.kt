@@ -30,14 +30,9 @@ import com.exactpro.th2.dataprovider.grpc.MessageSearchResponse
 import com.exactpro.th2.dataprovider.grpc.MessageStream
 import com.exactpro.th2.dataprovider.grpc.MessageStreamsRequest
 import com.exactpro.th2.dataprovider.grpc.MessageStreamsResponse
-import com.exactpro.th2.lwdataprovider.CradleMessageSource.GROUP
-import com.exactpro.th2.lwdataprovider.CradleMessageSource.MESSAGE
 import com.exactpro.th2.lwdataprovider.GrpcEvent
 import com.exactpro.th2.lwdataprovider.GrpcResponseHandler
-import com.exactpro.th2.lwdataprovider.ExposedInterface.GRPC
 import com.exactpro.th2.lwdataprovider.RequestContext
-import com.exactpro.th2.lwdataprovider.SEND_MESSAGES_COUNTER
-import com.exactpro.th2.lwdataprovider.SEND_EVENTS_COUNTER
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
@@ -46,6 +41,9 @@ import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
+import com.exactpro.th2.lwdataprovider.metrics.CradleSearchMessageMethod.MESSAGES
+import com.exactpro.th2.lwdataprovider.metrics.CradleSearchMessageMethod.MESSAGES_FROM_GROUP
+import com.exactpro.th2.lwdataprovider.metrics.CradleSearchMessageMethod.SINGLE_MESSAGE
 import io.grpc.stub.ServerCallStreamObserver
 import io.grpc.stub.StreamObserver
 import io.prometheus.client.Counter
@@ -61,17 +59,8 @@ open class GrpcDataProviderImpl(
     companion object {
         private val LOGGER = KotlinLogging.logger { }
 
-        private val SEND_GRPC_MESSAGES_FROM_CRADLE_MESSAGE_COUNTER = SEND_MESSAGES_COUNTER
-            .labels(GRPC.name, MESSAGE.name)
-        private val SEND_GRPC_MESSAGES_FROM_CRADLE_GROUP_COUNTER = SEND_MESSAGES_COUNTER
-            .labels(GRPC.name, GROUP.name)
-
-        private val SEND_GRPC_EVENTS_COUNTER = SEND_EVENTS_COUNTER
-            .labels(GRPC.name)
-
-        private fun StreamObserver<EventSearchResponse>.withEventMetric() = MetricEventSearchResponseObserver(SEND_GRPC_EVENTS_COUNTER, this)
-        private fun StreamObserver<MessageSearchResponse>.withMessageMetric() = MetricMessageSearchResponseObserver(SEND_GRPC_MESSAGES_FROM_CRADLE_MESSAGE_COUNTER, this)
-        private fun StreamObserver<MessageSearchResponse>.withGroupMetric() = MetricMessageSearchResponseObserver(SEND_GRPC_MESSAGES_FROM_CRADLE_GROUP_COUNTER, this)
+        private fun StreamObserver<EventSearchResponse>.withMetric(context: GrpcEventRequestContext) = MetricEventSearchResponseObserver(context.sendResponseCounter, this)
+        private fun StreamObserver<MessageSearchResponse>.withMetric(context: GrpcMessageRequestContext) = MetricMessageSearchResponseObserver(context.sendResponseCounter, this)
     }
 
     override fun getEvent(request: EventID?, responseObserver: StreamObserver<EventResponse>?) {
@@ -100,7 +89,7 @@ open class GrpcDataProviderImpl(
 
         val requestParams = GetMessageRequest(request)
         val grpcResponseHandler = GrpcResponseHandler(queue)
-        val context = GrpcMessageRequestContext(grpcResponseHandler)
+        val context = GrpcMessageRequestContext(grpcResponseHandler, cradleSearchMessageMethod = SINGLE_MESSAGE)
         searchMessagesHandler.loadOneMessage(requestParams, context)
         processSingle(responseObserver, grpcResponseHandler, context) {
             if (it.message != null && it.message.hasMessage()) {
@@ -130,7 +119,7 @@ open class GrpcDataProviderImpl(
         val grpcResponseHandler = GrpcResponseHandler(queue)
         val context = GrpcEventRequestContext(grpcResponseHandler)
         searchEventsHandler.loadEvents(requestParams, context)
-        processResponse(responseObserver.withEventMetric(), grpcResponseHandler, context) {
+        processResponse(responseObserver.withMetric(context), grpcResponseHandler, context) {
             if (it.event != null) {
                 EventSearchResponse.newBuilder().setEvent(it.event).build()
             } else {
@@ -158,11 +147,11 @@ open class GrpcDataProviderImpl(
         val requestParams = SseMessageSearchRequest(request)
         LOGGER.info { "Loading messages $requestParams" }
         val grpcResponseHandler = GrpcResponseHandler(queue)
-        val context = GrpcMessageRequestContext(grpcResponseHandler, maxMessagesPerRequest = configuration.bufferPerQuery)
+        val context = GrpcMessageRequestContext(grpcResponseHandler, maxMessagesPerRequest = configuration.bufferPerQuery, cradleSearchMessageMethod = MESSAGES)
         val loadingStep = context.startStep("messages_loading")
         searchMessagesHandler.loadMessages(requestParams, context, configuration)
         try {
-            processResponse(responseObserver.withMessageMetric(), grpcResponseHandler, context, loadingStep::finish) { it.message }
+            processResponse(responseObserver.withMetric(context), grpcResponseHandler, context, loadingStep::finish) { it.message }
         } catch (ex: Exception) {
             loadingStep.finish()
             throw ex
@@ -174,11 +163,11 @@ open class GrpcDataProviderImpl(
         val requestParams = MessagesGroupRequest.fromGrpcRequest(request)
         LOGGER.info { "Loading messages groups $requestParams" }
         val grpcResponseHandler = GrpcResponseHandler(queue)
-        val context = GrpcMessageRequestContext(grpcResponseHandler, maxMessagesPerRequest = configuration.bufferPerQuery)
+        val context = GrpcMessageRequestContext(grpcResponseHandler, maxMessagesPerRequest = configuration.bufferPerQuery, cradleSearchMessageMethod = MESSAGES_FROM_GROUP)
         val loadingStep = context.startStep("messages_group_loading")
         try {
             searchMessagesHandler.loadMessageGroups(requestParams, context)
-            processResponse(responseObserver.withGroupMetric(), grpcResponseHandler, context, loadingStep::finish) {
+            processResponse(responseObserver.withMetric(context), grpcResponseHandler, context, loadingStep::finish) {
                 it.message?.apply {
                     LOGGER.trace { "Sending message ${this.message.messageId.toStoredMessageId()}" }
                 }

@@ -20,6 +20,10 @@ import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
+import com.exactpro.th2.lwdataprovider.metrics.CradleSearchMessageMethod
+import com.exactpro.th2.lwdataprovider.metrics.LOAD_MESSAGES_FROM_CRADLE_COUNTER
+import com.exactpro.th2.lwdataprovider.metrics.RequestIdPool
+import io.prometheus.client.Counter
 import io.prometheus.client.Histogram
 import mu.KotlinLogging
 import java.time.Instant
@@ -38,63 +42,80 @@ abstract class RequestContext(
    val scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
 ) {
 
-   @Volatile var contextAlive: Boolean = true
+    val requestId = RequestIdPool.getId()
+    abstract val sendResponseCounter: Counter.Child
+    abstract val loadFromCradleCounter: Counter.Child
 
-   companion object {
-      private val logger = KotlinLogging.logger { }
-   }
-   
-   fun finishStream() {
-      channelMessages.finishStream()
-   }
+    @Volatile
+    var contextAlive: Boolean = true
 
-   fun writeErrorMessage(text: String) {
-      logger.info { text }
-      channelMessages.writeErrorMessage(text)
-   }
+    companion object {
+        private val logger = KotlinLogging.logger { }
+    }
 
-   fun keepAliveEvent() {
-      channelMessages.keepAliveEvent(scannedObjectInfo, counter);
-   }
+    fun finishStream() {
+        channelMessages.finishStream()
+        RequestIdPool.releaseId(requestId)
+    }
 
-   open fun onMessageSent() {
+    fun writeErrorMessage(text: String) {
+        logger.info { text }
+        channelMessages.writeErrorMessage(text)
+    }
 
-   }
+    fun keepAliveEvent() {
+        channelMessages.keepAliveEvent(scannedObjectInfo, counter)
+    }
+
+    open fun onMessageSent() {
+
+    }
 }
 
 abstract class MessageRequestContext (
-   channelMessages: ResponseHandler,
-   requestParameters: Map<String, Any> = emptyMap(),
-   counter: AtomicLong = AtomicLong(0L),
-   scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo(),
-   val requestedMessages: MutableMap<String, RequestedMessageDetails> = ConcurrentHashMap(),
-   val streamInfo: ProviderStreamInfo = ProviderStreamInfo(),
-   val maxMessagesPerRequest: Int = 0
+    channelMessages: ResponseHandler,
+    requestParameters: Map<String, Any> = emptyMap(),
+    counter: AtomicLong = AtomicLong(0L),
+    scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo(),
+    cradleSearchMessageMethod: CradleSearchMessageMethod = CradleSearchMessageMethod.SINGLE_MESSAGE,
+    val requestedMessages: MutableMap<String, RequestedMessageDetails> = ConcurrentHashMap(),
+    val streamInfo: ProviderStreamInfo = ProviderStreamInfo(),
+    val maxMessagesPerRequest: Int = 0,
 ) : RequestContext(channelMessages, requestParameters, counter, scannedObjectInfo) {
 
-   val lock: ReentrantLock = ReentrantLock()
-   val condition: Condition = lock.newCondition()
-   val messagesInProcess = AtomicInteger(0)
+    override val loadFromCradleCounter: Counter.Child = LOAD_MESSAGES_FROM_CRADLE_COUNTER
+        .labels(requestId, cradleSearchMessageMethod.name)
 
-   val allMessagesRequested: AtomicBoolean = AtomicBoolean(false)
-   var loadedMessages = 0
+    val lock: ReentrantLock = ReentrantLock()
+    val condition: Condition = lock.newCondition()
+    val messagesInProcess = AtomicInteger(0)
 
-   fun registerMessage(message: RequestedMessageDetails) {
-      requestedMessages[message.id] = message
-   }
+    val allMessagesRequested: AtomicBoolean = AtomicBoolean(false)
+    var loadedMessages = 0
 
-   fun allDataLoadedFromCradle() = allMessagesRequested.set(true)
+    fun registerMessage(message: RequestedMessageDetails) {
+        requestedMessages[message.id] = message
+    }
 
-    abstract fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage, responseFormats: List<String>, onResponse: () -> Unit = {}): RequestedMessageDetails;
-   abstract fun addStreamInfo();
+    fun allDataLoadedFromCradle() = allMessagesRequested.set(true)
 
-   override fun onMessageSent() {
-      if (maxMessagesPerRequest > 0 && messagesInProcess.decrementAndGet() < maxMessagesPerRequest) {
-         lock.withLock {
-            condition.signal()
-         }
-      }
-   }
+    abstract fun createMessageDetails(
+        id: String,
+        time: Long,
+        storedMessage: StoredMessage,
+        responseFormats: List<String>,
+        onResponse: () -> Unit = {}
+    ): RequestedMessageDetails
+
+    abstract fun addStreamInfo()
+
+    override fun onMessageSent() {
+        if (maxMessagesPerRequest > 0 && messagesInProcess.decrementAndGet() < maxMessagesPerRequest) {
+            lock.withLock {
+                condition.signal()
+            }
+        }
+    }
 
     fun startStep(name: String): StepHolder {
         return StepHolder(name, METRICS.labels(name).startTimer())
@@ -143,23 +164,24 @@ abstract class RequestedMessageDetails (
    private val onResponse: () -> Unit = {}
 ) {
 
-   fun responseMessage() {
-       try {
-           responseMessageInternal()
-       } finally {
-           onResponse()
-       }
-   }
-   abstract fun responseMessageInternal();
+    fun responseMessage() {
+        try {
+            responseMessageInternal()
+        } finally {
+            onResponse()
+        }
+    }
 
-   fun notifyMessage() {
-      context.apply { 
-         requestedMessages.remove(id)
-         scannedObjectInfo.update(id, Instant.now(), counter)
-         if (requestedMessages.isEmpty() && allMessagesRequested.get()) {
-            addStreamInfo()
-            finishStream()
-         }
-      }
-   }
+    abstract fun responseMessageInternal()
+
+    fun notifyMessage() {
+        context.apply {
+            requestedMessages.remove(id)
+            scannedObjectInfo.update(id, Instant.now(), counter)
+            if (requestedMessages.isEmpty() && allMessagesRequested.get()) {
+                addStreamInfo()
+                finishStream()
+            }
+        }
+    }
 }

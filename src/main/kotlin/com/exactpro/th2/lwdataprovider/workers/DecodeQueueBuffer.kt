@@ -16,7 +16,7 @@
 
 package com.exactpro.th2.lwdataprovider.workers
 
-import com.exactpro.th2.lwdataprovider.DECODE_QUEUE_SIZE_GAUGE
+import com.exactpro.th2.lwdataprovider.metrics.DECODE_BUFFER_SIZE_GAUGE
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import mu.KotlinLogging
 import java.util.concurrent.ConcurrentHashMap
@@ -73,7 +73,7 @@ class DecodeQueueBuffer(private val maxDecodeQueueSize: Int = -1) {
 
     private fun getSize(): Int {
         return decodeQueue.size.also {
-            DECODE_QUEUE_SIZE_GAUGE.set(it.toDouble())
+            DECODE_BUFFER_SIZE_GAUGE.set(it.toDouble())
         }
     }
 

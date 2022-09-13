@@ -40,6 +40,7 @@ import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.grpc.toCradleDirection
 import com.exactpro.th2.lwdataprovider.grpc.toInstant
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
+import io.prometheus.client.Counter
 import mu.KotlinLogging
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.BeforeEach
@@ -270,6 +271,8 @@ internal class TestCradleMessageExtractor {
     }
 
     private class MockRequestContext(channelMessages: ResponseHandler) : MessageRequestContext(channelMessages) {
+        override val sendResponseCounter: Counter.Child = mock {  }
+
         override fun createMessageDetails(
             id: String,
             time: Long,

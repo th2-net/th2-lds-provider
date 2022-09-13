@@ -16,11 +16,14 @@
 
 package com.exactpro.th2.lwdataprovider.http
 
-import com.exactpro.th2.lwdataprovider.*
-import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
+import com.exactpro.th2.lwdataprovider.SseEvent
+import com.exactpro.th2.lwdataprovider.SseResponseBuilder
+import com.exactpro.th2.lwdataprovider.SseResponseHandler
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
+import com.exactpro.th2.lwdataprovider.metrics.CradleSearchMessageMethod.MESSAGES
+import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import com.fasterxml.jackson.databind.ObjectMapper
 import mu.KotlinLogging
 import java.util.concurrent.ArrayBlockingQueue
@@ -51,7 +54,7 @@ class GetMessagesServlet (
         val queue = ArrayBlockingQueue<SseEvent>(configuration.responseQueueSize)
         val sseResponseBuilder = SseResponseBuilder(jacksonMapper)
         val sseResponse = SseResponseHandler(queue, sseResponseBuilder)
-        val reqContext = MessageSseRequestContext(sseResponse, queryParametersMap, maxMessagesPerRequest = configuration.bufferPerQuery)
+        val reqContext = MessageSseRequestContext(sseResponse, queryParametersMap, maxMessagesPerRequest = configuration.bufferPerQuery, cradleSearchMessageMethod = MESSAGES)
         reqContext.startStep("messages_loading").use {
             keepAliveHandler.addKeepAliveData(reqContext)
             searchMessagesHandler.loadMessages(request, reqContext,configuration)

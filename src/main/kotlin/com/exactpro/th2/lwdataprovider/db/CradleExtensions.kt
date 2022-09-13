@@ -15,22 +15,26 @@
  */
 package com.exactpro.th2.lwdataprovider.db
 
-fun <T> Iterable<T>.toMetricIterable(inc: (T) -> Unit): Iterable<T> = MetricIterable(inc, this)
+import io.prometheus.client.Counter
+
+fun <T> Iterable<T>.withMetric(counter: Counter.Child, size: (T) -> Number = { 1 }): Iterable<T> = MetricIterable(counter, size, this)
 
 private class MetricIterable<T>(
-    private val inc: (T) -> Unit,
+    private val counter: Counter.Child,
+    private val size: (T) -> Number,
     private val originalIterable: Iterable<T>,
 ) : Iterable<T> {
-    override fun iterator(): Iterator<T> = MetricIterator(inc, originalIterable.iterator())
+    override fun iterator(): Iterator<T> = MetricIterator(counter, size, originalIterable.iterator())
 }
 
 private class MetricIterator<T>(
-    private val inc: (T) -> Unit,
+    private val counter: Counter.Child,
+    private val size: (T) -> Number,
     private val originalIterator: Iterator<T>
 ): Iterator<T> {
     override fun hasNext(): Boolean = originalIterator.hasNext()
 
     override fun next(): T = originalIterator.next().also {
-        inc.invoke(it)
+        counter.inc(size(it).toDouble())
     }
 }

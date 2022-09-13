@@ -25,6 +25,8 @@ import com.exactpro.th2.lwdataprovider.db.CradleEventExtractor
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
+import com.exactpro.th2.lwdataprovider.metrics.MAX_DECODE_BUFFER_SIZE_GAUGE
+import com.exactpro.th2.lwdataprovider.metrics.MAX_RESPONSE_BUFFER_SIZE_GAUGE
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import com.exactpro.th2.lwdataprovider.workers.TimerWatcher
 import com.fasterxml.jackson.databind.DeserializationFeature
@@ -62,6 +64,7 @@ class Context(
     val searchEventsHandler: SearchEventsHandler = SearchEventsHandler(cradleEventExtractor, pool)
 ) {
     init {
-        MAX_DECODE_QUEUE_SIZE_GAUGE.set(configuration.maxBufferDecodeQueue.toDouble())
+        MAX_DECODE_BUFFER_SIZE_GAUGE.set(configuration.maxBufferDecodeQueue.toDouble())
+        MAX_RESPONSE_BUFFER_SIZE_GAUGE.set(configuration.responseQueueSize.toDouble())
     }
 }

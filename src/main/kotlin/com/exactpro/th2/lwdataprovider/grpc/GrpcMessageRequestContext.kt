@@ -24,8 +24,12 @@ import com.exactpro.th2.dataprovider.grpc.MessageStreamPointers
 import com.exactpro.th2.lwdataprovider.GrpcResponseHandler
 import com.exactpro.th2.lwdataprovider.MessageRequestContext
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
+import com.exactpro.th2.lwdataprovider.configuration.Mode.GRPC
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
+import com.exactpro.th2.lwdataprovider.metrics.CradleSearchMessageMethod
+import com.exactpro.th2.lwdataprovider.metrics.SEND_MESSAGES_COUNTER
 import com.exactpro.th2.lwdataprovider.producers.GrpcMessageProducer
+import io.prometheus.client.Counter
 import mu.KotlinLogging
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
@@ -37,20 +41,28 @@ class GrpcMessageRequestContext (
 
     scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo(),
     requestedMessages: MutableMap<String, RequestedMessageDetails> = ConcurrentHashMap(),
-    maxMessagesPerRequest: Int = 0
-) : MessageRequestContext(channelMessages, requestParameters, counter, scannedObjectInfo, requestedMessages,
-    maxMessagesPerRequest = maxMessagesPerRequest) {
-
+    maxMessagesPerRequest: Int = 0,
+    cradleSearchMessageMethod: CradleSearchMessageMethod
+) : MessageRequestContext(
+    channelMessages,
+    requestParameters,
+    counter,
+    scannedObjectInfo,
+    cradleSearchMessageMethod,
+    requestedMessages,
+    maxMessagesPerRequest = maxMessagesPerRequest
+) {
+    override val sendResponseCounter: Counter.Child = SEND_MESSAGES_COUNTER
+            .labels(requestId, GRPC.name, cradleSearchMessageMethod.name)
 
     override fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage, responseFormats: List<String>, onResponse: () -> Unit): GrpcRequestedMessageDetails {
         return GrpcRequestedMessageDetails(id, time, storedMessage, this, responseFormats, onResponse)
     }
 
     override fun addStreamInfo() {
-        val grpcPointers = MessageStreamPointers.newBuilder().addAllMessageStreamPointer(this.streamInfo.toGrpc());
+        val grpcPointers = MessageStreamPointers.newBuilder().addAllMessageStreamPointer(this.streamInfo.toGrpc())
         return channelMessages.addMessage(MessageSearchResponse.newBuilder().setMessageStreamPointers(grpcPointers).build())
     }
-
 }
 
 class GrpcRequestedMessageDetails(

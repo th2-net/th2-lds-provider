@@ -46,6 +46,7 @@ class GrpcDataProviderBackPressure(configuration: Configuration, searchMessagesH
             val buffer = grpcResponseHandler.buffer
             var inProcess = true
             while (responseObserver.isReady && inProcess) {
+                context.backPressureGauge.set(1.0)
                 val event = buffer.take()
                 if (event.close) {
                     responseObserver.onCompleted()
@@ -67,6 +68,7 @@ class GrpcDataProviderBackPressure(configuration: Configuration, searchMessagesH
                 }
             }
             if (!responseObserver.isReady) {
+                context.backPressureGauge.set(0.0)
                 logger.trace { "Suspending processing because the opposite side is not ready to receive more messages. In queue: ${buffer.size}" }
             }
         }

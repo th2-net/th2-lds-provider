@@ -20,10 +20,12 @@ import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
+import com.exactpro.th2.lwdataprovider.metrics.BACK_PRESSURE_GAUGE
 import com.exactpro.th2.lwdataprovider.metrics.CradleSearchMessageMethod
 import com.exactpro.th2.lwdataprovider.metrics.LOAD_MESSAGES_FROM_CRADLE_COUNTER
 import com.exactpro.th2.lwdataprovider.metrics.RequestIdPool
 import io.prometheus.client.Counter
+import io.prometheus.client.Gauge
 import io.prometheus.client.Histogram
 import mu.KotlinLogging
 import java.time.Instant
@@ -43,6 +45,8 @@ abstract class RequestContext(
 ) {
 
     val requestId = RequestIdPool.getId()
+
+    val backPressureGauge: Gauge.Child = BACK_PRESSURE_GAUGE.labels(requestId)
     abstract val sendResponseCounter: Counter.Child
     abstract val loadFromCradleCounter: Counter.Child
 

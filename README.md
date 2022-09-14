@@ -27,8 +27,9 @@ This component is similar to [rpt-data-provider](https://github.com/th2-net/th2-
   * The request_id label is value from pool active requests.
   * The interface label has HTTP, GRPC values
 
-* th2_ldp_grpc_back_pressure_flag(request_id) : Gauge - Flag to monitor gRPC back pressure from processor
+* th2_ldp_grpc_back_pressure_time_seconds(request_id, status) : Counter - Time is seconds which LwDP spent in both status of back pressure
   * The request_id label is value from pool active requests.
+  * The status label has ON, OFF values.
 
 * th2_ldp_message_pipeline_hist_time(step) : Histogram - Time spent on each step for a message
   * The step label has cradle, messages_group_loading, messages_loading, decoding, raw_message_parsing, await_queue values

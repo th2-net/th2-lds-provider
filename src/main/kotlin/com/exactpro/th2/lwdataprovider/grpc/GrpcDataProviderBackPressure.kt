@@ -67,7 +67,7 @@ class GrpcDataProviderBackPressure(configuration: Configuration, searchMessagesH
                     context.onMessageSent()
                 }
             }
-            if (!responseObserver.isReady) {
+            if (inProcess) {
                 context.backPressureMetric.on()
                 logger.trace { "Suspending processing because the opposite side is not ready to receive more messages. In queue: ${buffer.size}" }
             }

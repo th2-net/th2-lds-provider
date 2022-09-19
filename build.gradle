@@ -54,7 +54,6 @@ dependencies {
     api platform('com.exactpro.th2:bom:3.0.0')
 
     implementation 'org.slf4j:slf4j-api'
-    implementation 'org.slf4j:slf4j-log4j12'
 
     implementation "io.grpc:grpc-services:1.32.1"
 
@@ -72,7 +71,8 @@ dependencies {
         because('cassandra driver requires lz4 impl in classpath for compression')
     }
 
-    implementation 'com.exactpro.th2:grpc-data-provider:1.1.0-raw-message-field-message-group-response-2917372559-SNAPSHOT'
+//    implementation 'com.exactpro.th2:grpc-data-provider:1.1.0-raw-message-field-message-group-response-2917372559-SNAPSHOT'
+    implementation 'com.exactpro.th2:grpc-data-provider:1.1.0-TH2-4188-100-msg-sec-throughput-in-end-to-end-test-3081021490-SNAPSHOT'
 
     implementation 'io.github.microutils:kotlin-logging:2.1.14'
 

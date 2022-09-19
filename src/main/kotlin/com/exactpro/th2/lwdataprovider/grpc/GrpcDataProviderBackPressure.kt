@@ -16,7 +16,6 @@
 
 package com.exactpro.th2.lwdataprovider.grpc
 
-import com.exactpro.th2.lwdataprovider.GrpcEvent
 import com.exactpro.th2.lwdataprovider.GrpcResponseHandler
 import com.exactpro.th2.lwdataprovider.RequestContext
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
@@ -38,7 +37,7 @@ class GrpcDataProviderBackPressure(configuration: Configuration, searchMessagesH
         grpcResponseHandler: GrpcResponseHandler,
         context: RequestContext,
         onFinished: () -> Unit,
-        converter: (GrpcEvent) -> T?
+        accumulator: Accumulator<T>,
     ) {
         responseObserver.setOnReadyHandler {
             if (grpcResponseHandler.streamClosed)
@@ -49,6 +48,7 @@ class GrpcDataProviderBackPressure(configuration: Configuration, searchMessagesH
                 context.backPressureMetric.off()
                 val event = buffer.take()
                 if (event.close) {
+                    accumulator.get()?.let { responseObserver.onNext(it) }
                     responseObserver.onCompleted()
                     inProcess = false
                     grpcResponseHandler.streamClosed = true
@@ -63,7 +63,7 @@ class GrpcDataProviderBackPressure(configuration: Configuration, searchMessagesH
                     onCloseContext(context)
                     logger.warn(event.error) { "Executing finished with error" }
                 } else {
-                    converter.invoke(event)?.let {  responseObserver.onNext(it) }
+                    accumulator.accumulateAndGet(event)?.let {  responseObserver.onNext(it) }
                     context.onMessageSent()
                 }
             }

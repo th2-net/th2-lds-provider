@@ -85,7 +85,11 @@ class GrpcResponseHandler(val buffer: ArrayBlockingQueue<GrpcEvent>) : ResponseH
         if (!streamClosed)
             buffer.put(GrpcEvent(event = resp))
     }
-
 }
 
-data class GrpcEvent(val message: MessageSearchResponse? = null, val event: EventResponse? = null, val error: Throwable? = null, val close: Boolean = false)
+data class GrpcEvent(
+    val message: MessageSearchResponse? = null,
+    val event: EventResponse? = null,
+    val error: Throwable? = null,
+    val close: Boolean = false
+)

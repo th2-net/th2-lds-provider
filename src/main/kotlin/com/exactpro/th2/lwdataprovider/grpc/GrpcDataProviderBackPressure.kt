@@ -24,7 +24,9 @@ import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import io.grpc.stub.ServerCallStreamObserver
 import mu.KotlinLogging
 
-class GrpcDataProviderBackPressure(configuration: Configuration, searchMessagesHandler: SearchMessagesHandler,
+class GrpcDataProviderBackPressure(
+    configuration: Configuration,
+    searchMessagesHandler: SearchMessagesHandler,
     searchEventsHandler: SearchEventsHandler
 ) : GrpcDataProviderImpl(configuration, searchMessagesHandler, searchEventsHandler) {
 

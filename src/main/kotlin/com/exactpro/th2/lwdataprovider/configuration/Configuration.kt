@@ -30,6 +30,7 @@ class CustomConfigurationClass(
     val batchSize: Int? = null,
     val mode: String? = null,
     val grpcBackPressure : Boolean? = null,
+    val responseBatchSize : Int? = null,
     val bufferPerQuery: Int? = null,
     val groupRequestBuffer: Int? = null,
     val codecUsePinAttributes: Boolean = true,
@@ -51,6 +52,7 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
         Mode.HTTP
     ) { Mode.valueOf(it.uppercase(Locale.getDefault())) }
     val grpcBackPressure: Boolean = VariableBuilder.getVariable(customConfiguration::grpcBackPressure, false)
+    val responseBatchSize: Int = VariableBuilder.getVariable(customConfiguration::responseBatchSize, 1000)
     val bufferPerQuery: Int = VariableBuilder.getVariable(customConfiguration::bufferPerQuery, 0)
     val groupRequestBuffer: Int = VariableBuilder.getVariable(customConfiguration::groupRequestBuffer, 1000)
     val codecUsePinAttributes: Boolean =

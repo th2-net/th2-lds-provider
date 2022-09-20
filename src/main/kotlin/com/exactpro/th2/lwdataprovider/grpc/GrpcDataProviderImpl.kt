@@ -174,14 +174,14 @@ open class GrpcDataProviderImpl(
             .count() }
         try {
             searchMessagesHandler.loadMessageGroups(requestParams, context)
-            processResponse(serverCallStreamObserver, grpcResponseHandler, context, loadingStep::finish, MessageGroupsAccumulator())
+            processResponse(serverCallStreamObserver, grpcResponseHandler, context, loadingStep::finish, MessageGroupsAccumulator(configuration.responseBatchSize))
         } catch (ex: Exception) {
             loadingStep.finish()
             throw ex
         }
     }
 
-    private class MessageGroupsAccumulator(private val batchSize: Int = 1000) : Accumulator<MessageGroupsSearchResponse> {
+    private class MessageGroupsAccumulator(private val batchSize: Int) : Accumulator<MessageGroupsSearchResponse> {
         private val lock = ReentrantLock()
         private val list = mutableListOf<MessageGroupResponse>()
 

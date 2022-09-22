@@ -29,7 +29,7 @@ class ClientObserver(
     private val periodicalGrpcRequest: Int,
 ) : ClientResponseObserver<MessageGroupsSearchRequest, MessageGroupsSearchResponse> {
     private val done = CountDownLatch(1)
-    private val sampler = Sampler("manual client", ThroughputTest.SAMPLING_FREQUENCY)
+    private val sampler = Sampler("client (ON)", ThroughputTest.SAMPLING_FREQUENCY)
 
     @Volatile
     private lateinit var requestStream: ClientCallStreamObserver<MessageGroupsSearchRequest>

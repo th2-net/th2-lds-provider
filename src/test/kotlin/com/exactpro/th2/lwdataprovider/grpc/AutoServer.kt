@@ -25,7 +25,7 @@ import mu.KotlinLogging
 class AutoServer (
     sequence: Sequence<MessageGroupsSearchResponse>,
 ) : AbstractServer(sequence) {
-    override val sampler = Sampler("auto server", SAMPLING_FREQUENCY)
+    override val sampler = Sampler("server (OFF)", SAMPLING_FREQUENCY)
 
     override fun searchMessageGroups(
         request: MessageGroupsSearchRequest,

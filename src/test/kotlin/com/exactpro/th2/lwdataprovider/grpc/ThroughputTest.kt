@@ -28,6 +28,7 @@ import io.grpc.Server
 import io.grpc.netty.NettyServerBuilder
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.nio.NioServerSocketChannel
+import mu.KotlinLogging
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -48,7 +49,7 @@ class ThroughputTest {
 
     private val prototype = MessageGroupsSearchResponse.newBuilder().apply {
         collectionBuilder.apply {
-            for (i in 0..BATCH_SIZE) {
+            for (i in 0 until BATCH_SIZE) {
                 addMessages(MessageGroupResponse.newBuilder().apply {
                     addMessageItem(MessageGroupItem.newBuilder().apply {
                         messageBuilder.apply {
@@ -62,6 +63,8 @@ class ThroughputTest {
 
     @BeforeEach
     fun beforeEach() {
+        LOGGER.info { "batch size is ${prototype.serializedSize} bytes, ${prototype.collection.messagesCount} messages" }
+
         producerSampler = Sampler("producer", SAMPLING_FREQUENCY)
         sequence = generateSequence {
             prototype.also {
@@ -71,7 +74,7 @@ class ThroughputTest {
     }
 
     @Test
-    fun `manual server vs manual client test`() {
+    fun ` server (ON) vs  client (ON) test`() {
         createManualServer()
 
         val observer = ClientObserver(
@@ -85,10 +88,10 @@ class ThroughputTest {
     }
 
     @Test
-    fun `manual server vs auto client test`() {
+    fun ` server (ON) vs  client (OFF) test`() {
         createManualServer()
 
-        val sampler = Sampler("auto client", SAMPLING_FREQUENCY)
+        val sampler = Sampler(" client (OFF)", SAMPLING_FREQUENCY)
         DataProviderGrpc.newBlockingStub(channel).searchMessageGroups(MessageGroupsSearchRequest.getDefaultInstance()).forEach {
             sampler.inc(it.collection.messagesCount)
         }
@@ -96,7 +99,7 @@ class ThroughputTest {
     }
 
     @Test
-    fun `auto server vs manual client test`() {
+    fun ` server (OFF) vs  client (ON) test`() {
         createAutoServer()
 
         val observer = ClientObserver(
@@ -108,10 +111,10 @@ class ThroughputTest {
     }
 
     @Test
-    fun `auto server vs auto client test`() {
+    fun ` server (OFF) vs  client (OFF) test`() {
         createAutoServer()
 
-        val sampler = Sampler("auto client", SAMPLING_FREQUENCY)
+        val sampler = Sampler(" client (OFF)", SAMPLING_FREQUENCY)
         DataProviderGrpc.newBlockingStub(channel).searchMessageGroups(MessageGroupsSearchRequest.getDefaultInstance()).forEach {
             sampler.inc(it.collection.messagesCount)
         }
@@ -180,6 +183,8 @@ class ThroughputTest {
     }
 
     companion object {
+        private val LOGGER = KotlinLogging.logger { }
+
         private val RANDOM = SecureRandom()
         private const val HOST = "localhost"
         private const val PORT = 8090
@@ -188,9 +193,9 @@ class ThroughputTest {
         private const val BATCH_SIZE = 4_000
 
         private const val SEQUENCE_SIZE = 1_000
-        private const val INITIAL_GRPC_REQUEST = 10
+        private const val INITIAL_GRPC_REQUEST = 100
 
-        private const val PERIODICAL_GRPC_REQUEST = 5
+        private const val PERIODICAL_GRPC_REQUEST = 50
 
         const val SAMPLING_FREQUENCY = 100L * BATCH_SIZE
 

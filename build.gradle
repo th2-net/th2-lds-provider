@@ -51,15 +51,20 @@ repositories {
 }
 
 dependencies {
-    api platform('com.exactpro.th2:bom:3.0.0')
+    api platform('com.exactpro.th2:bom:3.3.0-TH2-3093-3052871635-SNAPSHOT')
 
     implementation 'org.slf4j:slf4j-api'
 
     implementation "io.grpc:grpc-services:1.32.1"
 
-    implementation('com.exactpro.th2:common:3.41.0-th2-3093-3052928493-SNAPSHOT') {
+    implementation('com.exactpro.th2:common:3.41.0-TH2-4188-100-msg-sec-throughput-in-end-to-end-test-3060382830-SNAPSHOT') {
         exclude group: 'com.exactpro.th2', module: 'cradle-core'
         exclude group: 'com.exactpro.th2', module: 'cradle-cassandra'
+    }
+    implementation ("com.exactpro.th2:grpc-service-generator") {
+        version {//FIXME: this structure will not be required after migration to release version
+            strictly '3.2.2-TH2-4188-100-msg-sec-throughput-in-end-to-end-test-3066539800-SNAPSHOT'
+        }
     }
 
     implementation 'org.eclipse.jetty:jetty-server:9.4.44.v20210927'

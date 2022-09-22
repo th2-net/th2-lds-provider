@@ -17,33 +17,34 @@
 package com.exactpro.th2.lwdataprovider.grpc
 
 import com.exactpro.th2.common.message.addField
-import com.exactpro.th2.dataprovider.grpc.DataProviderGrpc
+import com.exactpro.th2.common.schema.factory.AbstractCommonFactory
+import com.exactpro.th2.common.schema.factory.CommonFactory
+import com.exactpro.th2.common.schema.factory.FactorySettings
+import com.exactpro.th2.dataprovider.grpc.AsyncDataProviderService
+import com.exactpro.th2.dataprovider.grpc.DataProviderService
 import com.exactpro.th2.dataprovider.grpc.MessageGroupItem
 import com.exactpro.th2.dataprovider.grpc.MessageGroupResponse
 import com.exactpro.th2.dataprovider.grpc.MessageGroupsSearchRequest
 import com.exactpro.th2.dataprovider.grpc.MessageGroupsSearchResponse
-import io.grpc.ManagedChannel
-import io.grpc.ManagedChannelBuilder
 import io.grpc.Server
-import io.grpc.netty.NettyServerBuilder
-import io.netty.channel.nio.NioEventLoopGroup
-import io.netty.channel.socket.nio.NioServerSocketChannel
 import mu.KotlinLogging
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import java.nio.file.Paths
 import java.security.SecureRandom
-import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 //@Disabled("manual test")
-class ThroughputTest {
+class CommonThroughputTest {
 
-    private val executor = Executors.newFixedThreadPool(4)
-    private lateinit var eventLoop: NioEventLoopGroup
-    private lateinit var server: Server
-    private lateinit var channel: ManagedChannel
+    private lateinit var common: AbstractCommonFactory
+
     private lateinit var service: AbstractServer
+    private lateinit var server: Server
+    private lateinit var autoClient: DataProviderService
+    private lateinit var manualClient: AsyncDataProviderService
+
     private lateinit var sequence: Sequence<MessageGroupsSearchResponse>
     private lateinit var producerSampler: Sampler
 
@@ -71,18 +72,22 @@ class ThroughputTest {
                 producerSampler.inc(BATCH_SIZE)
             }
         }.take(SEQUENCE_SIZE)
+
+        common = CommonFactory(FactorySettings().apply {
+            grpc = getPath("com/exactpro/th2/lwdataprovider/grpc/grpc.json")
+            routerGRPC = getPath("com/exactpro/th2/lwdataprovider/grpc/grpc_router.json")
+        })
+
+        autoClient = common.grpcRouter.getService(DataProviderService::class.java)
+        manualClient = common.grpcRouter.getService(AsyncDataProviderService::class.java)
     }
 
     @Test
-    fun ` server (ON) vs  client (ON) test`() {
+    fun `server (ON) vs  client (ON) test`() {
         createManualServer()
 
-        val observer = ClientObserver(
-            INITIAL_GRPC_REQUEST,
-            PERIODICAL_GRPC_REQUEST
-        )
-        DataProviderGrpc.newStub(channel)
-            .searchMessageGroups(MessageGroupsSearchRequest.getDefaultInstance(), observer)
+        val observer = createManualObserver()
+        manualClient.searchMessageGroups(MessageGroupsSearchRequest.getDefaultInstance(), observer)
         service.await()
         observer.await()
     }
@@ -91,8 +96,8 @@ class ThroughputTest {
     fun ` server (ON) vs  client (OFF) test`() {
         createManualServer()
 
-        val sampler = Sampler(" client (OFF)", SAMPLING_FREQUENCY)
-        DataProviderGrpc.newBlockingStub(channel).searchMessageGroups(MessageGroupsSearchRequest.getDefaultInstance()).forEach {
+        val sampler = Sampler("client (OFF)", SAMPLING_FREQUENCY)
+        autoClient.searchMessageGroups(MessageGroupsSearchRequest.getDefaultInstance()).forEach {
             sampler.inc(it.collection.messagesCount)
         }
         sampler.complete()
@@ -102,11 +107,8 @@ class ThroughputTest {
     fun ` server (OFF) vs  client (ON) test`() {
         createAutoServer()
 
-        val observer = ClientObserver(
-            INITIAL_GRPC_REQUEST,
-            PERIODICAL_GRPC_REQUEST
-        )
-        DataProviderGrpc.newStub(channel).searchMessageGroups(MessageGroupsSearchRequest.getDefaultInstance(), observer)
+        val observer = createManualObserver()
+        manualClient.searchMessageGroups(MessageGroupsSearchRequest.getDefaultInstance(), observer)
         observer.await()
     }
 
@@ -114,8 +116,8 @@ class ThroughputTest {
     fun ` server (OFF) vs  client (OFF) test`() {
         createAutoServer()
 
-        val sampler = Sampler(" client (OFF)", SAMPLING_FREQUENCY)
-        DataProviderGrpc.newBlockingStub(channel).searchMessageGroups(MessageGroupsSearchRequest.getDefaultInstance()).forEach {
+        val sampler = Sampler("client (OFF)", SAMPLING_FREQUENCY)
+        autoClient.searchMessageGroups(MessageGroupsSearchRequest.getDefaultInstance()).forEach {
             sampler.inc(it.collection.messagesCount)
         }
         sampler.complete()
@@ -123,53 +125,31 @@ class ThroughputTest {
 
     @AfterEach
     fun afterEach() {
-        service.stop()
-        channel.shutdown()
-            .awaitTermination(5, TimeUnit.SECONDS)
-        channel.shutdownNow()
-
         server.shutdown()
+        if(!server.awaitTermination(5, TimeUnit.SECONDS)) {
+            server.shutdownNow()
+            check(server.awaitTermination(5, TimeUnit.SECONDS)) {
+                "Server can not terminate"
+            }
+        }
 
-        executor.shutdown()
-        executor.awaitTermination(5, TimeUnit.SECONDS)
-        executor.shutdownNow()
-
-        producerSampler.complete()
+        common.close()
     }
 
-    private fun createChannel() {
-//        channel = InProcessChannelBuilder.forName(NAME)
-//            .directExecutor() // Channels are secure by default (via SSL/TLS). For the example we disable TLS to avoid
-//            .usePlaintext().build()
+    private fun getPath(resourceName: String) =
+        Paths.get(
+            requireNotNull(Thread.currentThread().contextClassLoader.getResource(resourceName)) {
 
-        channel = ManagedChannelBuilder.forAddress(HOST, PORT)
-            .usePlaintext()
-            .keepAliveTime(60, TimeUnit.SECONDS)
-            .maxInboundMessageSize(Int.MAX_VALUE)
-            .build()
-    }
+            }.toURI()
+        )
+
+    private fun createManualObserver() = ClientObserver(
+        INITIAL_GRPC_REQUEST,
+        PERIODICAL_GRPC_REQUEST
+    )
 
     private fun createServer() {
-        eventLoop = NioEventLoopGroup(2, executor)
-        server = NettyServerBuilder
-            .forPort(PORT)
-            .workerEventLoopGroup(eventLoop)
-            .bossEventLoopGroup(eventLoop)
-            .channelType(NioServerSocketChannel::class.java)
-            .keepAliveTime(60, TimeUnit.SECONDS)
-            .maxInboundMessageSize(Int.MAX_VALUE)
-            .addService(service)
-            .build()
-            .start()
-
-//        server = InProcessServerBuilder
-//            .forName(NAME)
-//            .executor(executor)
-//            .addService(service)
-//            .build()
-//            .start()
-
-        createChannel()
+        server = common.grpcRouter.startServer(service).apply(Server::start)
     }
 
     private fun createManualServer() {
@@ -186,16 +166,14 @@ class ThroughputTest {
         private val LOGGER = KotlinLogging.logger { }
 
         private val RANDOM = SecureRandom()
-        private const val HOST = "localhost"
-        private const val PORT = 8090
 
         private const val STRING_LENGTH = 256
         private const val BATCH_SIZE = 4_000
 
         private const val SEQUENCE_SIZE = 1_000
-        private const val INITIAL_GRPC_REQUEST = 100
+        private const val INITIAL_GRPC_REQUEST = 10
 
-        private const val PERIODICAL_GRPC_REQUEST = 50
+        private const val PERIODICAL_GRPC_REQUEST = 5
 
         const val SAMPLING_FREQUENCY = 100L * BATCH_SIZE
 

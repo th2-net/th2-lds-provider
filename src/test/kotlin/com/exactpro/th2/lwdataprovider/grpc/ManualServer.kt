@@ -26,8 +26,9 @@ import java.util.concurrent.ConcurrentHashMap
 
 class ManualServer (
     sequence: Sequence<MessageGroupsSearchResponse>,
+    samplingFrequency: Long,
 ) : AbstractServer(sequence) {
-    override val sampler = Sampler("server (ON)", SAMPLING_FREQUENCY)
+    override val sampler = Sampler("server (ON)", samplingFrequency)
     private val activeObservers: MutableSet<StreamObserver<*>> = ConcurrentHashMap.newKeySet()
 
     override fun searchMessageGroups(

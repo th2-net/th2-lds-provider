@@ -1,0 +1,26 @@
+{
+  "server": {
+    "host": null,
+    "port": 8090,
+    "workers": 5
+  },
+  "services": {
+    "to_data_provider": {
+      "endpoints": {
+        "lw-data-provider-endpoint": {
+          "attributes": [],
+          "host": "localhost",
+          "port": 8090
+        }
+      },
+      "service-class": "com.exactpro.th2.dataprovider.grpc.DataProviderService",
+      "strategy": {
+        "endpoints": [
+          "lw-data-provider-endpoint"
+        ],
+        "name": "robin"
+      }
+    }
+  }
+}
+		

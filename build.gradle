@@ -57,7 +57,7 @@ dependencies {
 
     implementation "io.grpc:grpc-services:1.32.1"
 
-    implementation('com.exactpro.th2:common:3.38.0-TH2-3789-2508882525-SNAPSHOT') {
+    implementation('com.exactpro.th2:common:3.41.0-th2-3093-3052928493-SNAPSHOT') {
         exclude group: 'com.exactpro.th2', module: 'cradle-core'
         exclude group: 'com.exactpro.th2', module: 'cradle-cassandra'
     }
@@ -91,6 +91,7 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter:5.8.2'
     testImplementation 'org.mockito.kotlin:mockito-kotlin:3.2.0'
     testImplementation 'org.assertj:assertj-core:3.23.1'
+    testImplementation "io.grpc:grpc-netty"
 }
 
 test {

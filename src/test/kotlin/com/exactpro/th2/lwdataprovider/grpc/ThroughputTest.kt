@@ -23,35 +23,28 @@ import com.exactpro.th2.dataprovider.grpc.MessageGroupResponse
 import com.exactpro.th2.dataprovider.grpc.MessageGroupsSearchRequest
 import com.exactpro.th2.dataprovider.grpc.MessageGroupsSearchResponse
 import io.grpc.ManagedChannel
+import io.grpc.ManagedChannelBuilder
 import io.grpc.Server
-import io.grpc.inprocess.InProcessChannelBuilder
-import io.grpc.inprocess.InProcessServerBuilder
-import io.grpc.stub.ClientCallStreamObserver
-import io.grpc.stub.ClientResponseObserver
-import io.grpc.stub.ServerCallStreamObserver
-import io.grpc.stub.StreamObserver
-import mu.KotlinLogging
+import io.grpc.netty.NettyServerBuilder
+import io.netty.channel.nio.NioEventLoopGroup
+import io.netty.channel.socket.nio.NioServerSocketChannel
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import java.security.SecureRandom
-import java.text.DecimalFormat
-import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.withLock
 
-@Disabled("manual test")
+//@Disabled("manual test")
 class ThroughputTest {
 
-    private val executor = Executors.newFixedThreadPool(2)
+    private val executor = Executors.newFixedThreadPool(4)
+    private lateinit var eventLoop: NioEventLoopGroup
     private lateinit var server: Server
     private lateinit var channel: ManagedChannel
     private lateinit var service: AbstractServer
     private lateinit var sequence: Sequence<MessageGroupsSearchResponse>
+    private lateinit var producerSampler: Sampler
 
     private val prototype = MessageGroupsSearchResponse.newBuilder().apply {
         collectionBuilder.apply {
@@ -69,10 +62,10 @@ class ThroughputTest {
 
     @BeforeEach
     fun beforeEach() {
-        val sampler = Sampler("producer")
+        producerSampler = Sampler("producer", SAMPLING_FREQUENCY)
         sequence = generateSequence {
             prototype.also {
-                sampler.inc(BATCH_SIZE)
+                producerSampler.inc(BATCH_SIZE)
             }
         }.take(SEQUENCE_SIZE)
     }
@@ -85,7 +78,9 @@ class ThroughputTest {
             INITIAL_GRPC_REQUEST,
             PERIODICAL_GRPC_REQUEST
         )
-        DataProviderGrpc.newStub(channel).searchMessageGroups(MessageGroupsSearchRequest.getDefaultInstance(), observer)
+        DataProviderGrpc.newStub(channel)
+            .searchMessageGroups(MessageGroupsSearchRequest.getDefaultInstance(), observer)
+        service.await()
         observer.await()
     }
 
@@ -93,11 +88,11 @@ class ThroughputTest {
     fun `manual server vs auto client test`() {
         createManualServer()
 
-        val sampler = Sampler("auto client")
+        val sampler = Sampler("auto client", SAMPLING_FREQUENCY)
         DataProviderGrpc.newBlockingStub(channel).searchMessageGroups(MessageGroupsSearchRequest.getDefaultInstance()).forEach {
             sampler.inc(it.collection.messagesCount)
         }
-
+        sampler.complete()
     }
 
     @Test
@@ -116,11 +111,11 @@ class ThroughputTest {
     fun `auto server vs auto client test`() {
         createAutoServer()
 
-        val sampler = Sampler("auto client")
+        val sampler = Sampler("auto client", SAMPLING_FREQUENCY)
         DataProviderGrpc.newBlockingStub(channel).searchMessageGroups(MessageGroupsSearchRequest.getDefaultInstance()).forEach {
             sampler.inc(it.collection.messagesCount)
         }
-
+        sampler.complete()
     }
 
     @AfterEach
@@ -129,26 +124,47 @@ class ThroughputTest {
         channel.shutdown()
             .awaitTermination(5, TimeUnit.SECONDS)
         channel.shutdownNow()
+
         server.shutdown()
 
         executor.shutdown()
         executor.awaitTermination(5, TimeUnit.SECONDS)
         executor.shutdownNow()
+
+        producerSampler.complete()
     }
 
     private fun createChannel() {
-        channel = InProcessChannelBuilder.forName(NAME)
-            .directExecutor() // Channels are secure by default (via SSL/TLS). For the example we disable TLS to avoid
-            .usePlaintext().build()
+//        channel = InProcessChannelBuilder.forName(NAME)
+//            .directExecutor() // Channels are secure by default (via SSL/TLS). For the example we disable TLS to avoid
+//            .usePlaintext().build()
+
+        channel = ManagedChannelBuilder.forAddress(HOST, PORT)
+            .usePlaintext()
+            .keepAliveTime(60, TimeUnit.SECONDS)
+            .maxInboundMessageSize(Int.MAX_VALUE)
+            .build()
     }
 
     private fun createServer() {
-        server = InProcessServerBuilder
-            .forName(NAME)
-            .executor(executor)
+        eventLoop = NioEventLoopGroup(2, executor)
+        server = NettyServerBuilder
+            .forPort(PORT)
+            .workerEventLoopGroup(eventLoop)
+            .bossEventLoopGroup(eventLoop)
+            .channelType(NioServerSocketChannel::class.java)
+            .keepAliveTime(60, TimeUnit.SECONDS)
+            .maxInboundMessageSize(Int.MAX_VALUE)
             .addService(service)
             .build()
             .start()
+
+//        server = InProcessServerBuilder
+//            .forName(NAME)
+//            .executor(executor)
+//            .addService(service)
+//            .build()
+//            .start()
 
         createChannel()
     }
@@ -164,143 +180,26 @@ class ThroughputTest {
     }
 
     companion object {
-        private val LOGGER = KotlinLogging.logger { }
-
-        private val NUMBER_FORMAT = DecimalFormat("###,###,###,###.###")
         private val RANDOM = SecureRandom()
-        private const val NAME = "test"
+        private const val HOST = "localhost"
+        private const val PORT = 8090
 
         private const val STRING_LENGTH = 256
         private const val BATCH_SIZE = 4_000
-        private const val SEQUENCE_SIZE = 1_000
-        private const val INITIAL_GRPC_REQUEST = 10_000
-        private const val PERIODICAL_GRPC_REQUEST = 1_000
 
-        private const val SAMPLING_FREQUENCY = 100L * BATCH_SIZE
+        private const val SEQUENCE_SIZE = 1_000
+        private const val INITIAL_GRPC_REQUEST = 10
+
+        private const val PERIODICAL_GRPC_REQUEST = 5
+
+        const val SAMPLING_FREQUENCY = 100L * BATCH_SIZE
 
         init {
-            check(SEQUENCE_SIZE >= SAMPLING_FREQUENCY / BATCH_SIZE) {
+            check(SEQUENCE_SIZE > SAMPLING_FREQUENCY / BATCH_SIZE) {
                 "The $SAMPLING_FREQUENCY sampling frequency is less than the $SEQUENCE_SIZE sequence size"
             }
         }
 
         private fun rndString(): String = String(ByteArray(STRING_LENGTH).apply(RANDOM::nextBytes))
-
-        private class Sampler(private val name: String) {
-            private val lock = ReentrantLock()
-            private var start = System.nanoTime()
-            private var count = 0.0
-
-            fun inc(BATCH_SIZE: Int) = lock.withLock {
-                count += BATCH_SIZE
-                if (count >= SAMPLING_FREQUENCY) {
-                    System.nanoTime().also {
-                        LOGGER.info { "$name ${NUMBER_FORMAT.format ((count / (it - start)) * 1_000_000_000)} msg/sec" }
-                        start = it
-                        count = 0.0
-                    }
-                }
-            }
-        }
-
-        private abstract class AbstractServer (
-            sequence: Sequence<MessageGroupsSearchResponse>,
-        ) : DataProviderGrpc.DataProviderImplBase() {
-            private val iterator = sequence.iterator()
-            protected abstract val sampler: Sampler
-
-            @Volatile
-            protected var inProcess = true
-
-            fun stop() {
-                inProcess = false
-            }
-
-            protected fun send(responseObserver: StreamObserver<MessageGroupsSearchResponse>) {
-                if (iterator.hasNext()) {
-                    responseObserver.onNext(
-                        iterator.next().also { sampler.inc(it.collection.messagesCount) })
-                } else {
-                    responseObserver.onCompleted()
-                    stop()
-                }
-            }
-        }
-
-        private class AutoServer (
-            sequence: Sequence<MessageGroupsSearchResponse>,
-        ) : AbstractServer(sequence) {
-            override val sampler = Sampler("auto server")
-
-            override fun searchMessageGroups(
-                request: MessageGroupsSearchRequest,
-                responseObserver: StreamObserver<MessageGroupsSearchResponse>
-            ) {
-                while (inProcess) {
-                    send(responseObserver)
-                }
-            }
-        }
-
-        private class ManualServer (
-            sequence: Sequence<MessageGroupsSearchResponse>,
-        ) : AbstractServer(sequence) {
-            override val sampler = Sampler("manual server")
-
-            override fun searchMessageGroups(
-                request: MessageGroupsSearchRequest,
-                responseObserver: StreamObserver<MessageGroupsSearchResponse>
-            ) {
-                (responseObserver as ServerCallStreamObserver<MessageGroupsSearchResponse>).apply {
-                    responseObserver.setOnReadyHandler {
-                        while (responseObserver.isReady && inProcess) {
-                           send(responseObserver)
-                        }
-                    }
-                }
-            }
-        }
-
-        private class ClientObserver(
-            private val initialGrpcRequest: Int,
-            private val periodicalGrpcRequest: Int,
-        ) : ClientResponseObserver<MessageGroupsSearchRequest, MessageGroupsSearchResponse> {
-            private val done = CountDownLatch(1)
-            private val sampler = Sampler("manual client")
-
-            @Volatile
-            private lateinit var requestStream: ClientCallStreamObserver<MessageGroupsSearchRequest>
-            private val counter = AtomicInteger()
-
-            override fun beforeStart(requestStream: ClientCallStreamObserver<MessageGroupsSearchRequest>) {
-                LOGGER.debug { "beforeStart has been called" }
-                this.requestStream = requestStream
-                // Set up manual flow control for the response stream. It feels backwards to configure the response
-                // stream's flow control using the request stream's observer, but this is the way it is.
-                requestStream.disableAutoRequestWithInitial(initialGrpcRequest)
-            }
-
-            override fun onNext(value: MessageGroupsSearchResponse) {
-                LOGGER.debug { "onNext has been called $value" }
-                if (counter.incrementAndGet() % periodicalGrpcRequest == 0) {
-                    requestStream.request(periodicalGrpcRequest)
-                }
-                sampler.inc(value.collection.messagesCount)
-            }
-
-            override fun onError(t: Throwable) {
-                LOGGER.error(t) { "onError has been called" }
-                done.countDown()
-            }
-
-            override fun onCompleted() {
-                LOGGER.debug { "onCompleted has been called" }
-                done.countDown()
-            }
-
-            fun await() {
-                done.await()
-            }
-        }
     }
 }

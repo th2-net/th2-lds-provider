@@ -1,3 +1,4 @@
 {
-  "workers": "5"
+  "enableSizeMeasuring": false,
+  "keepAliveInterval": 60
 }

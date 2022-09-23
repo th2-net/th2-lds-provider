@@ -31,12 +31,13 @@ import io.netty.channel.socket.nio.NioServerSocketChannel
 import mu.KotlinLogging
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import java.security.SecureRandom
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-//@Disabled("manual test")
+@Disabled("manual test")
 class ThroughputTest {
 
     private val executor = Executors.newFixedThreadPool(4)

@@ -1,4 +1,4 @@
-# Lightweight data provider (1.1.0)
+# Lightweight data provider (1.1.1)
 
 # Overview
 This component serves as a data provider for [th2-data-services](https://github.com/th2-net/th2-data-services). It will connect to the cassandra database via [cradle api](https://github.com/th2-net/cradleapi) and expose the data stored in there as REST resources.
@@ -93,3 +93,14 @@ spec:
         memory: 300Mi
         cpu: 50m
 ```
+
+# Release notes
+
+## 1.1.1
+
+### Changed:
+
++ The version of Cradle is updated (3.1.2 -> 3.1.3).
+  **Note: the database migration is required. More information [here](https://github.com/th2-net/cradleapi/tree/version-3#313-this-version-requires-migration-from-previous-versions)**.
++ The common-j version is updated (3.34.0 -> 3.40.0)
+  + Log4j 1.2 is removed because of vulnerabilities

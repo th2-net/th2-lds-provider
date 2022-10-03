@@ -53,7 +53,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
     fun getStreams(): Collection<String> = storage.streams
 
-    fun getMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext, responseFormats: List<String>) {
+    fun <T> getMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext<T>, responseFormats: List<String>) {
 
         var msgCount = 0
         val time = measureTimeMillis {
@@ -63,7 +63,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
             val builder = MessageGroupBatch.newBuilder()
             var msgBufferCount = 0
-            val messageBuffer = ArrayList<RequestedMessageDetails>()
+            val messageBuffer = ArrayList<RequestedMessageDetails<T>>()
 
             var lastMsg: StoredMessage? = null
             for (storedMessage in iterable) {
@@ -139,10 +139,10 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         }
     }
 
-    private fun MessageRequestContext.createRequestAndAddToBatch(
+    private fun <T> MessageRequestContext<T>.createRequestAndAddToBatch(
         storedMessage: StoredMessage,
         builder: MessageGroupBatch.Builder
-    ): RequestedMessageDetails {
+    ): RequestedMessageDetails <T> {
         val id = storedMessage.id.toString()
         val decodingStep = startStep("decoding")
         val tmp = createMessageDetails(id, 0, storedMessage, emptyList()) { decodingStep.finish() }
@@ -154,9 +154,9 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         return tmp
     }
 
-    private fun MessageRequestContext.createRequestAndSend(
+    private fun <T> MessageRequestContext<T>.createRequestAndSend(
         storedMessage: StoredMessage,
-    ): RequestedMessageDetails {
+    ): RequestedMessageDetails <T> {
         val id = storedMessage.id.toString()
         return createMessageDetails(id, 0, storedMessage, emptyList()).apply {
             rawMessage = startStep("raw_message_parsing").use {
@@ -167,7 +167,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         }
     }
 
-    fun getRawMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext) {
+    fun <T> getRawMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext<T>) {
 
         var msgCount = 0
         val time = measureTimeMillis {
@@ -197,7 +197,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
     }
 
 
-    fun getMessage(msgId: StoredMessageId, onlyRaw: Boolean, requestContext: MessageRequestContext) {
+    fun <T> getMessage(msgId: StoredMessageId, onlyRaw: Boolean, requestContext: MessageRequestContext<T>) {
 
         val time = measureTimeMillis {
             logger.info { "Extracting message: $msgId" }
@@ -239,7 +239,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
     }
 
-    fun getMessagesGroup(group: String, parameters: CradleGroupRequest, requestContext: MessageRequestContext) {
+    fun <T> getMessagesGroup(group: String, parameters: CradleGroupRequest, requestContext: MessageRequestContext<T>) {
         val (
             start: Instant,
             end: Instant,
@@ -269,7 +269,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         var prev: StoredGroupMessageBatch? = null
         var currentBatch: StoredGroupMessageBatch = iterator.next()
         val batchBuilder = MessageGroupBatch.newBuilder()
-        val detailsBuffer = arrayListOf<RequestedMessageDetails>()
+        val detailsBuffer = arrayListOf<RequestedMessageDetails<T>>()
         val buffer: LinkedList<StoredMessage> = LinkedList()
         val remaining: LinkedList<StoredMessage> = LinkedList()
         while (iterator.hasNext()) {
@@ -346,20 +346,20 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             }
         } ?: this
 
-    private fun MessageRequestContext.updateLastMessage(
+    private fun <T> MessageRequestContext<T>.updateLastMessage(
         group: String,
         lastMsg: StoredMessage,
     ) {
         streamInfo.registerMessage(lastMsg.id, lastMsg.timestamp, group)
     }
 
-    private fun tryDrain(
+    private fun <T> tryDrain(
         group: String,
         buffer: LinkedList<StoredMessage>,
-        detailsBuffer: MutableList<RequestedMessageDetails>,
+        detailsBuffer: MutableList<RequestedMessageDetails<T>>,
         batchBuilder: MessageGroupBatch.Builder,
         sort: Boolean,
-        requestContext: MessageRequestContext,
+        requestContext: MessageRequestContext<T>,
         rawOnly: Boolean,
     ) {
         if (buffer.size < batchSize && !rawOnly) {
@@ -383,12 +383,12 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         }
     }
 
-    private fun drain(
+    private fun <T> drain(
         group: String,
         buffer: Collection<StoredMessage>,
-        detailsBuffer: MutableList<RequestedMessageDetails>,
+        detailsBuffer: MutableList<RequestedMessageDetails<T>>,
         batchBuilder: MessageGroupBatch.Builder,
-        requestContext: MessageRequestContext,
+        requestContext: MessageRequestContext<T>,
         rawOnly: Boolean,
     ) {
         for (message in buffer) {
@@ -407,7 +407,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         requestContext.sendBatch(group, batchBuilder, detailsBuffer)
     }
 
-    private fun MessageRequestContext.sendBatch(alias: String, builder: MessageGroupBatch.Builder, detailsBuf: MutableList<RequestedMessageDetails>) {
+    private fun <T> MessageRequestContext<T>.sendBatch(alias: String, builder: MessageGroupBatch.Builder, detailsBuf: MutableList<RequestedMessageDetails<T>>) {
         if (detailsBuf.isEmpty()) {
             return
         }
@@ -425,7 +425,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         checkAndWaitForRequestLimit(messageCount)
     }
 
-    private fun MessageRequestContext.checkAndWaitForRequestLimit(msgBufferCount: Int) {
+    private fun <T> MessageRequestContext<T>.checkAndWaitForRequestLimit(msgBufferCount: Int) {
         if (maxMessagesPerRequest > 0 && maxMessagesPerRequest <= messagesInProcess.addAndGet(msgBufferCount)) {
             startStep("await_queue").use {
                 lock.withLock {
@@ -435,7 +435,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         }
     }
 
-    private fun getMessagesFromCradle(filter: StoredMessageFilter, requestContext: MessageRequestContext): Iterable<StoredMessage> =
+    private fun <T> getMessagesFromCradle(filter: StoredMessageFilter, requestContext: MessageRequestContext<T>): Iterable<StoredMessage> =
         requestContext.startStep("cradle").use {
             storage.getMessages(filter)
                 .withMetric(requestContext.loadFromCradleCounter)

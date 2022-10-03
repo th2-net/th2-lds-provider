@@ -36,13 +36,12 @@ import java.util.concurrent.locks.Condition
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
-abstract class RequestContext(
-   open val channelMessages: ResponseHandler,
+abstract class RequestContext<T>(
+   open val channelMessages: ResponseHandler<T>,
    val requestParameters: Map<String, Any> = emptyMap(),
    val counter: AtomicLong = AtomicLong(0L),
    val scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
 ) {
-
     val requestId = RequestIdPool.getId()
 
     val backPressureMetric = BackPressureMetric(requestId)
@@ -75,16 +74,16 @@ abstract class RequestContext(
     }
 }
 
-abstract class MessageRequestContext (
-    channelMessages: ResponseHandler,
+abstract class MessageRequestContext<T> (
+    channelMessages: ResponseHandler<T>,
     requestParameters: Map<String, Any> = emptyMap(),
     counter: AtomicLong = AtomicLong(0L),
     scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo(),
     cradleSearchMessageMethod: CradleSearchMessageMethod = CradleSearchMessageMethod.SINGLE_MESSAGE,
-    val requestedMessages: MutableMap<String, RequestedMessageDetails> = ConcurrentHashMap(),
+    val requestedMessages: MutableMap<String, RequestedMessageDetails<T>> = ConcurrentHashMap(),
     val streamInfo: ProviderStreamInfo = ProviderStreamInfo(),
     val maxMessagesPerRequest: Int = 0,
-) : RequestContext(channelMessages, requestParameters, counter, scannedObjectInfo) {
+) : RequestContext<T>(channelMessages, requestParameters, counter, scannedObjectInfo) {
 
     override val loadFromCradleCounter: Counter.Child = LOAD_MESSAGES_FROM_CRADLE_COUNTER
         .labels(requestId, cradleSearchMessageMethod.name)
@@ -96,7 +95,7 @@ abstract class MessageRequestContext (
     val allMessagesRequested: AtomicBoolean = AtomicBoolean(false)
     var loadedMessages = 0
 
-    fun registerMessage(message: RequestedMessageDetails) {
+    fun registerMessage(message: RequestedMessageDetails<T>) {
         requestedMessages[message.id] = message
     }
 
@@ -108,7 +107,7 @@ abstract class MessageRequestContext (
         storedMessage: StoredMessage,
         responseFormats: List<String>,
         onResponse: () -> Unit = {}
-    ): RequestedMessageDetails
+    ): RequestedMessageDetails<T>
 
     abstract fun addStreamInfo()
 
@@ -156,11 +155,11 @@ class StepHolder(
     override fun close() = finish()
 }
 
-abstract class RequestedMessageDetails (
+abstract class RequestedMessageDetails<T> (
    val id: String,
    @Volatile var time: Long,
    val storedMessage: StoredMessage,
-   protected open val context: MessageRequestContext,
+   protected open val context: MessageRequestContext<T>,
    val responseFormats: List<String>,
    var parsedMessage: List<Message>? = null,
    var rawMessage: RawMessage? = null,

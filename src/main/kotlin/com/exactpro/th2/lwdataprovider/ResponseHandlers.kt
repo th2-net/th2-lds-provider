@@ -22,18 +22,33 @@ import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.google.gson.Gson
 import java.util.Collections
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.BlockingQueue
 import java.util.concurrent.atomic.AtomicLong
 
-interface ResponseHandler {
+//FIXME: change to abstract class and move buffer logic to it
+interface ResponseHandler<E> {
+
+    val streamClosed: Boolean
+    val size: Int
 
     fun finishStream()
     fun keepAliveEvent(obj: LastScannedObjectInfo, counter: AtomicLong)
     fun writeErrorMessage(text: String)
     fun writeErrorMessage(error: Throwable)
+
+    fun closeStream()
+
+    fun clear()
+    fun put(item: E)
+    fun take(): E
 }
 
-class SseResponseHandler (val buffer: ArrayBlockingQueue<SseEvent>,
-                          val responseBuilder: SseResponseBuilder) : ResponseHandler {
+class SseResponseHandler (private val buffer: ArrayBlockingQueue<SseEvent>,
+                          val responseBuilder: SseResponseBuilder) : ResponseHandler<SseEvent> {
+    override val streamClosed = false
+
+    override val size: Int
+        get() = buffer.size
 
     override fun finishStream() {
         buffer.put(SseEvent(event = EventType.CLOSE))
@@ -51,11 +66,26 @@ class SseResponseHandler (val buffer: ArrayBlockingQueue<SseEvent>,
         this.writeErrorMessage("${error.javaClass.simpleName} : ${error.message}")
     }
 
+    override fun closeStream() {}
+
+    override fun clear() {
+        @Suppress("ControlFlowWithEmptyBody")
+        while (buffer.poll() != null);
+    }
+
+    override fun put(item: SseEvent) {
+        buffer.put(item)
+    }
+
+    override fun take(): SseEvent = buffer.take()
 }
 
-class GrpcResponseHandler(val buffer: ArrayBlockingQueue<GrpcEvent>) : ResponseHandler {
+class GrpcResponseHandler(private val buffer: BlockingQueue<GrpcEvent>) : ResponseHandler<GrpcEvent> {
 
-    @Volatile var streamClosed = false
+    @Volatile
+    override var streamClosed = false
+    override val size: Int
+        get() = buffer.size
 
     override fun finishStream() {
         if (!streamClosed)
@@ -85,6 +115,20 @@ class GrpcResponseHandler(val buffer: ArrayBlockingQueue<GrpcEvent>) : ResponseH
         if (!streamClosed)
             buffer.put(GrpcEvent(event = resp))
     }
+
+    override fun closeStream() {
+        streamClosed = true
+    }
+
+    override fun clear() {
+        @Suppress("ControlFlowWithEmptyBody")
+        while (buffer.poll() != null);
+    }
+
+    override fun put(item: GrpcEvent) {
+        buffer.put(item)
+    }
+    override fun take(): GrpcEvent = buffer.take()
 }
 
 data class GrpcEvent(

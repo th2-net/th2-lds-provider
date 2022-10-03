@@ -173,8 +173,8 @@ internal class TestCradleMessageExtractor {
             .thenReturn(lastBatches)
         whenever(storage.getLastMessageBatchForGroup(eq(group))).thenReturn(firstBatches.last(), outsideBatches.last())
 
-        val channelMessages = mock<ResponseHandler> {}
-        val context: MessageRequestContext = MockRequestContext(channelMessages)
+        val channelMessages = mock<ResponseHandler<MockEvent>> {}
+        val context: MessageRequestContext<MockEvent> = MockRequestContext(channelMessages)
         val handler = SearchMessagesHandler(extractor, Executors.newSingleThreadExecutor())
         val request = MessagesGroupRequest(
             groups = setOf("test"),
@@ -240,8 +240,8 @@ internal class TestCradleMessageExtractor {
         )
         whenever(storage.getGroupedMessageBatches(eq("test"), eq(startTimestamp), eq(endTimestamp))).thenReturn(batchesList)
 
-        val channelMessages = mock<ResponseHandler> {}
-        val context: MessageRequestContext = MockRequestContext(channelMessages)
+        val channelMessages = mock<ResponseHandler<MockEvent>> {}
+        val context: MessageRequestContext<MockEvent> = MockRequestContext(channelMessages)
         extractor.getMessagesGroup("test", CradleGroupRequest(startTimestamp, endTimestamp, sort = true, rawOnly = false), requestContext = context)
 
         val captor = argumentCaptor<MessageGroupBatch>()
@@ -270,7 +270,9 @@ internal class TestCradleMessageExtractor {
         }
     }
 
-    private class MockRequestContext(channelMessages: ResponseHandler) : MessageRequestContext(channelMessages) {
+    private data class MockEvent(val data: String)
+
+    private class MockRequestContext(channelMessages: ResponseHandler<MockEvent>) : MessageRequestContext<MockEvent>(channelMessages) {
         override val sendResponseCounter: Counter.Child = mock {  }
 
         override fun createMessageDetails(
@@ -279,7 +281,7 @@ internal class TestCradleMessageExtractor {
             storedMessage: StoredMessage,
             responseFormats: List<String>,
             onResponse: () -> Unit
-        ): RequestedMessageDetails {
+        ): RequestedMessageDetails<MockEvent> {
             return createMockDetails(id)
         }
 
@@ -287,7 +289,7 @@ internal class TestCradleMessageExtractor {
             TODO("Not yet implemented")
         }
 
-        private fun createMockDetails(id: String): RequestedMessageDetails = mock { on { this.id }.thenReturn(id) }
+        private fun createMockDetails(id: String): RequestedMessageDetails<MockEvent> = mock { on { this.id }.thenReturn(id) }
     }
 
     private fun createStoredMessages(

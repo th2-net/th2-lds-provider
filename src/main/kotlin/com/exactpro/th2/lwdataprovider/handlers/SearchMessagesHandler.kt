@@ -46,7 +46,7 @@ class SearchMessagesHandler(
         return cradleMsgExtractor.getStreams();
     }
     
-    fun loadMessages(request: SseMessageSearchRequest, requestContext: MessageRequestContext, configuration: Configuration) {
+    fun loadMessages(request: SseMessageSearchRequest, requestContext: MessageRequestContext<*>, configuration: Configuration) {
         
         if (request.stream == null && request.resumeFromIdsList.isNullOrEmpty()) {
             return;
@@ -101,7 +101,7 @@ class SearchMessagesHandler(
         }
     }
 
-    fun loadOneMessage(request: GetMessageRequest, requestContext: MessageRequestContext) {
+    fun loadOneMessage(request: GetMessageRequest, requestContext: MessageRequestContext<*>) {
 
         threadPool.execute {
             try {
@@ -118,7 +118,7 @@ class SearchMessagesHandler(
         }
     }
 
-    fun loadMessageGroups(request: MessagesGroupRequest, requestContext: MessageRequestContext) {
+    fun loadMessageGroups(request: MessagesGroupRequest, requestContext: MessageRequestContext<*>) {
         if (request.groups.isEmpty()) {
             requestContext.finishStream()
         }
@@ -160,7 +160,7 @@ class SearchMessagesHandler(
     private fun pullUpdates(
         request: MessagesGroupRequest,
         lastTimestamp: Instant,
-        requestContext: MessageRequestContext,
+        requestContext: MessageRequestContext<*>,
         parameters: CradleGroupRequest,
         allLoaded: MutableSet<String>,
     ): Boolean {
@@ -206,7 +206,7 @@ class SearchMessagesHandler(
         request: SseMessageSearchRequest,
         order: Order,
         lastTimestamp: Instant,
-        requestContext: MessageRequestContext,
+        requestContext: MessageRequestContext<*>,
         configuration: Configuration,
         allLoaded: MutableSet<Stream>,
     ): Boolean {
@@ -249,13 +249,13 @@ class SearchMessagesHandler(
         Order.REVERSE -> cradleMsgExtractor.hasMessagesBefore(it, lastTimestamp)
     }
 
-    private fun MessageRequestContext.limitReached(request: SseMessageSearchRequest): Boolean =
+    private fun MessageRequestContext<*>.limitReached(request: SseMessageSearchRequest): Boolean =
         request.resultCountLimit != null && request.resultCountLimit <= loadedMessages
 
     private fun loadByResumeId(
         resumeFromId: StoredMessageId,
         request: SseMessageSearchRequest,
-        requestContext: MessageRequestContext,
+        requestContext: MessageRequestContext<*>,
         configuration: Configuration,
     ) {
         val filter = StoredMessageFilterBuilder().apply {
@@ -280,7 +280,7 @@ class SearchMessagesHandler(
         stream: String,
         direction: Direction,
         request: SseMessageSearchRequest,
-        requestContext: MessageRequestContext,
+        requestContext: MessageRequestContext<*>,
         configuration: Configuration,
     ) {
         val order = orderFrom(request)
@@ -302,7 +302,7 @@ class SearchMessagesHandler(
 
     private fun StoredMessageFilterBuilder.limitFilter(
         request: SseMessageSearchRequest,
-        requestContext: MessageRequestContext,
+        requestContext: MessageRequestContext<*>,
     ) {
         request.resultCountLimit?.let { limit(max(it - requestContext.loadedMessages, 0)) }
     }

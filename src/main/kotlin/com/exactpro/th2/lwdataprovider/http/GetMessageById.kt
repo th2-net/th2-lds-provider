@@ -60,7 +60,7 @@ class GetMessageById (
         if (msgId.startsWith('/'))
             msgId = msgId.substring(1)
 
-        var reqContext: MessageRequestContext? = null
+        var reqContext: MessageRequestContext<SseEvent>? = null
         val newMsgId = checkId(msgId, queue)
         if (newMsgId != null) {
             val queryParametersMap = getParameters(req)

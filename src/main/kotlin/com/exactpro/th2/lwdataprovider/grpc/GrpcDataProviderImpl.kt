@@ -73,7 +73,7 @@ open class GrpcDataProviderImpl(
         val grpcResponseHandler = GrpcResponseHandler(queue)
         val context = GrpcEventRequestContext(grpcResponseHandler)
         searchEventsHandler.loadOneEvent(requestParams, context)
-        processSingle(responseObserver, grpcResponseHandler, context) {
+        processSingle(responseObserver, context) {
             it.event?.let { event -> responseObserver.onNext(event) }
         }
     }
@@ -90,16 +90,16 @@ open class GrpcDataProviderImpl(
         val grpcResponseHandler = GrpcResponseHandler(queue)
         val context = GrpcMessageRequestContext(grpcResponseHandler, cradleSearchMessageMethod = SINGLE_MESSAGE)
         searchMessagesHandler.loadOneMessage(requestParams, context)
-        processSingle(responseObserver, grpcResponseHandler, context) {
+        processSingle(responseObserver, context) {
             if (it.message != null && it.message.hasMessage()) {
                 responseObserver.onNext(it.message.message)
             }
         }
     }
 
-    private fun <T> processSingle(responseObserver: StreamObserver<T>, grpcResponseHandler: GrpcResponseHandler,
-                                context: RequestContext, sender: (GrpcEvent) -> Unit) {
-        val value = grpcResponseHandler.buffer.take()
+    private fun <T> processSingle(responseObserver: StreamObserver<T>,
+                                context: RequestContext<GrpcEvent>, sender: (GrpcEvent) -> Unit) {
+        val value = context.channelMessages.take()
         if (value.error != null) {
             responseObserver.onError(value.error)
         } else {
@@ -107,7 +107,7 @@ open class GrpcDataProviderImpl(
             responseObserver.onCompleted()
         }
         context.contextAlive = false
-        grpcResponseHandler.streamClosed = true
+        context.channelMessages.closeStream()
     }
 
     override fun searchEvents(request: EventSearchRequest, responseObserver: StreamObserver<EventSearchResponse>) {
@@ -119,7 +119,7 @@ open class GrpcDataProviderImpl(
         val context = GrpcEventRequestContext(grpcResponseHandler)
         val serverCallStreamObserver = MetricServerCallStreamObserver(responseObserver, context.sendResponseCounter) { 1 }
         searchEventsHandler.loadEvents(requestParams, context)
-        processResponse(serverCallStreamObserver, grpcResponseHandler, context, accumulator = StatelessAccumulator {
+        processResponse(serverCallStreamObserver, context, accumulator = StatelessAccumulator {
             if (it.event != null) {
                 EventSearchResponse.newBuilder().setEvent(it.event).build()
             } else {
@@ -152,7 +152,7 @@ open class GrpcDataProviderImpl(
         val serverCallStreamObserver = MetricServerCallStreamObserver(responseObserver, context.sendResponseCounter) { message.messageItemCount }
         searchMessagesHandler.loadMessages(requestParams, context, configuration)
         try {
-            processResponse(serverCallStreamObserver, grpcResponseHandler, context, loadingStep::finish, StatelessAccumulator { it.message } )
+            processResponse(serverCallStreamObserver, context, loadingStep::finish, StatelessAccumulator { it.message } )
         } catch (ex: Exception) {
             loadingStep.finish()
             throw ex
@@ -174,7 +174,7 @@ open class GrpcDataProviderImpl(
             .count() }
         try {
             searchMessagesHandler.loadMessageGroups(requestParams, context)
-            processResponse(serverCallStreamObserver, grpcResponseHandler, context, loadingStep::finish, MessageGroupsAccumulator(configuration.responseBatchSize))
+            processResponse(serverCallStreamObserver, context, loadingStep::finish, MessageGroupsAccumulator(configuration.responseBatchSize))
         } catch (ex: Exception) {
             loadingStep.finish()
             throw ex
@@ -223,26 +223,25 @@ open class GrpcDataProviderImpl(
             }.build()
     }
 
-    protected open fun onCloseContext(requestContext: RequestContext) {
+    protected open fun onCloseContext(requestContext: RequestContext<GrpcEvent>) {
         requestContext.contextAlive = false
     }
 
     protected open fun <T> processResponse(
         responseObserver: ServerCallStreamObserver<T>,
-        grpcResponseHandler: GrpcResponseHandler,
-        context: RequestContext,
+        context: RequestContext<GrpcEvent>,
         onFinished: () -> Unit = {},
         accumulator: Accumulator<T>,
     ) {
-        val buffer = grpcResponseHandler.buffer
+        val grpcResponseHandler = context.channelMessages
         var inProcess = true
         while (inProcess) {
-            val event = buffer.take()
+            val event = grpcResponseHandler.take()
             if (event.close) {
                 accumulator.get()?.let { responseObserver.onNext(it) }
                 responseObserver.onCompleted()
                 onCloseContext(context)
-                grpcResponseHandler.streamClosed = true
+                grpcResponseHandler.closeStream()
                 inProcess = false
                 onFinished()
                 LOGGER.info { "Stream finished" }
@@ -250,7 +249,7 @@ open class GrpcDataProviderImpl(
                 responseObserver.onError(event.error)
                 onCloseContext(context)
                 onFinished()
-                grpcResponseHandler.streamClosed = true
+                grpcResponseHandler.closeStream()
                 inProcess = false
                 LOGGER.warn { "Stream finished with exception" }
             } else {

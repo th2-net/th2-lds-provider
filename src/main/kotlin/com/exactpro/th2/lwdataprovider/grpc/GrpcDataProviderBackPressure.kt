@@ -16,7 +16,7 @@
 
 package com.exactpro.th2.lwdataprovider.grpc
 
-import com.exactpro.th2.lwdataprovider.GrpcResponseHandler
+import com.exactpro.th2.lwdataprovider.GrpcEvent
 import com.exactpro.th2.lwdataprovider.RequestContext
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
@@ -36,31 +36,30 @@ class GrpcDataProviderBackPressure(
 
     override fun <T> processResponse(
         responseObserver: ServerCallStreamObserver<T>,
-        grpcResponseHandler: GrpcResponseHandler,
-        context: RequestContext,
+        context: RequestContext<GrpcEvent>,
         onFinished: () -> Unit,
         accumulator: Accumulator<T>,
     ) {
+        val grpcResponseHandler = context.channelMessages
         responseObserver.setOnReadyHandler {
             if (grpcResponseHandler.streamClosed)
                 return@setOnReadyHandler
-            val buffer = grpcResponseHandler.buffer
             var inProcess = true
             while (responseObserver.isReady && inProcess) {
                 context.backPressureMetric.off()
-                val event = buffer.take()
+                val event = grpcResponseHandler.take()
                 if (event.close) {
                     accumulator.get()?.let { responseObserver.onNext(it) }
                     responseObserver.onCompleted()
                     inProcess = false
-                    grpcResponseHandler.streamClosed = true
+                    grpcResponseHandler.closeStream()
                     onFinished()
                     onCloseContext(context)
                     logger.info { "Executing finished successfully" }
                 } else if (event.error != null) {
                     responseObserver.onError(event.error)
                     inProcess = false
-                    grpcResponseHandler.streamClosed = true
+                    grpcResponseHandler.closeStream()
                     onFinished()
                     onCloseContext(context)
                     logger.warn(event.error) { "Executing finished with error" }
@@ -71,16 +70,15 @@ class GrpcDataProviderBackPressure(
             }
             if (inProcess) {
                 context.backPressureMetric.on()
-                logger.trace { "Suspending processing because the opposite side is not ready to receive more messages. In queue: ${buffer.size}" }
+                logger.trace { "Suspending processing because the opposite side is not ready to receive more messages. In queue: ${grpcResponseHandler.size}" }
             }
         }
 
         responseObserver.setOnCancelHandler {
             logger.warn{ "Execution cancelled" }
-            grpcResponseHandler.streamClosed = true
+            grpcResponseHandler.closeStream()
             onCloseContext(context)
-            val buffer = grpcResponseHandler.buffer
-            while (buffer.poll() != null);
+            grpcResponseHandler.clear()
             onFinished()
         }
 

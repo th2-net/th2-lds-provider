@@ -21,6 +21,7 @@ import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.dataprovider.grpc.MessageSearchResponse
 import com.exactpro.th2.dataprovider.grpc.MessageStreamPointers
+import com.exactpro.th2.lwdataprovider.GrpcEvent
 import com.exactpro.th2.lwdataprovider.GrpcResponseHandler
 import com.exactpro.th2.lwdataprovider.MessageRequestContext
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
@@ -40,10 +41,10 @@ class GrpcMessageRequestContext (
     counter: AtomicLong = AtomicLong(0L),
 
     scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo(),
-    requestedMessages: MutableMap<String, RequestedMessageDetails> = ConcurrentHashMap(),
+    requestedMessages: MutableMap<String, RequestedMessageDetails<GrpcEvent>> = ConcurrentHashMap(),
     maxMessagesPerRequest: Int = 0,
     cradleSearchMessageMethod: CradleSearchMessageMethod
-) : MessageRequestContext(
+) : MessageRequestContext<GrpcEvent>(
     channelMessages,
     requestParameters,
     counter,
@@ -52,12 +53,12 @@ class GrpcMessageRequestContext (
     requestedMessages,
     maxMessagesPerRequest = maxMessagesPerRequest
 ) {
-    override val sendResponseCounter: Counter.Child = SEND_MESSAGES_COUNTER
-            .labels(requestId, GRPC.name, cradleSearchMessageMethod.name)
-
     override fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage, responseFormats: List<String>, onResponse: () -> Unit): GrpcRequestedMessageDetails {
         return GrpcRequestedMessageDetails(id, time, storedMessage, this, responseFormats, onResponse)
     }
+
+    override val sendResponseCounter: Counter.Child = SEND_MESSAGES_COUNTER
+            .labels(requestId, GRPC.name, cradleSearchMessageMethod.name)
 
     override fun addStreamInfo() {
         val grpcPointers = MessageStreamPointers.newBuilder().addAllMessageStreamPointer(this.streamInfo.toGrpc())
@@ -74,7 +75,7 @@ class GrpcRequestedMessageDetails(
     onResponse: () -> Unit,
     parsedMessage: List<Message>? = null,
     rawMessage: RawMessage? = null
-) : RequestedMessageDetails(id, time, storedMessage, context, responseFormats, parsedMessage, rawMessage, onResponse) {
+) : RequestedMessageDetails<GrpcEvent>(id, time, storedMessage, context, responseFormats, parsedMessage, rawMessage, onResponse) {
 
     override fun responseMessageInternal() {
         val msg = GrpcMessageProducer.createMessage(this)

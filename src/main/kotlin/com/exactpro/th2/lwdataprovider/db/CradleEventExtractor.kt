@@ -48,7 +48,7 @@ class CradleEventExtractor (cradleManager: CradleManager) {
         }
     }
 
-    fun getEvents(filter: SseEventSearchRequest, requestContext: EventRequestContext) {
+    fun getEvents(filter: SseEventSearchRequest, requestContext: EventRequestContext<*>) {
         val dates = splitByDates(filter.startTimestamp, filter.endTimestamp)
         if (filter.resultCountLimit != null && filter.resultCountLimit > 0) {
             requestContext.eventsLimit = filter.resultCountLimit
@@ -62,7 +62,7 @@ class CradleEventExtractor (cradleManager: CradleManager) {
         requestContext.finishStream()
     }
 
-    fun getSingleEvents(filter: GetEventRequest, requestContext: EventRequestContext) {
+    fun getSingleEvents(filter: GetEventRequest, requestContext: EventRequestContext<*>) {
         val batchId = filter.batchId
         val eventId = StoredTestEventId(filter.eventId)
         if (batchId != null) {
@@ -133,7 +133,7 @@ class CradleEventExtractor (cradleManager: CradleManager) {
         } while (true)
     }
 
-    private fun getEventByDates(dates: Collection<Pair<Instant, Instant>>, requestContext: EventRequestContext) {
+    private fun getEventByDates(dates: Collection<Pair<Instant, Instant>>, requestContext: EventRequestContext<*>) {
         for (splitByDate in dates) {
             val counter = LongCounter()
             val startTime = System.currentTimeMillis()
@@ -153,7 +153,7 @@ class CradleEventExtractor (cradleManager: CradleManager) {
         }
     }
 
-    private fun getEventByIds(id: ProviderEventId, dates: Collection<Pair<Instant, Instant>>, requestContext: EventRequestContext) {
+    private fun getEventByIds(id: ProviderEventId, dates: Collection<Pair<Instant, Instant>>, requestContext: EventRequestContext<*>) {
         for (splitByDate in dates) {
             val counter = LongCounter()
             val startTime = System.currentTimeMillis()
@@ -183,7 +183,7 @@ class CradleEventExtractor (cradleManager: CradleManager) {
     
     private fun processEvents(
         testEvents: Iterable<StoredTestEventWrapper>,
-        requestContext: EventRequestContext, count: LongCounter
+        requestContext: EventRequestContext<*>, count: LongCounter
     ) {
         for (testEvent in testEvents) {
             if (testEvent.isSingle) {

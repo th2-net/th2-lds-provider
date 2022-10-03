@@ -32,7 +32,7 @@ open class SseServlet : HttpServlet() {
     protected open fun waitAndWrite(
         queue: BlockingQueue<SseEvent>,
         resp: HttpServletResponse,
-        reqContext: RequestContext
+        reqContext: RequestContext<SseEvent>
     ) {
         resp.contentType = "text/event-stream"
         resp.status = HttpStatus.OK_200

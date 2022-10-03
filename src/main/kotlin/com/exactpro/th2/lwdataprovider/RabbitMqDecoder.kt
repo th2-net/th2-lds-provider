@@ -22,18 +22,17 @@ import com.exactpro.th2.common.schema.message.QueueAttribute
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.workers.CodecMessageListener
 import com.exactpro.th2.lwdataprovider.workers.DecodeQueueBuffer
-import mu.KotlinLogging
 
-class RabbitMqDecoder(private val configuration: Configuration, 
-                      private val messageRouterParsedBatch: MessageRouter<MessageGroupBatch>,
-                      private val messageRouterRawBatch: MessageRouter<MessageGroupBatch>) {
+class RabbitMqDecoder(
+    configuration: Configuration,
+    messageRouterParsedBatch: MessageRouter<MessageGroupBatch>,
+    private val messageRouterRawBatch: MessageRouter<MessageGroupBatch>) {
     
     val decodeBuffer = DecodeQueueBuffer(configuration.maxBufferDecodeQueue)
     private val parsedMonitor = messageRouterParsedBatch.subscribeAll(CodecMessageListener(decodeBuffer), QueueAttribute.PARSED.value, "from_codec")
 
 
     companion object {
-        private val logger = KotlinLogging.logger { }
     }
 
     fun sendAllBatchMessage(batch: MessageGroupBatch) {
@@ -44,7 +43,7 @@ class RabbitMqDecoder(private val configuration: Configuration,
         this.messageRouterRawBatch.send(batch, session, QueueAttribute.RAW.value)
     }
     
-    fun registerMessage(message: RequestedMessageDetails) {
+    fun registerMessage(message: RequestedMessageDetails<*>) {
         this.decodeBuffer.add(message)
     }
 

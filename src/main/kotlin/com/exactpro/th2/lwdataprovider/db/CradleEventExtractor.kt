@@ -98,7 +98,7 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
                 requestContext.finishStream()
                 return
             }
-            processEvents(Collections.singleton(testBatch), requestContext, LongCounter(), DataFilter.acceptAll())
+            processEvents(Collections.singleton(testBatch), requestContext, ProcessingInfo(), DataFilter.acceptAll())
         }
         requestContext.finishStream()
     }
@@ -132,12 +132,12 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
 
     private fun getEventByDates(dates: Collection<Pair<Instant, Instant>>, requestContext: EventRequestContext, request: SseEventSearchRequest) {
         for (splitByDate in dates) {
-            val counter = LongCounter()
+            val counter = ProcessingInfo()
             val startTime = System.currentTimeMillis()
             logger.info { "Extracting events from ${splitByDate.first} to ${splitByDate.second} processed."}
             val testEvents = storage.getTestEvents(splitByDate.first, splitByDate.second)
             processEvents(testEvents, requestContext, counter, request.filter)
-            logger.info { "Events for this period loaded. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms"}
+            logger.info { "Events for this period loaded. Info: ${counter.toShortString()}. Time ${System.currentTimeMillis() - startTime} ms"}
             if (requestContext.isLimitReached()) {
                 logger.info { "Loading events stopped: Reached events limit" }
                 break
@@ -156,12 +156,12 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
         request: SseEventSearchRequest
     ) {
         for (splitByDate in dates) {
-            val counter = LongCounter()
+            val counter = ProcessingInfo()
             val startTime = System.currentTimeMillis()
             logger.info { "Extracting events from ${splitByDate.first} to ${splitByDate.second} with parent ${id.eventId} processed."}
             val testEvents = storage.getTestEvents(id.eventId, splitByDate.first, splitByDate.second)
             processEvents(testEvents, requestContext, counter, request.filter)
-            logger.info { "Events for this period loaded. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms"}
+            logger.info { "Events for this period loaded. Info: ${counter.toShortString()}. Time ${System.currentTimeMillis() - startTime} ms"}
             if (requestContext.isLimitReached()) {
                 logger.info { "Loading events stopped: Reached events limit" }
                 break
@@ -171,6 +171,10 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
                 break
             }
         }
+    }
+
+    private fun ProcessingInfo.toShortString(): String {
+        return "events: $events, batches: $batches, total content size (KB): ${totalContentSize / 1024}"
     }
     
     private fun loadAttachedMessages(messageIds: Collection<StoredMessageId>?): Set<String> {
@@ -184,7 +188,7 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
     private fun processEvents(
         testEvents: Iterable<StoredTestEventWrapper>,
         requestContext: EventRequestContext,
-        count: LongCounter,
+        count: ProcessingInfo,
         filter: DataFilter<BaseEventEntity>,
     ) {
         for (testEvent in testEvents) {
@@ -196,10 +200,12 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
                 if (!filter.match(event)) {
                     continue
                 }
-                count.value++
+                count.events++
+                count.totalContentSize += singleEv.content.size + event.attachedMessageIds.sumOf { it.length }
                 requestContext.processEvent(event.convertToEvent())
                 requestContext.addProcessedEvents(1)
             } else if (testEvent.isBatch) {
+                count.batches++
                 val batch = testEvent.asBatch()
                 val eventsList = batch.testEvents
                 for (batchEvent in eventsList) {
@@ -210,8 +216,9 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
                         continue
                     }
 
+                    count.events++
+                    count.totalContentSize += batchEvent.content.size + batchEventBody.attachedMessageIds.sumOf { it.length }
                     requestContext.processEvent(batchEventBody.convertToEvent())
-                    count.value++
                 }
                 requestContext.addProcessedEvents(eventsList.size)
             }
@@ -222,10 +229,8 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
     }
 }
 
-class LongCounter {
-    var value: Long = 0;
-    
-    override fun toString(): String {
-        return value.toString()
-    }
-}
+class ProcessingInfo(
+    var events: Long = 0,
+    var batches: Long = 0,
+    var totalContentSize: Long = 0,
+)

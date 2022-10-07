@@ -174,7 +174,7 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
     }
 
     private fun ProcessingInfo.toShortString(): String {
-        return "events: $events, batches: $batches, total content size (KB): ${totalContentSize / 1024}"
+        return "total events: $total, single events: $singleEvents, batches: $batches, events sent: $events, sent content size (KB): ${totalContentSize / 1024}"
     }
     
     private fun loadAttachedMessages(messageIds: Collection<StoredMessageId>?): Set<String> {
@@ -197,9 +197,11 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
                 val event = EventProducer.fromSingleEvent(singleEv)
                 event.body = String(singleEv.content)
                 event.attachedMessageIds = loadAttachedMessages(singleEv.messageIds)
+                count.total++;
                 if (!filter.match(event)) {
                     continue
                 }
+                count.singleEvents++
                 count.events++
                 count.totalContentSize += singleEv.content.size + event.attachedMessageIds.sumOf { it.length }
                 requestContext.processEvent(event.convertToEvent())
@@ -212,6 +214,7 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
                     val batchEventBody = EventProducer.fromBatchEvent(batchEvent, batch)
                     batchEventBody.body = String(batchEvent.content)
                     batchEventBody.attachedMessageIds = loadAttachedMessages(batchEvent.messageIds)
+                    count.total++
                     if (!filter.match(batchEventBody)) {
                         continue
                     }
@@ -230,7 +233,9 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
 }
 
 class ProcessingInfo(
+    var total: Long = 0,
     var events: Long = 0,
+    var singleEvents: Long = 0,
     var batches: Long = 0,
     var totalContentSize: Long = 0,
 )

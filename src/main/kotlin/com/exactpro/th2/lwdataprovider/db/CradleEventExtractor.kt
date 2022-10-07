@@ -24,6 +24,8 @@ import com.exactpro.cradle.testevents.StoredTestEventWrapper
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
+import com.exactpro.th2.lwdataprovider.entities.responses.BaseEventEntity
+import com.exactpro.th2.lwdataprovider.filter.DataFilter
 import com.exactpro.th2.lwdataprovider.http.EventRequestContext
 import com.exactpro.th2.lwdataprovider.producers.EventProducer
 import mu.KotlinLogging
@@ -44,15 +46,15 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
     }
 
     fun getEvents(filter: SseEventSearchRequest, requestContext: EventRequestContext) {
-        var dates = splitByDates(filter.startTimestamp, filter.endTimestamp)
+        val dates = splitByDates(filter.startTimestamp, filter.endTimestamp)
         if (filter.resultCountLimit != null && filter.resultCountLimit > 0) {
             requestContext.eventsLimit = filter.resultCountLimit
         }
 
         if (filter.parentEvent == null) {
-            getEventByDates(dates, requestContext)
+            getEventByDates(dates, requestContext, filter)
         } else {
-            getEventByIds(filter.parentEvent, dates, requestContext)
+            getEventByIds(filter.parentEvent, dates, requestContext, filter)
         }
         requestContext.finishStream()
     }
@@ -96,7 +98,7 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
                 requestContext.finishStream()
                 return
             }
-            processEvents(Collections.singleton(testBatch), requestContext, LongCounter())
+            processEvents(Collections.singleton(testBatch), requestContext, LongCounter(), DataFilter.acceptAll())
         }
         requestContext.finishStream()
     }
@@ -128,13 +130,13 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
         } while (true)
     }
 
-    private fun getEventByDates(dates: Collection<Pair<Instant, Instant>>, requestContext: EventRequestContext) {
+    private fun getEventByDates(dates: Collection<Pair<Instant, Instant>>, requestContext: EventRequestContext, request: SseEventSearchRequest) {
         for (splitByDate in dates) {
             val counter = LongCounter()
             val startTime = System.currentTimeMillis()
             logger.info { "Extracting events from ${splitByDate.first} to ${splitByDate.second} processed."}
             val testEvents = storage.getTestEvents(splitByDate.first, splitByDate.second)
-            processEvents(testEvents, requestContext, counter)
+            processEvents(testEvents, requestContext, counter, request.filter)
             logger.info { "Events for this period loaded. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms"}
             if (requestContext.isLimitReached()) {
                 logger.info { "Loading events stopped: Reached events limit" }
@@ -147,13 +149,18 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
         }
     }
 
-    private fun getEventByIds(id: ProviderEventId, dates: Collection<Pair<Instant, Instant>>, requestContext: EventRequestContext) {
+    private fun getEventByIds(
+        id: ProviderEventId,
+        dates: Collection<Pair<Instant, Instant>>,
+        requestContext: EventRequestContext,
+        request: SseEventSearchRequest
+    ) {
         for (splitByDate in dates) {
             val counter = LongCounter()
             val startTime = System.currentTimeMillis()
             logger.info { "Extracting events from ${splitByDate.first} to ${splitByDate.second} with parent ${id.eventId} processed."}
             val testEvents = storage.getTestEvents(id.eventId, splitByDate.first, splitByDate.second)
-            processEvents(testEvents, requestContext, counter)
+            processEvents(testEvents, requestContext, counter, request.filter)
             logger.info { "Events for this period loaded. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms"}
             if (requestContext.isLimitReached()) {
                 logger.info { "Loading events stopped: Reached events limit" }
@@ -176,7 +183,9 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
     
     private fun processEvents(
         testEvents: Iterable<StoredTestEventWrapper>,
-        requestContext: EventRequestContext, count: LongCounter
+        requestContext: EventRequestContext,
+        count: LongCounter,
+        filter: DataFilter<BaseEventEntity>,
     ) {
         for (testEvent in testEvents) {
             if (testEvent.isSingle) {
@@ -184,6 +193,9 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
                 val event = EventProducer.fromSingleEvent(singleEv)
                 event.body = String(singleEv.content)
                 event.attachedMessageIds = loadAttachedMessages(singleEv.messageIds)
+                if (!filter.match(event)) {
+                    continue
+                }
                 count.value++
                 requestContext.processEvent(event.convertToEvent())
                 requestContext.addProcessedEvents(1)
@@ -194,6 +206,9 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
                     val batchEventBody = EventProducer.fromBatchEvent(batchEvent, batch)
                     batchEventBody.body = String(batchEvent.content)
                     batchEventBody.attachedMessageIds = loadAttachedMessages(batchEvent.messageIds)
+                    if (!filter.match(batchEventBody)) {
+                        continue
+                    }
 
                     requestContext.processEvent(batchEventBody.convertToEvent())
                     count.value++

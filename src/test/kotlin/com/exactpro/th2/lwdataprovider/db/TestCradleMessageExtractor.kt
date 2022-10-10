@@ -36,6 +36,8 @@ import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.ResponseHandler
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.configuration.CustomConfigurationClass
+import com.exactpro.th2.lwdataprovider.entities.requests.MessageRequestKind
+import com.exactpro.th2.lwdataprovider.entities.requests.MessageRequestKind.RAW_AND_PARSE
 import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.grpc.toCradleDirection
 import com.exactpro.th2.lwdataprovider.grpc.toInstant
@@ -61,6 +63,7 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.concurrent.Executors
 import kotlin.math.ceil
+import kotlin.reflect.jvm.internal.impl.load.kotlin.JvmType
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class TestCradleMessageExtractor {
@@ -181,7 +184,7 @@ internal class TestCradleMessageExtractor {
             startTimestamp,
             endTimestamp,
             sort = true,
-            rawOnly = false,
+            kind = RAW_AND_PARSE,
             keepOpen = true
         )
         LOGGER.info { "Request: $request" }
@@ -242,7 +245,7 @@ internal class TestCradleMessageExtractor {
 
         val channelMessages = mock<ResponseHandler<MockEvent>> {}
         val context: MessageRequestContext<MockEvent> = MockRequestContext(channelMessages)
-        extractor.getMessagesGroup("test", CradleGroupRequest(startTimestamp, endTimestamp, sort = true, rawOnly = false), requestContext = context)
+        extractor.getMessagesGroup("test", CradleGroupRequest(startTimestamp, endTimestamp, sort = true, RAW_AND_PARSE), requestContext = context)
 
         val captor = argumentCaptor<MessageGroupBatch>()
         verify(messageRouter, times(ceil(messagesCount.toDouble() / batchSize).toInt())).send(captor.capture(), any())

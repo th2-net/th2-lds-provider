@@ -125,7 +125,7 @@ class SearchMessagesHandler(
 
         threadPool.execute {
             try {
-                val parameters = CradleGroupRequest(request.startTimestamp, request.endTimestamp, request.sort, request.rawOnly)
+                val parameters = CradleGroupRequest(request.startTimestamp, request.endTimestamp, request.sort, request.kind)
                 request.groups.forEach { group ->
                     logger.debug { "Executing request for group $group" }
                     cradleMsgExtractor.getMessagesGroup(

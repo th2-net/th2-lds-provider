@@ -19,6 +19,8 @@ package com.exactpro.th2.lwdataprovider.grpc
 import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageID
+import com.exactpro.th2.dataprovider.grpc.CradleMessageGroupsRequest
+import com.exactpro.th2.dataprovider.grpc.CradleMessageGroupsResponse
 import com.exactpro.th2.dataprovider.grpc.DataProviderGrpc
 import com.exactpro.th2.dataprovider.grpc.EventResponse
 import com.exactpro.th2.dataprovider.grpc.EventSearchRequest
@@ -29,6 +31,7 @@ import com.exactpro.th2.dataprovider.grpc.MessageGroupsSearchResponse
 import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest
 import com.exactpro.th2.dataprovider.grpc.MessageSearchResponse
 import com.exactpro.th2.dataprovider.grpc.MessageStream
+import com.exactpro.th2.dataprovider.grpc.MessageStreamInfo
 import com.exactpro.th2.dataprovider.grpc.MessageStreamsRequest
 import com.exactpro.th2.dataprovider.grpc.MessageStreamsResponse
 import com.exactpro.th2.lwdataprovider.GrpcEvent
@@ -45,12 +48,16 @@ import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import com.exactpro.th2.lwdataprovider.metrics.CradleSearchMessageMethod.MESSAGES
 import com.exactpro.th2.lwdataprovider.metrics.CradleSearchMessageMethod.MESSAGES_FROM_GROUP
 import com.exactpro.th2.lwdataprovider.metrics.CradleSearchMessageMethod.SINGLE_MESSAGE
+import com.google.protobuf.util.Timestamps
 import io.grpc.stub.ServerCallStreamObserver
 import io.grpc.stub.StreamObserver
 import io.prometheus.client.Counter
 import mu.KotlinLogging
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantLock
+import kotlin.math.max
+import kotlin.math.min
 
 open class GrpcDataProviderImpl(
     private val configuration: Configuration,
@@ -159,6 +166,38 @@ open class GrpcDataProviderImpl(
         }
     }
 
+    override fun loadCradleMessageGroups(
+        request: CradleMessageGroupsRequest,
+        responseObserver: StreamObserver<CradleMessageGroupsResponse>
+    ) {
+        val queue = ArrayBlockingQueue<GrpcEvent>(configuration.responseQueueSize)
+        val requestParams = MessagesGroupRequest.fromGrpcRequest(request)
+        LOGGER.info { "Loading messages groups $requestParams" }
+        val grpcResponseHandler = GrpcResponseHandler(queue)
+        val context = GrpcMessageRequestContext(grpcResponseHandler, maxMessagesPerRequest = configuration.bufferPerQuery, cradleSearchMessageMethod = MESSAGES_FROM_GROUP)
+        val loadingStep = context.startStep("messages_group_loading")
+        val serverCallStreamObserver = MetricServerCallStreamObserver(responseObserver, context.sendResponseCounter) {
+            messageIntervalInfo.messagesInfoList.asSequence()
+                .map(MessageStreamInfo::getNumberOfMessages)
+                .sum()
+        }
+        try {
+            searchMessagesHandler.loadMessageGroups(requestParams, context)
+            processResponse(serverCallStreamObserver, context, loadingStep::finish, MessageIntervalInfoAccumulator {
+                CradleMessageGroupsResponse.newBuilder().apply {
+                    messageIntervalInfoBuilder.apply {
+                        this.startTimestamp = request.startTimestamp
+                        this.endTimestamp = request.endTimestamp
+                        forEach(this::addMessagesInfo)
+                    }
+                }.build()
+            })
+        } catch (ex: Exception) {
+            loadingStep.finish()
+            throw ex
+        }
+    }
+
     override fun searchMessageGroups(
         request: MessageGroupsSearchRequest,
         responseObserver: StreamObserver<MessageGroupsSearchResponse>
@@ -179,6 +218,41 @@ open class GrpcDataProviderImpl(
             loadingStep.finish()
             throw ex
         }
+    }
+
+    private class MessageIntervalInfoAccumulator<T>(
+        private val transform: Collection<MessageStreamInfo.Builder>.() -> T
+    ) : Accumulator<T> {
+        private val accumulator = ConcurrentHashMap<StreamId, MessageStreamInfo.Builder>()
+
+        override fun accumulateAndGet(event: GrpcEvent): T? {
+            event.message?.let {
+                accumulator.compute(it.toStreamId()) { streamId, streamInfo ->
+                    streamInfo?.apply {
+                        numberOfMessages += 1
+                        maxTimestamp = if (Timestamps.compare(maxTimestamp, it.message.timestamp) < 0) it.message.timestamp else maxTimestamp
+                        minTimestamp = if (Timestamps.compare(minTimestamp, it.message.timestamp) < 0) minTimestamp else it.message.timestamp
+                        maxSequence = max(maxSequence, it.message.messageId.sequence)
+                        minSequence = min(minSequence, it.message.messageId.sequence)
+                    } ?: MessageStreamInfo.newBuilder().apply {
+                            sessionAlias = streamId.sessionAlias
+                            direction = streamId.direction
+                            numberOfMessages = 1
+                            maxTimestamp = it.message.timestamp
+                            minTimestamp = it.message.timestamp
+                            maxSequence = it.message.messageId.sequence
+                            minSequence = it.message.messageId.sequence
+                        }
+                }
+            }
+            return null
+        }
+
+        override fun get(): T = accumulator.values.transform()
+
+        private fun MessageSearchResponse.toStreamId() = StreamId(message.messageId.connectionId.sessionAlias, message.messageId.direction)
+
+        private data class StreamId(val sessionAlias: String, val direction: Direction)
     }
 
     private class MessageGroupsAccumulator(private val batchSize: Int) : Accumulator<MessageGroupsSearchResponse> {

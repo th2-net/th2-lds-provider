@@ -39,6 +39,7 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile) {
 }
 
 repositories {
+    mavenLocal()
     mavenCentral()
     maven {
         name 'Sonatype_snapshots'
@@ -76,8 +77,8 @@ dependencies {
         because('cassandra driver requires lz4 impl in classpath for compression')
     }
 
-//    implementation 'com.exactpro.th2:grpc-data-provider:1.1.0-raw-message-field-message-group-response-2917372559-SNAPSHOT'
-    implementation 'com.exactpro.th2:grpc-data-provider:1.1.0-TH2-4188-100-msg-sec-throughput-in-end-to-end-test-3081021490-SNAPSHOT'
+    implementation 'com.exactpro.th2:grpc-data-provider:1.1.0-TH2-4262-reduce-load-on-a-separate-boxes-in-crawler-schema-3218351603-SNAPSHOT'
+//    implementation 'com.exactpro.th2:grpc-data-provider:1.1.0' // load from maven local
 
     implementation 'io.github.microutils:kotlin-logging:2.1.14'
 

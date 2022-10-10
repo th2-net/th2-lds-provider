@@ -16,6 +16,7 @@
 package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.th2.dataprovider.grpc.DataProviderGrpc
+import com.exactpro.th2.dataprovider.grpc.Group
 import com.exactpro.th2.dataprovider.grpc.MessageGroupsSearchRequest
 import io.grpc.ManagedChannelBuilder
 import java.time.Instant
@@ -44,7 +45,7 @@ class RPCCallExample {
                             nanos = it.nano
                         }
                     }
-                    addMessageGroup(MessageGroupsSearchRequest.Group.newBuilder().apply {
+                    addMessageGroup(Group.newBuilder().apply {
                         name = args[4]
                     }.build())
                 }.build()).asSequence().count()

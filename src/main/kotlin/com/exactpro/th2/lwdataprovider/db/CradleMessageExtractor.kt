@@ -28,6 +28,7 @@ import com.exactpro.th2.lwdataprovider.MessageRequestContext
 import com.exactpro.th2.lwdataprovider.RabbitMqDecoder
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
+import com.exactpro.th2.lwdataprovider.entities.requests.MessageRequestKind
 import com.exactpro.th2.lwdataprovider.grpc.toRawMessage
 import mu.KotlinLogging
 import java.time.Instant
@@ -244,7 +245,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             start: Instant,
             end: Instant,
             sort: Boolean,
-            rawOnly: Boolean
+            kind: MessageRequestKind
         ) = parameters
 
         val messagesGroup: Iterable<StoredGroupMessageBatch> = cradleManager.storage.getGroupedMessageBatches(group, start, end)
@@ -287,7 +288,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                     buffer.addAll(prev.messages.preFilter())
                 }
                 requestContext.updateLastMessage(group, buffer.last)
-                tryDrain(group, buffer, detailsBuffer, batchBuilder, sort, requestContext, rawOnly)
+                tryDrain(group, buffer, detailsBuffer, batchBuilder, sort, requestContext, kind)
             } else {
                 generateSequence { if (!sort || remaining.peek()?.timestampLess(currentBatch) == true) remaining.poll() else null }.toCollection(buffer)
 
@@ -313,7 +314,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                     remaining.last
                 }
                 requestContext.updateLastMessage(group, lastMsg)
-                tryDrain(group, buffer, detailsBuffer, batchBuilder, sort, requestContext, rawOnly)
+                tryDrain(group, buffer, detailsBuffer, batchBuilder, sort, requestContext, kind)
             }
         }
         val remainingMessages = currentBatch.filterIfRequired()
@@ -322,7 +323,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
         if (prev == null) {
             // Only single batch was extracted
-            drain(group, remainingMessages, detailsBuffer, batchBuilder, requestContext, rawOnly)
+            drain(group, remainingMessages, detailsBuffer, batchBuilder, requestContext, kind)
         } else {
             drain(
                 group,
@@ -334,7 +335,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                         sortWith(STORED_MESSAGE_COMPARATOR)
                     }
                 },
-                detailsBuffer, batchBuilder, requestContext, rawOnly
+                detailsBuffer, batchBuilder, requestContext, kind
             )
         }
     }
@@ -360,16 +361,16 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         batchBuilder: MessageGroupBatch.Builder,
         sort: Boolean,
         requestContext: MessageRequestContext<T>,
-        rawOnly: Boolean,
+        kind: MessageRequestKind,
     ) {
-        if (buffer.size < batchSize && !rawOnly) {
+        if (buffer.size < batchSize && kind.sendToCodec) {
             return
         }
         if (sort) {
             buffer.sortWith(STORED_MESSAGE_COMPARATOR)
         }
-        if (rawOnly) {
-            drain(group, buffer, detailsBuffer, batchBuilder, requestContext, true)
+        if (!kind.waitParsed) {
+            drain(group, buffer, detailsBuffer, batchBuilder, requestContext, kind)
             buffer.clear() // we must pull all messages from the buffer
             return
         }
@@ -378,7 +379,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             val sortedBatch = generateSequence(buffer::poll)
                 .take(batchSize)
                 .toCollection(drainBuffer)
-            drain(group, sortedBatch, detailsBuffer, batchBuilder, requestContext, false)
+            drain(group, sortedBatch, detailsBuffer, batchBuilder, requestContext, kind)
             drainBuffer.clear()
         }
     }
@@ -389,10 +390,10 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         detailsBuffer: MutableList<RequestedMessageDetails<T>>,
         batchBuilder: MessageGroupBatch.Builder,
         requestContext: MessageRequestContext<T>,
-        rawOnly: Boolean,
+        kind: MessageRequestKind,
     ) {
         for (message in buffer) {
-            if (rawOnly) {
+            if (!kind.waitParsed) {
                 requestContext.createRequestAndSend(message)
                 continue
             }
@@ -401,7 +402,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                 requestContext.sendBatch(group, batchBuilder, detailsBuffer)
             }
         }
-        if (rawOnly) {
+        if (!kind.sendToCodec) {
             return
         }
         requestContext.sendBatch(group, batchBuilder, detailsBuffer)
@@ -448,6 +449,6 @@ data class CradleGroupRequest(
     val start: Instant,
     val end: Instant,
     val sort: Boolean,
-    val rawOnly: Boolean,
+    val kind: MessageRequestKind,
     val preFilter: ((StoredMessage) -> Boolean)? = null,
 )

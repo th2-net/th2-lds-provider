@@ -18,6 +18,7 @@ package com.exactpro.th2.lwdataprovider.grpc
 
 import com.exactpro.th2.dataprovider.grpc.MessageGroupsSearchRequest
 import com.exactpro.th2.dataprovider.grpc.MessageGroupsSearchResponse
+import com.google.protobuf.TextFormat.shortDebugString
 import io.grpc.stub.ClientCallStreamObserver
 import io.grpc.stub.ClientResponseObserver
 import mu.KotlinLogging
@@ -44,7 +45,7 @@ class ClientObserver(
     }
 
     override fun onNext(value: MessageGroupsSearchResponse) {
-        LOGGER.debug { "onNext has been called $value" }
+        LOGGER.debug { "onNext has been called ${shortDebugString(value)}" }
         if (periodicalGrpcRequest > 0) {
             if (counter.incrementAndGet() % periodicalGrpcRequest == 0) {
                 requestStream.request(periodicalGrpcRequest)

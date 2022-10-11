@@ -226,22 +226,22 @@ open class GrpcDataProviderImpl(
         private val accumulator = ConcurrentHashMap<StreamId, MessageStreamInfo.Builder>()
 
         override fun accumulateAndGet(event: GrpcEvent): T? {
-            event.message?.let {
-                accumulator.compute(it.toStreamId()) { streamId, streamInfo ->
+            event.message?.message?.let { groupResponse ->
+                accumulator.compute(groupResponse.toStreamId()) { streamId, streamInfo ->
                     streamInfo?.apply {
                         numberOfMessages += 1
-                        maxTimestamp = if (Timestamps.compare(maxTimestamp, it.message.timestamp) < 0) it.message.timestamp else maxTimestamp
-                        minTimestamp = if (Timestamps.compare(minTimestamp, it.message.timestamp) < 0) minTimestamp else it.message.timestamp
-                        maxSequence = max(maxSequence, it.message.messageId.sequence)
-                        minSequence = min(minSequence, it.message.messageId.sequence)
+                        maxTimestamp = if (Timestamps.compare(maxTimestamp, groupResponse.timestamp) < 0) groupResponse.timestamp else maxTimestamp
+                        minTimestamp = if (Timestamps.compare(minTimestamp, groupResponse.timestamp) < 0) minTimestamp else groupResponse.timestamp
+                        maxSequence = max(maxSequence, groupResponse.messageId.sequence)
+                        minSequence = min(minSequence, groupResponse.messageId.sequence)
                     } ?: MessageStreamInfo.newBuilder().apply {
                             sessionAlias = streamId.sessionAlias
                             direction = streamId.direction
                             numberOfMessages = 1
-                            maxTimestamp = it.message.timestamp
-                            minTimestamp = it.message.timestamp
-                            maxSequence = it.message.messageId.sequence
-                            minSequence = it.message.messageId.sequence
+                            maxTimestamp = groupResponse.timestamp
+                            minTimestamp = groupResponse.timestamp
+                            maxSequence = groupResponse.messageId.sequence
+                            minSequence = groupResponse.messageId.sequence
                         }
                 }
             }
@@ -250,7 +250,7 @@ open class GrpcDataProviderImpl(
 
         override fun get(): T = accumulator.values.transform()
 
-        private fun MessageSearchResponse.toStreamId() = StreamId(message.messageId.connectionId.sessionAlias, message.messageId.direction)
+        private fun MessageGroupResponse.toStreamId() = StreamId(messageId.connectionId.sessionAlias, messageId.direction)
 
         private data class StreamId(val sessionAlias: String, val direction: Direction)
     }

@@ -30,7 +30,7 @@ class GrpcMessageProducer {
 
     companion object {
 
-        fun createMessage(requestDetails: RequestedMessageDetails): MessageGroupResponse {
+        fun createMessage(requestDetails: RequestedMessageDetails<*>): MessageGroupResponse {
             val storedMessage = requestDetails.storedMessage
             val responseFormats = requestDetails.responseFormats
 

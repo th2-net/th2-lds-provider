@@ -17,10 +17,16 @@
 package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.cradle.Direction
-import com.exactpro.th2.lwdataprovider.*
+import com.exactpro.th2.lwdataprovider.CustomJsonFormatter
+import com.exactpro.th2.lwdataprovider.EventType
+import com.exactpro.th2.lwdataprovider.MessageRequestContext
+import com.exactpro.th2.lwdataprovider.SseEvent
+import com.exactpro.th2.lwdataprovider.SseResponseBuilder
+import com.exactpro.th2.lwdataprovider.SseResponseHandler
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
+import com.exactpro.th2.lwdataprovider.metrics.CradleSearchMessageMethod.SINGLE_MESSAGE
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.gson.Gson
@@ -54,7 +60,7 @@ class GetMessageById (
         if (msgId.startsWith('/'))
             msgId = msgId.substring(1)
 
-        var reqContext: MessageRequestContext? = null
+        var reqContext: MessageRequestContext<SseEvent>? = null
         val newMsgId = checkId(msgId, queue)
         if (newMsgId != null) {
             val queryParametersMap = getParameters(req)
@@ -64,7 +70,7 @@ class GetMessageById (
 
             val sseResponseBuilder = SseResponseBuilder(jacksonMapper)
             val sseResponse = SseResponseHandler(queue, sseResponseBuilder)
-            reqContext = MessageSseRequestContext(sseResponse, queryParametersMap)
+            reqContext = MessageSseRequestContext(sseResponse, queryParametersMap, cradleSearchMessageMethod = SINGLE_MESSAGE)
             keepAliveHandler.addKeepAliveData(reqContext)
             searchMessagesHandler.loadOneMessage(request, reqContext)
         }

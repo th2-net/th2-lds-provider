@@ -37,10 +37,14 @@ import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.ResponseHandler
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.configuration.CustomConfigurationClass
+import com.exactpro.th2.lwdataprovider.entities.requests.MessageRequestKind.RAW_AND_PARSE
+import com.exactpro.th2.lwdataprovider.entities.requests.MessageRequestKind.RAW_WITHOUT_SENDING_TO_CODEC
+import com.exactpro.th2.lwdataprovider.entities.requests.MessageRequestKind.RAW_WITH_SENDING_TO_CODEC
 import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.grpc.toCradleDirection
 import com.exactpro.th2.lwdataprovider.grpc.toInstant
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
+import io.prometheus.client.Counter
 import mu.KotlinLogging
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.BeforeEach
@@ -174,15 +178,15 @@ internal class TestCradleMessageExtractor {
             .thenReturn(lastBatches)
         whenever(storage.getLastMessageBatchForGroup(eq(GROUP_NAME))).thenReturn(firstBatches.last(), outsideBatches.last())
 
-        val channelMessages = mock<ResponseHandler> {}
-        val context: MessageRequestContext = MockRequestContext(channelMessages)
+        val channelMessages = mock<ResponseHandler<MockEvent>> {}
+        val context: MessageRequestContext<MockEvent> = MockRequestContext(channelMessages)
         val handler = SearchMessagesHandler(extractor, Executors.newSingleThreadExecutor())
         val request = MessagesGroupRequest(
             groups = setOf(GROUP_NAME),
             startTimestamp,
             endTimestamp,
             sort = true,
-            rawOnly = false,
+            kind = RAW_AND_PARSE,
             keepOpen = true
         )
         LOGGER.info { "Request: $request" }
@@ -233,35 +237,35 @@ internal class TestCradleMessageExtractor {
     }
 
     @Test
-    fun `test readonly false`() {
-        val channelMessages = mock<ResponseHandler> {}
-        val context: MessageRequestContext = spy(MockRequestContext(channelMessages))
+    fun `test request kind RAW_AND_PARSE`() {
+        val channelMessages = mock<ResponseHandler<MockEvent>> {}
+        val context: MessageRequestContext<MockEvent> = spy(MockRequestContext(channelMessages))
         val increase = 1L
         val batchesCount = 5
         val messagesPerBatch = 5L
 
         configureStorage(messagesPerBatch, batchesCount, 0, increase)
-        extractor.getMessagesGroup(GROUP_NAME, CradleGroupRequest(startTimestamp, endTimestamp, sort = false, rawOnly = false), context)
+        extractor.getMessagesGroup(GROUP_NAME, CradleGroupRequest(startTimestamp, endTimestamp, sort = false, RAW_AND_PARSE), context)
 
 
         val routerCaptor = argumentCaptor<MessageGroupBatch>()
         verify(messageRouter, times(ceil(batchesCount.toDouble() / messagesPerBatch).toInt())).send(routerCaptor.capture(), any())
 
-        val contextCaptor = argumentCaptor<RequestedMessageDetails>()
+        val contextCaptor = argumentCaptor<RequestedMessageDetails<MockEvent>>()
         verify(context, times((batchesCount * messagesPerBatch).toInt())).registerMessage(contextCaptor.capture())
         verify(context, times((batchesCount * messagesPerBatch).toInt())).createMessageDetails(any(), any(), any(), any(), any())
     }
 
     @Test
-    fun `test readonly true`() {
-        val channelMessages = mock<ResponseHandler> {}
-        val context: MessageRequestContext = spy(MockRequestContext(channelMessages))
+    fun `test request kind RAW_WITHOUT_SENDING_TO_CODEC`() {
+        val channelMessages = mock<ResponseHandler<MockEvent>> {}
+        val context: MessageRequestContext<MockEvent> = spy(MockRequestContext(channelMessages))
         val increase = 1L
         val batchesCount = 5
         val messagesPerBatch = 5L
 
         configureStorage(messagesPerBatch, batchesCount, 0, increase)
-        extractor.getMessagesGroup(GROUP_NAME, CradleGroupRequest(startTimestamp, endTimestamp, sort = false, rawOnly = true), context)
+        extractor.getMessagesGroup(GROUP_NAME, CradleGroupRequest(startTimestamp, endTimestamp, sort = false, RAW_WITHOUT_SENDING_TO_CODEC), context)
 
 
         verify(messageRouter, never()).send(any(), any())
@@ -270,12 +274,30 @@ internal class TestCradleMessageExtractor {
         verify(context, times((batchesCount * messagesPerBatch).toInt())).createMessageDetails(any(), any(), any(), any(), any())
     }
 
+    @Test
+    fun `test request kind RAW_WITH_SENDING_TO_CODEC`() {
+        val channelMessages = mock<ResponseHandler<MockEvent>> {}
+        val context: MessageRequestContext<MockEvent> = spy(MockRequestContext(channelMessages))
+        val increase = 1L
+        val batchesCount = 5
+        val messagesPerBatch = 5L
+
+        configureStorage(messagesPerBatch, batchesCount, 0, increase)
+        extractor.getMessagesGroup(GROUP_NAME, CradleGroupRequest(startTimestamp, endTimestamp, sort = false, RAW_WITH_SENDING_TO_CODEC), context)
+
+        val routerCaptor = argumentCaptor<MessageGroupBatch>()
+        verify(messageRouter, times(ceil(batchesCount.toDouble() / messagesPerBatch).toInt())).send(routerCaptor.capture(), any())
+
+        verify(context.streamInfo, times(batchesCount)).registerMessage(any(), any(), eq(GROUP_NAME))
+        verify(context, times((batchesCount * messagesPerBatch).toInt())).createMessageDetails(any(), any(), any(), any(), any())
+    }
+
     private fun checkMessagesReturnsInOrder(messagesPerBatch: Long, batchesCount: Int, increase: Long, messagesCount: Long, overlap: Long) {
         configureStorage(messagesPerBatch, batchesCount, overlap, increase)
 
-        val channelMessages = mock<ResponseHandler> {}
-        val context: MessageRequestContext = MockRequestContext(channelMessages)
-        extractor.getMessagesGroup(GROUP_NAME, CradleGroupRequest(startTimestamp, endTimestamp, sort = true, rawOnly = false), requestContext = context)
+        val channelMessages = mock<ResponseHandler<MockEvent>> {}
+        val context: MessageRequestContext<MockEvent> = MockRequestContext(channelMessages)
+        extractor.getMessagesGroup(GROUP_NAME, CradleGroupRequest(startTimestamp, endTimestamp, sort = true, RAW_AND_PARSE), requestContext = context)
 
         val captor = argumentCaptor<MessageGroupBatch>()
         verify(messageRouter, times(ceil(messagesCount.toDouble() / batchSize).toInt())).send(captor.capture(), any())
@@ -320,19 +342,19 @@ internal class TestCradleMessageExtractor {
         }
     }
 
-    private class MockRequestContext(
+    private data class MockEvent(val data: String)private class MockRequestContext(
         channelMessages: ResponseHandler
-    ) : MessageRequestContext(
+    <MockEvent>) : MessageRequestContext<MockEvent>(
         channelMessages,
         streamInfo = spy(ProviderStreamInfo())
-    ) {
+    ) {override val sendResponseCounter: Counter.Child = mock {  }
         override fun createMessageDetails(
             id: String,
             time: Long,
             storedMessage: StoredMessage,
             responseFormats: List<String>,
             onResponse: () -> Unit
-        ): RequestedMessageDetails {
+        ): RequestedMessageDetails<MockEvent> {
             return createMockDetails(id)
         }
 
@@ -340,7 +362,7 @@ internal class TestCradleMessageExtractor {
             TODO("Not yet implemented")
         }
 
-        private fun createMockDetails(id: String): RequestedMessageDetails = mock { on { this.id }.thenReturn(id) }
+        private fun createMockDetails(id: String): RequestedMessageDetails<MockEvent> = mock { on { this.id }.thenReturn(id) }
     }
 
     private fun createStoredMessages(

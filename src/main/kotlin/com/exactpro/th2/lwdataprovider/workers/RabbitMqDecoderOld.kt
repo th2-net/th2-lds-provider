@@ -16,7 +16,6 @@
 
 package com.exactpro.th2.lwdataprovider.workers
 
-import com.exactpro.th2.common.grpc.MessageBatch
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.grpc.RawMessageBatch
@@ -32,10 +31,10 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.thread
 
 @Deprecated("use 2nd version")
-class RabbitMqDecoderOld (private val queue: BlockingQueue<List<RequestedMessageDetails>>, private val configuration: Configuration,
+class RabbitMqDecoderOld (private val queue: BlockingQueue<List<RequestedMessageDetails<*>>>, private val configuration: Configuration,
                           private val messageRouterParsedBatch: MessageRouter<MessageGroupBatch>,
                           private val messageRouterRawBatch: MessageRouter<RawMessageBatch>,
-                          private val toWriteQueue: BlockingQueue<RequestedMessageDetails>
+                          private val toWriteQueue: BlockingQueue<RequestedMessageDetails<*>>
 ) {
     
     var running: AtomicBoolean = AtomicBoolean(false)
@@ -92,7 +91,7 @@ class RabbitMqDecoderOld (private val queue: BlockingQueue<List<RequestedMessage
         parsedMonitor?.unsubscribe();
     }
 
-    private fun prepareMessageBatch(messageBatch: List<RequestedMessageDetails>, batch: RawMessageBatch.Builder): Int {
+    private fun prepareMessageBatch(messageBatch: List<RequestedMessageDetails<*>>, batch: RawMessageBatch.Builder): Int {
         var batchSize = 0
         messageBatch.forEach {
             batch.addMessages(RawMessage.parseFrom(it.storedMessage.content))

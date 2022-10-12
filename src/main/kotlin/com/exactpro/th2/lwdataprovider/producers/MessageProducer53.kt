@@ -29,7 +29,7 @@ class MessageProducer53 {
 
     companion object {
 
-        fun createMessage(rawMessage: RequestedMessageDetails, formatter: CustomJsonFormatter): ProviderMessage53 {
+        fun createMessage(rawMessage: RequestedMessageDetails<*>, formatter: CustomJsonFormatter): ProviderMessage53 {
             val convertToOneMessage = rawMessage.parsedMessage?.let { convertToOneMessage(it) }
             val responseFormats = rawMessage.responseFormats
             return ProviderMessage53(
@@ -43,7 +43,7 @@ class MessageProducer53 {
             )
         }
 
-        public fun createOnlyRawMessage(rawMessage: RequestedMessageDetails): ProviderMessage53 {
+        public fun createOnlyRawMessage(rawMessage: RequestedMessageDetails<*>): ProviderMessage53 {
             return ProviderMessage53(
                 rawMessage.storedMessage,
                 "{}",

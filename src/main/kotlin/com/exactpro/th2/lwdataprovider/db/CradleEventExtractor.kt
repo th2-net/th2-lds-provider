@@ -35,16 +35,21 @@ import java.util.Collections
 import java.util.stream.Collectors
 
 
-class CradleEventExtractor (private val cradleManager: CradleManager) {
+class CradleEventExtractor (cradleManager: CradleManager) {
 
     private val storage = cradleManager.storage
 
     companion object {
         private val logger = KotlinLogging.logger { }
+
+        private fun size(wrapper: StoredTestEventWrapper): Long = when (wrapper.isBatch) {
+            true -> wrapper.asBatch().batchSize
+            false -> 1
+        }
     }
 
-    fun getEvents(filter: SseEventSearchRequest, requestContext: EventRequestContext) {
-        var dates = splitByDates(filter.startTimestamp, filter.endTimestamp)
+    fun getEvents(filter: SseEventSearchRequest, requestContext: EventRequestContext<*>) {
+        val dates = splitByDates(filter.startTimestamp, filter.endTimestamp)
         if (filter.resultCountLimit != null && filter.resultCountLimit > 0) {
             requestContext.eventsLimit = filter.resultCountLimit
         }
@@ -57,7 +62,7 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
         requestContext.finishStream()
     }
 
-    fun getSingleEvents(filter: GetEventRequest, requestContext: EventRequestContext) {
+    fun getSingleEvents(filter: GetEventRequest, requestContext: EventRequestContext<*>) {
         val batchId = filter.batchId
         val eventId = StoredTestEventId(filter.eventId)
         if (batchId != null) {
@@ -128,12 +133,13 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
         } while (true)
     }
 
-    private fun getEventByDates(dates: Collection<Pair<Instant, Instant>>, requestContext: EventRequestContext) {
+    private fun getEventByDates(dates: Collection<Pair<Instant, Instant>>, requestContext: EventRequestContext<*>) {
         for (splitByDate in dates) {
             val counter = LongCounter()
             val startTime = System.currentTimeMillis()
             logger.info { "Extracting events from ${splitByDate.first} to ${splitByDate.second} processed."}
             val testEvents = storage.getTestEvents(splitByDate.first, splitByDate.second)
+                .withMetric(requestContext.loadFromCradleCounter, ::size)
             processEvents(testEvents, requestContext, counter)
             logger.info { "Events for this period loaded. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms"}
             if (requestContext.isLimitReached()) {
@@ -147,12 +153,13 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
         }
     }
 
-    private fun getEventByIds(id: ProviderEventId, dates: Collection<Pair<Instant, Instant>>, requestContext: EventRequestContext) {
+    private fun getEventByIds(id: ProviderEventId, dates: Collection<Pair<Instant, Instant>>, requestContext: EventRequestContext<*>) {
         for (splitByDate in dates) {
             val counter = LongCounter()
             val startTime = System.currentTimeMillis()
             logger.info { "Extracting events from ${splitByDate.first} to ${splitByDate.second} with parent ${id.eventId} processed."}
             val testEvents = storage.getTestEvents(id.eventId, splitByDate.first, splitByDate.second)
+                .withMetric(requestContext.loadFromCradleCounter, ::size)
             processEvents(testEvents, requestContext, counter)
             logger.info { "Events for this period loaded. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms"}
             if (requestContext.isLimitReached()) {
@@ -165,7 +172,7 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
             }
         }
     }
-    
+
     private fun loadAttachedMessages(messageIds: Collection<StoredMessageId>?): Set<String> {
         return if (messageIds != null) {
             messageIds.stream().map { t -> t.toString() }.collect(Collectors.toSet())
@@ -176,7 +183,7 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
     
     private fun processEvents(
         testEvents: Iterable<StoredTestEventWrapper>,
-        requestContext: EventRequestContext, count: LongCounter
+        requestContext: EventRequestContext<*>, count: LongCounter
     ) {
         for (testEvent in testEvents) {
             if (testEvent.isSingle) {
@@ -208,7 +215,7 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
 }
 
 class LongCounter {
-    var value: Long = 0;
+    var value: Long = 0
     
     override fun toString(): String {
         return value.toString()

@@ -28,6 +28,8 @@ import com.exactpro.th2.lwdataprovider.MessageRequestContext
 import com.exactpro.th2.lwdataprovider.RabbitMqDecoder
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
+import com.exactpro.th2.lwdataprovider.entities.requests.MessageRequestKind
+import com.exactpro.th2.lwdataprovider.entities.requests.MessageRequestKind.*
 import com.exactpro.th2.lwdataprovider.grpc.toRawMessage
 import mu.KotlinLogging
 import java.time.Instant
@@ -53,23 +55,23 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
     fun getStreams(): Collection<String> = storage.streams
 
-    fun getMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext, responseFormats: List<String>) {
+    fun <T> getMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext<T>, responseFormats: List<String>) {
 
         var msgCount = 0
         val time = measureTimeMillis {
             logger.info { "Executing query $filter" }
-            val iterable = getMessagesFromCradle(filter, requestContext);
+            val iterable = getMessagesFromCradle(filter, requestContext)
             val sessionName = filter.streamName.value
 
             val builder = MessageGroupBatch.newBuilder()
             var msgBufferCount = 0
-            val messageBuffer = ArrayList<RequestedMessageDetails>()
+            val messageBuffer = ArrayList<RequestedMessageDetails<T>>()
 
             var lastMsg: StoredMessage? = null
             for (storedMessage in iterable) {
 
                 if (!requestContext.contextAlive) {
-                    return;
+                    return
                 }
 
                 lastMsg = storedMessage
@@ -139,10 +141,10 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         }
     }
 
-    private fun MessageRequestContext.createRequestAndAddToBatch(
+    private fun <T> MessageRequestContext<T>.createRequestAndAddToBatch(
         storedMessage: StoredMessage,
         builder: MessageGroupBatch.Builder
-    ): RequestedMessageDetails {
+    ): RequestedMessageDetails <T> {
         val id = storedMessage.id.toString()
         val decodingStep = startStep("decoding")
         val tmp = createMessageDetails(id, 0, storedMessage, emptyList()) { decodingStep.finish() }
@@ -154,9 +156,9 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         return tmp
     }
 
-    private fun MessageRequestContext.createRequestAndSend(
+    private fun <T> MessageRequestContext<T>.createRequestAndSend(
         storedMessage: StoredMessage,
-    ): RequestedMessageDetails {
+    ): RequestedMessageDetails <T> {
         val id = storedMessage.id.toString()
         return createMessageDetails(id, 0, storedMessage, emptyList()).apply {
             rawMessage = startStep("raw_message_parsing").use {
@@ -167,18 +169,18 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         }
     }
 
-    fun getRawMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext) {
+    fun <T> getRawMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext<T>) {
 
         var msgCount = 0
         val time = measureTimeMillis {
             logger.info { "Executing query $filter" }
-            val iterable = getMessagesFromCradle(filter, requestContext);
+            val iterable = getMessagesFromCradle(filter, requestContext)
 
             val time = System.currentTimeMillis()
             var lastMsg: StoredMessage? = null
             for (storedMessage in iterable) {
                 if (!requestContext.contextAlive) {
-                    return;
+                    return
                 }
                 lastMsg = storedMessage
                 val id = storedMessage.id.toString()
@@ -197,11 +199,13 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
     }
 
 
-    fun getMessage(msgId: StoredMessageId, onlyRaw: Boolean, requestContext: MessageRequestContext) {
+    fun <T> getMessage(msgId: StoredMessageId, onlyRaw: Boolean, requestContext: MessageRequestContext<T>) {
 
         val time = measureTimeMillis {
             logger.info { "Extracting message: $msgId" }
-            val message = storage.getMessage(msgId);
+            val message = storage.getMessage(msgId).also {
+                requestContext.loadFromCradleCounter.inc()
+            }
 
             if (message == null) {
                 requestContext.writeErrorMessage("Message with id $msgId not found")
@@ -237,15 +241,16 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
     }
 
-    fun getMessagesGroup(group: String, parameters: CradleGroupRequest, requestContext: MessageRequestContext) {
+    fun <T> getMessagesGroup(group: String, parameters: CradleGroupRequest, requestContext: MessageRequestContext<T>) {
         val (
             start: Instant,
             end: Instant,
             sort: Boolean,
-            rawOnly: Boolean
+            kind: MessageRequestKind
         ) = parameters
 
-        val messagesGroup: MutableIterable<StoredGroupMessageBatch> = cradleManager.storage.getGroupedMessageBatches(group, start, end)
+        val messagesGroup: Iterable<StoredGroupMessageBatch> = cradleManager.storage.getGroupedMessageBatches(group, start, end)
+            .withMetric(requestContext.loadFromCradleCounter, StoredGroupMessageBatch::getMessageCount)
         val iterator = messagesGroup.iterator()
         if (!iterator.hasNext()) {
             logger.info { "Empty response received from cradle" }
@@ -266,7 +271,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         var prev: StoredGroupMessageBatch? = null
         var currentBatch: StoredGroupMessageBatch = iterator.next()
         val batchBuilder = MessageGroupBatch.newBuilder()
-        val detailsBuffer = arrayListOf<RequestedMessageDetails>()
+        val detailsBuffer = arrayListOf<RequestedMessageDetails<T>>()
         val buffer: LinkedList<StoredMessage> = LinkedList()
         val remaining: LinkedList<StoredMessage> = LinkedList()
         while (iterator.hasNext()) {
@@ -284,7 +289,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                     buffer.addAll(prev.messages.preFilter())
                 }
                 requestContext.updateLastMessage(group, buffer.last)
-                tryDrain(group, buffer, detailsBuffer, batchBuilder, sort, requestContext, rawOnly)
+                tryDrain(group, buffer, detailsBuffer, batchBuilder, sort, requestContext, kind)
             } else {
                 generateSequence { if (!sort || remaining.peek()?.timestampLess(currentBatch) == true) remaining.poll() else null }.toCollection(buffer)
 
@@ -310,7 +315,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                     remaining.last
                 }
                 requestContext.updateLastMessage(group, lastMsg)
-                tryDrain(group, buffer, detailsBuffer, batchBuilder, sort, requestContext, rawOnly)
+                tryDrain(group, buffer, detailsBuffer, batchBuilder, sort, requestContext, kind)
             }
         }
         val remainingMessages = currentBatch.filterIfRequired()
@@ -319,7 +324,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
         if (prev == null) {
             // Only single batch was extracted
-            drain(group, remainingMessages, detailsBuffer, batchBuilder, requestContext, rawOnly)
+            drain(group, remainingMessages, detailsBuffer, batchBuilder, requestContext, kind)
         } else {
             drain(
                 group,
@@ -331,7 +336,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                         sortWith(STORED_MESSAGE_COMPARATOR)
                     }
                 },
-                detailsBuffer, batchBuilder, requestContext, rawOnly
+                detailsBuffer, batchBuilder, requestContext, kind
             )
         }
     }
@@ -343,30 +348,30 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             }
         } ?: this
 
-    private fun MessageRequestContext.updateLastMessage(
+    private fun <T> MessageRequestContext<T>.updateLastMessage(
         group: String,
         lastMsg: StoredMessage,
     ) {
         streamInfo.registerMessage(lastMsg.id, lastMsg.timestamp, group)
     }
 
-    private fun tryDrain(
+    private fun <T> tryDrain(
         group: String,
         buffer: LinkedList<StoredMessage>,
-        detailsBuffer: MutableList<RequestedMessageDetails>,
+        detailsBuffer: MutableList<RequestedMessageDetails<T>>,
         batchBuilder: MessageGroupBatch.Builder,
         sort: Boolean,
-        requestContext: MessageRequestContext,
-        rawOnly: Boolean,
+        requestContext: MessageRequestContext<T>,
+        kind: MessageRequestKind,
     ) {
-        if (buffer.size < batchSize && !rawOnly) {
+        if (buffer.size < batchSize && kind.sendToCodec) { // !rawOnly
             return
         }
         if (sort) {
             buffer.sortWith(STORED_MESSAGE_COMPARATOR)
         }
-        if (rawOnly) {
-            drain(group, buffer, detailsBuffer, batchBuilder, requestContext, true)
+        if (!kind.waitParsed) { //if (rawOnly) {
+            drain(group, buffer, detailsBuffer, batchBuilder, requestContext, kind)
             buffer.clear() // we must pull all messages from the buffer
             return
         }
@@ -375,36 +380,52 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             val sortedBatch = generateSequence(buffer::poll)
                 .take(batchSize)
                 .toCollection(drainBuffer)
-            drain(group, sortedBatch, detailsBuffer, batchBuilder, requestContext, false)
+            drain(group, sortedBatch, detailsBuffer, batchBuilder, requestContext, kind)
             drainBuffer.clear()
         }
     }
 
-    private fun drain(
+    private fun <T> drain(
         group: String,
         buffer: Collection<StoredMessage>,
-        detailsBuffer: MutableList<RequestedMessageDetails>,
+        detailsBuffer: MutableList<RequestedMessageDetails<T>>,
         batchBuilder: MessageGroupBatch.Builder,
-        requestContext: MessageRequestContext,
-        rawOnly: Boolean,
+        requestContext: MessageRequestContext<T>,
+        kind: MessageRequestKind,
     ) {
         for (message in buffer) {
-            if (rawOnly) {
-                requestContext.createRequestAndSend(message)
-                continue
-            }
-            detailsBuffer += requestContext.createRequestAndAddToBatch(message, batchBuilder)
-            if (detailsBuffer.size == batchSize) {
-                requestContext.sendBatch(group, batchBuilder, detailsBuffer)
+            when(kind) {
+                RAW_WITHOUT_SENDING_TO_CODEC -> {
+                    requestContext.createRequestAndSend(message)
+                }
+                RAW_WITH_SENDING_TO_CODEC -> {
+                    val id = message.id.toString()
+                    detailsBuffer += requestContext.createMessageDetails(id, 0, message, emptyList()).apply {
+                        rawMessage = message.toRawMessage().also {
+                            batchBuilder.addGroupsBuilder() += it
+                        }
+                        responseMessage()
+                        notifyMessage()
+                    }
+                    if (detailsBuffer.size == batchSize) {
+                        requestContext.sendBatch(group, batchBuilder, detailsBuffer)
+                    }
+                }
+                RAW_AND_PARSE -> {
+                    detailsBuffer += requestContext.createRequestAndAddToBatch(message, batchBuilder)
+                    if (detailsBuffer.size == batchSize) {
+                        requestContext.sendBatch(group, batchBuilder, detailsBuffer)
+                    }
+                }
             }
         }
-        if (rawOnly) {
+        if (!kind.sendToCodec) { //if (rawOnly) {
             return
         }
         requestContext.sendBatch(group, batchBuilder, detailsBuffer)
     }
 
-    private fun MessageRequestContext.sendBatch(alias: String, builder: MessageGroupBatch.Builder, detailsBuf: MutableList<RequestedMessageDetails>) {
+    private fun <T> MessageRequestContext<T>.sendBatch(alias: String, builder: MessageGroupBatch.Builder, detailsBuf: MutableList<RequestedMessageDetails<T>>) {
         if (detailsBuf.isEmpty()) {
             return
         }
@@ -422,7 +443,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         checkAndWaitForRequestLimit(messageCount)
     }
 
-    private fun MessageRequestContext.checkAndWaitForRequestLimit(msgBufferCount: Int) {
+    private fun <T> MessageRequestContext<T>.checkAndWaitForRequestLimit(msgBufferCount: Int) {
         if (maxMessagesPerRequest > 0 && maxMessagesPerRequest <= messagesInProcess.addAndGet(msgBufferCount)) {
             startStep("await_queue").use {
                 lock.withLock {
@@ -432,8 +453,11 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         }
     }
 
-    private fun getMessagesFromCradle(filter: StoredMessageFilter, requestContext: MessageRequestContext): Iterable<StoredMessage> =
-        requestContext.startStep("cradle").use { storage.getMessages(filter) }
+    private fun <T> getMessagesFromCradle(filter: StoredMessageFilter, requestContext: MessageRequestContext<T>): Iterable<StoredMessage> =
+        requestContext.startStep("cradle").use {
+            storage.getMessages(filter)
+                .withMetric(requestContext.loadFromCradleCounter)
+        }
 }
 
 private fun StoredGroupMessageBatch.toShortInfo(): String = "${sessionGroup}:${firstMessage.index}..${lastMessage.index} ($firstTimestamp..$lastTimestamp)"
@@ -442,6 +466,6 @@ data class CradleGroupRequest(
     val start: Instant,
     val end: Instant,
     val sort: Boolean,
-    val rawOnly: Boolean,
+    val kind: MessageRequestKind,
     val preFilter: ((StoredMessage) -> Boolean)? = null,
 )

@@ -39,6 +39,7 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile) {
 }
 
 repositories {
+    mavenLocal()
     mavenCentral()
     maven {
         name 'Sonatype_snapshots'
@@ -51,16 +52,20 @@ repositories {
 }
 
 dependencies {
-    api platform('com.exactpro.th2:bom:3.0.0')
+    api platform('com.exactpro.th2:bom:4.0.2')
 
     implementation 'org.slf4j:slf4j-api'
-    implementation 'org.slf4j:slf4j-log4j12'
 
     implementation "io.grpc:grpc-services:1.32.1"
 
-    implementation('com.exactpro.th2:common:3.38.0-TH2-3789-2508882525-SNAPSHOT') {
+    implementation('com.exactpro.th2:common:3.42.0-TH2-4188-100-msg-sec-throughput-in-end-to-end-test-3224604055-SNAPSHOT') {
         exclude group: 'com.exactpro.th2', module: 'cradle-core'
         exclude group: 'com.exactpro.th2', module: 'cradle-cassandra'
+    }
+    implementation ("com.exactpro.th2:grpc-service-generator") {
+        version {//FIXME: this structure will not be required after migration to release version
+            strictly '3.2.2-TH2-4262-reduce-load-on-a-separate-boxes-in-crawler-schema-3197511115-SNAPSHOT'
+        }
     }
 
     implementation 'org.eclipse.jetty:jetty-server:9.4.44.v20210927'
@@ -72,7 +77,8 @@ dependencies {
         because('cassandra driver requires lz4 impl in classpath for compression')
     }
 
-    implementation 'com.exactpro.th2:grpc-data-provider:1.1.0-raw-message-field-message-group-response-2917372559-SNAPSHOT'
+    implementation 'com.exactpro.th2:grpc-data-provider:1.1.0-TH2-4262-reduce-load-on-a-separate-boxes-in-crawler-schema-3218351603-SNAPSHOT'
+//    implementation 'com.exactpro.th2:grpc-data-provider:1.1.0' // load from maven local
 
     implementation 'io.github.microutils:kotlin-logging:2.1.14'
 
@@ -91,6 +97,7 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter:5.8.2'
     testImplementation 'org.mockito.kotlin:mockito-kotlin:3.2.0'
     testImplementation 'org.assertj:assertj-core:3.23.1'
+    testImplementation "io.grpc:grpc-netty"
 }
 
 test {

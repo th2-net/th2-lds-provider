@@ -16,11 +16,15 @@
 
 package com.exactpro.th2.lwdataprovider.grpc
 
+import com.exactpro.th2.lwdataprovider.GrpcEvent
 import com.exactpro.th2.lwdataprovider.GrpcResponseHandler
+import com.exactpro.th2.lwdataprovider.configuration.Mode.GRPC
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.exactpro.th2.lwdataprovider.http.EventRequestContext
+import com.exactpro.th2.lwdataprovider.metrics.SEND_EVENTS_COUNTER
 import com.exactpro.th2.lwdataprovider.producers.GrpcEventProducer
+import io.prometheus.client.Counter
 import java.util.concurrent.atomic.AtomicLong
 
 class GrpcEventRequestContext (
@@ -28,7 +32,10 @@ class GrpcEventRequestContext (
     requestParameters: Map<String, Any> = emptyMap(),
     counter: AtomicLong = AtomicLong(0L),
     scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
-) : EventRequestContext(channelMessages, requestParameters, counter, scannedObjectInfo) {
+) : EventRequestContext<GrpcEvent>(channelMessages, requestParameters, counter, scannedObjectInfo) {
+
+    override val sendResponseCounter: Counter.Child = SEND_EVENTS_COUNTER
+        .labels(requestId, GRPC.name)
 
     override fun processEvent(event: Event) {
         val strResp = GrpcEventProducer.createEvent(event)

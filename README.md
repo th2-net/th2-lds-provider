@@ -4,6 +4,36 @@
 This component serves as a data provider for [th2-data-services](https://github.com/th2-net/th2-data-services). It will connect to the cassandra database via [cradle api](https://github.com/th2-net/cradleapi) and expose the data stored in there as REST resources.
 This component is similar to [rpt-data-provider](https://github.com/th2-net/th2-rpt-data-provider) but the last one contains additional GUI-specific logic.
 
+# Metrics
+
+* th2_ldp_max_decode_message_buffer_size : Gauge - Max decode message buffer capacity. It is common buffer for all requests to decode messages
+* th2_ldp_decode_message_buffer_size : Gauge - Actual number of raw message in decode buffer.
+
+* th2_ldp_max_response_buffer_size : Gauge - Max message/event response buffer capacity.
+* th2_ldp_response_buffer_size(request_id) : Gauge - Actual number of message/event in response buffer.
+  * The request_id label is value from pool active requests.
+
+* th2_ldp_load_messages_from_cradle_total(request_id, cradle_search_message_method) : Counter - Number of messages loaded from cradle. 
+  * The request_id label is value from pool active requests.
+  * The cradle_search_message_method label has SINGLE_MESSAGE, MESSAGES, MESSAGES_FROM_GROUP values
+* th2_ldp_load_events_from_cradle_total(request_id) : Counter - Number of events loaded from cradle.
+  * The request_id label is value from pool active requests.
+
+* th2_ldp_send_messages_total(request_id, interface, cradle_search_message_method) : Counter - Send messages via gRPC/HTTP interface. 
+  * The request_id label is value from pool active requests.
+  * The interface label has HTTP, GRPC values.
+  * The cradle_search_message_method label has SINGLE_MESSAGE, MESSAGES, MESSAGES_FROM_GROUP values.
+* th2_ldp_send_events_total(request_id, interface) : Counter - Send events via gRPC/HTTP interface.
+  * The request_id label is value from pool active requests.
+  * The interface label has HTTP, GRPC values
+
+* th2_ldp_grpc_back_pressure_time_seconds(request_id, status) : Counter - Time is seconds which LwDP spent in both status of back pressure
+  * The request_id label is value from pool active requests.
+  * The status label has ON, OFF values.
+
+* th2_ldp_message_pipeline_hist_time(step) : Histogram - Time spent on each step for a message
+  * The step label has cradle, messages_group_loading, messages_loading, decoding, raw_message_parsing, await_queue values
+
 # API
 
 ### REST
@@ -67,6 +97,8 @@ spec:
 #   batchSize: 100 # batch size from codecs
 #   codecUsePinAttributes: true # send raw message to specified codec (true) or send to all codecs (false) 
 #   responseFormats: string list # resolve data for selected formats only. (allowed values: BASE_64, PARSED)
+#   grpcBackPressure: false # enable gRPC backpressure (true) or (false) for disable
+#   responseBatchSize: 1000 # number of messages packed to the search message group response 
     
 
   pins: # pins are used to communicate with codec components to parse message data

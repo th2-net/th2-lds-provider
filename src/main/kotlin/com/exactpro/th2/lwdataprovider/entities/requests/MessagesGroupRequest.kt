@@ -16,7 +16,11 @@
 
 package com.exactpro.th2.lwdataprovider.entities.requests
 
+import com.exactpro.th2.dataprovider.grpc.CradleMessageGroupsRequest
 import com.exactpro.th2.dataprovider.grpc.MessageGroupsSearchRequest
+import com.exactpro.th2.lwdataprovider.entities.requests.MessageRequestKind.RAW_AND_PARSE
+import com.exactpro.th2.lwdataprovider.entities.requests.MessageRequestKind.RAW_WITHOUT_SENDING_TO_CODEC
+import com.exactpro.th2.lwdataprovider.entities.requests.MessageRequestKind.RAW_WITH_SENDING_TO_CODEC
 import com.exactpro.th2.lwdataprovider.grpc.toInstant
 import java.time.Instant
 
@@ -25,7 +29,7 @@ data class MessagesGroupRequest(
     val startTimestamp: Instant,
     val endTimestamp: Instant,
     val sort: Boolean,
-    val rawOnly: Boolean,
+    val kind: MessageRequestKind,
     val keepOpen: Boolean,
 ) {
     init {
@@ -46,7 +50,7 @@ data class MessagesGroupRequest(
                 extractInstant(map, START_TIMESTAMP_PARAM),
                 extractInstant(map, END_TIMESTAMP_PARAM),
                 map.booleanOrDefault(SORT_PARAMETER, false),
-                map.booleanOrDefault(RAW_ONLY_PARAMETER, false),
+                map.booleanOrDefault(RAW_ONLY_PARAMETER, false).rawOnlyToRequestKind(),
                 map.booleanOrDefault(KEEP_OPEN_PARAMETER, false),
             )
 
@@ -59,8 +63,21 @@ data class MessagesGroupRequest(
                 if (request.hasStartTimestamp()) request.startTimestamp.toInstant() else error("missing start timestamp"),
                 if (request.hasEndTimestamp()) request.endTimestamp.toInstant() else error("missing end timestamp"),
                 if (request.hasSort()) request.sort.value else false,
-                request.rawOnly,
+                request.rawOnly.rawOnlyToRequestKind(),
                 request.keepOpen,
+            )
+
+        @JvmStatic
+        fun fromGrpcRequest(request: CradleMessageGroupsRequest): MessagesGroupRequest =
+            MessagesGroupRequest(
+                request.messageGroupList.mapTo(HashSet(request.messageGroupCount)) {
+                    it.name.apply { check(isNotEmpty()) { "group name cannot be empty" } }
+                },
+                if (request.hasStartTimestamp()) request.startTimestamp.toInstant() else error("missing start timestamp"),
+                if (request.hasEndTimestamp()) request.endTimestamp.toInstant() else error("missing end timestamp"),
+                if (request.hasSort()) request.sort.value else false,
+                RAW_WITH_SENDING_TO_CODEC,
+                keepOpen = false,
             )
 
         private fun Map<String, List<String>>.booleanOrDefault(name: String, default: Boolean): Boolean {
@@ -73,5 +90,7 @@ data class MessagesGroupRequest(
             (map[paramName] ?: error("No $paramName param was set"))
                 .singleOrNull()?.run { Instant.ofEpochMilli(toLong()) }
                 ?: error("Unexpected count of $paramName param")
+
+        private fun Boolean.rawOnlyToRequestKind() = if (this) RAW_WITHOUT_SENDING_TO_CODEC else RAW_AND_PARSE
     }
 }

@@ -18,9 +18,6 @@ package com.exactpro.th2.lwdataprovider
 
 import io.prometheus.client.Gauge
 import io.prometheus.client.Histogram
-import mu.KotlinLogging
-
-private val logger = KotlinLogging.logger { }
 
 data class Metrics(
     private val histogramTime: Histogram,

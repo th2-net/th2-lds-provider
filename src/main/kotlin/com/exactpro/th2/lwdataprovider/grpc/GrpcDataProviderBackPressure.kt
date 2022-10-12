@@ -17,69 +17,68 @@
 package com.exactpro.th2.lwdataprovider.grpc
 
 import com.exactpro.th2.lwdataprovider.GrpcEvent
-import com.exactpro.th2.lwdataprovider.GrpcResponseHandler
 import com.exactpro.th2.lwdataprovider.RequestContext
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import io.grpc.stub.ServerCallStreamObserver
-import io.grpc.stub.StreamObserver
 import mu.KotlinLogging
 
-class GrpcDataProviderBackPressure(configuration: Configuration, searchMessagesHandler: SearchMessagesHandler,
+class GrpcDataProviderBackPressure(
+    configuration: Configuration,
+    searchMessagesHandler: SearchMessagesHandler,
     searchEventsHandler: SearchEventsHandler
-) :
-    GrpcDataProviderImpl(configuration, searchMessagesHandler, searchEventsHandler) {
+) : GrpcDataProviderImpl(configuration, searchMessagesHandler, searchEventsHandler) {
 
     companion object {
         private val logger = KotlinLogging.logger { }
     }
 
     override fun <T> processResponse(
-        responseObserver: StreamObserver<T>,
-        grpcResponseHandler: GrpcResponseHandler,
-        context: RequestContext,
+        responseObserver: ServerCallStreamObserver<T>,
+        context: RequestContext<GrpcEvent>,
         onFinished: () -> Unit,
-        converter: (GrpcEvent) -> T?
+        accumulator: Accumulator<T>,
     ) {
-        val servCallObs = responseObserver as ServerCallStreamObserver<T>
-        servCallObs.setOnReadyHandler {
+        val grpcResponseHandler = context.channelMessages
+        responseObserver.setOnReadyHandler {
             if (grpcResponseHandler.streamClosed)
-                return@setOnReadyHandler;
-            val buffer = grpcResponseHandler.buffer
+                return@setOnReadyHandler
             var inProcess = true
-            while (servCallObs.isReady && inProcess) {
-                val event = buffer.take()
+            while (responseObserver.isReady && inProcess) {
+                context.backPressureMetric.off()
+                val event = grpcResponseHandler.take()
                 if (event.close) {
-                    servCallObs.onCompleted()
+                    accumulator.get()?.let { responseObserver.onNext(it) }
+                    responseObserver.onCompleted()
                     inProcess = false
-                    grpcResponseHandler.streamClosed = true
+                    grpcResponseHandler.closeStream()
                     onFinished()
                     onCloseContext(context)
                     logger.info { "Executing finished successfully" }
                 } else if (event.error != null) {
-                    servCallObs.onError(event.error)
+                    responseObserver.onError(event.error)
                     inProcess = false
-                    grpcResponseHandler.streamClosed = true
+                    grpcResponseHandler.closeStream()
                     onFinished()
                     onCloseContext(context)
                     logger.warn(event.error) { "Executing finished with error" }
                 } else {
-                    converter.invoke(event)?.let {  servCallObs.onNext(it) }
+                    accumulator.accumulateAndGet(event)?.let {  responseObserver.onNext(it) }
                     context.onMessageSent()
                 }
             }
-            if (!servCallObs.isReady) {
-                logger.trace { "Suspending processing because the opposite side is not ready to receive more messages. In queue: ${buffer.size}" }
+            if (inProcess) {
+                context.backPressureMetric.on()
+                logger.trace { "Suspending processing because the opposite side is not ready to receive more messages. In queue: ${grpcResponseHandler.size}" }
             }
         }
 
-        servCallObs.setOnCancelHandler {
+        responseObserver.setOnCancelHandler {
             logger.warn{ "Execution cancelled" }
-            grpcResponseHandler.streamClosed = true
+            grpcResponseHandler.closeStream()
             onCloseContext(context)
-            val buffer = grpcResponseHandler.buffer
-            while (buffer.poll() != null);
+            grpcResponseHandler.clear()
             onFinished()
         }
 

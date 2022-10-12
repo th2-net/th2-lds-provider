@@ -16,9 +16,9 @@
 
 package com.exactpro.th2.lwdataprovider.workers
 
+import com.exactpro.th2.lwdataprovider.metrics.DECODE_BUFFER_SIZE_GAUGE
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import mu.KotlinLogging
-import java.util.ArrayList
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -29,33 +29,29 @@ class DecodeQueueBuffer(private val maxDecodeQueueSize: Int = -1) {
         private val logger = KotlinLogging.logger { }
     }
 
-    private val decodeQueue = ConcurrentHashMap<String, MutableList<RequestedMessageDetails>>()
+    private val decodeQueue = ConcurrentHashMap<String, MutableList<RequestedMessageDetails<*>>>()
     private val lock = ReentrantLock()
     
     private val fullDecodeQueryLock = ReentrantLock()
     private val fullDecodeQueryCond = fullDecodeQueryLock.newCondition()
     private var locked: Boolean = false
     
-    fun add (details: RequestedMessageDetails): Boolean {
+    fun add(details: RequestedMessageDetails<*>): Boolean {
         decodeQueue.computeIfAbsent(details.id) { ArrayList(1) }.add(details)
         return true
     }
 
-    fun removeById (id: String): List<RequestedMessageDetails>? {
+    fun removeById (id: String): List<RequestedMessageDetails<*>>? {
         lock.withLock { return decodeQueue.remove(id) }
     }
     
-    fun entrySet(): MutableSet<MutableMap.MutableEntry<String, MutableList<RequestedMessageDetails>>> {
+    fun entrySet(): MutableSet<MutableMap.MutableEntry<String, MutableList<RequestedMessageDetails<*>>>> {
         return decodeQueue.entries
-    }
-    
-    fun getSize(): Int {
-        return decodeQueue.size
     }
     
     @Suppress("ConvertTwoComparisonsToRangeCheck")
     fun checkAndWait() {
-        val buf = decodeQueue.size
+        val buf = getSize()
         if (maxDecodeQueueSize > 0 && buf > maxDecodeQueueSize) {
             logger.debug { "Messages in queue is more than buffer size buf and thread will be locked" }
             fullDecodeQueryLock.withLock {
@@ -66,7 +62,7 @@ class DecodeQueueBuffer(private val maxDecodeQueueSize: Int = -1) {
     }
 
     fun checkAndUnlock() {
-        if (locked && maxDecodeQueueSize > 0 && decodeQueue.size < maxDecodeQueueSize) {
+        if (locked && maxDecodeQueueSize > 0 && getSize() < maxDecodeQueueSize) {
             fullDecodeQueryLock.withLock {
                 fullDecodeQueryCond.signalAll()
                 locked = false
@@ -74,6 +70,12 @@ class DecodeQueueBuffer(private val maxDecodeQueueSize: Int = -1) {
             logger.debug { "Awaiting buffer space is unlocked" }
         }
     }
-    
+
+    private fun getSize(): Int {
+        return decodeQueue.size.also {
+            DECODE_BUFFER_SIZE_GAUGE.set(it.toDouble())
+        }
+    }
+
     
 }

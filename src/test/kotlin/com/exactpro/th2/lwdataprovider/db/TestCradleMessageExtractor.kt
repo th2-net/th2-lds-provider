@@ -31,6 +31,7 @@ import com.exactpro.th2.common.message.sequence
 import com.exactpro.th2.common.message.sessionAlias
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.lwdataprovider.MessageRequestContext
+import com.exactpro.th2.lwdataprovider.ProviderStreamInfo
 import com.exactpro.th2.lwdataprovider.RabbitMqDecoder
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.ResponseHandler
@@ -52,6 +53,8 @@ import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.clearInvocations
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
+import org.mockito.kotlin.spy
 import org.mockito.kotlin.timeout
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
@@ -161,22 +164,21 @@ internal class TestCradleMessageExtractor {
             endTimestamp.plusNanos(1),
             endTimestamp.plus(5, ChronoUnit.MINUTES),
         )
-        val group = "test"
         val firstRequestMessagesCount = firstBatches.sumOf { it.messageCount }
         val secondRequestMessagesCount = lastBatches.sumOf { it.messageCount }
         val messagesCount = firstRequestMessagesCount + secondRequestMessagesCount
 
-        whenever(storage.getGroupedMessageBatches(eq(group), eq(startTimestamp), eq(endTimestamp)))
+        whenever(storage.getGroupedMessageBatches(eq(GROUP_NAME), eq(startTimestamp), eq(endTimestamp)))
             .thenReturn(firstBatches)
-        whenever(storage.getGroupedMessageBatches(eq(group), eq(firstBatches.maxOf { it.lastTimestamp }), eq(endTimestamp)))
+        whenever(storage.getGroupedMessageBatches(eq(GROUP_NAME), eq(firstBatches.maxOf { it.lastTimestamp }), eq(endTimestamp)))
             .thenReturn(lastBatches)
-        whenever(storage.getLastMessageBatchForGroup(eq(group))).thenReturn(firstBatches.last(), outsideBatches.last())
+        whenever(storage.getLastMessageBatchForGroup(eq(GROUP_NAME))).thenReturn(firstBatches.last(), outsideBatches.last())
 
         val channelMessages = mock<ResponseHandler> {}
         val context: MessageRequestContext = MockRequestContext(channelMessages)
         val handler = SearchMessagesHandler(extractor, Executors.newSingleThreadExecutor())
         val request = MessagesGroupRequest(
-            groups = setOf("test"),
+            groups = setOf(GROUP_NAME),
             startTimestamp,
             endTimestamp,
             sort = true,
@@ -230,18 +232,50 @@ internal class TestCradleMessageExtractor {
         checkMessagesReturnsInOrder(messagesPerBatch, batchesCount, increase, messagesCount, overlap = messagesPerBatch)
     }
 
+    @Test
+    fun `test readonly false`() {
+        val channelMessages = mock<ResponseHandler> {}
+        val context: MessageRequestContext = spy(MockRequestContext(channelMessages))
+        val increase = 1L
+        val batchesCount = 5
+        val messagesPerBatch = 5L
+
+        configureStorage(messagesPerBatch, batchesCount, 0, increase)
+        extractor.getMessagesGroup(GROUP_NAME, CradleGroupRequest(startTimestamp, endTimestamp, sort = false, rawOnly = false), context)
+
+
+        val routerCaptor = argumentCaptor<MessageGroupBatch>()
+        verify(messageRouter, times(ceil(batchesCount.toDouble() / messagesPerBatch).toInt())).send(routerCaptor.capture(), any())
+
+        val contextCaptor = argumentCaptor<RequestedMessageDetails>()
+        verify(context, times((batchesCount * messagesPerBatch).toInt())).registerMessage(contextCaptor.capture())
+        verify(context, times((batchesCount * messagesPerBatch).toInt())).createMessageDetails(any(), any(), any(), any(), any())
+    }
+
+    @Test
+    fun `test readonly true`() {
+        val channelMessages = mock<ResponseHandler> {}
+        val context: MessageRequestContext = spy(MockRequestContext(channelMessages))
+        val increase = 1L
+        val batchesCount = 5
+        val messagesPerBatch = 5L
+
+        configureStorage(messagesPerBatch, batchesCount, 0, increase)
+        extractor.getMessagesGroup(GROUP_NAME, CradleGroupRequest(startTimestamp, endTimestamp, sort = false, rawOnly = true), context)
+
+
+        verify(messageRouter, never()).send(any(), any())
+
+        verify(context.streamInfo, times(batchesCount)).registerMessage(any(), any(), eq(GROUP_NAME))
+        verify(context, times((batchesCount * messagesPerBatch).toInt())).createMessageDetails(any(), any(), any(), any(), any())
+    }
+
     private fun checkMessagesReturnsInOrder(messagesPerBatch: Long, batchesCount: Int, increase: Long, messagesCount: Long, overlap: Long) {
-        val batchesList: List<StoredGroupMessageBatch> = createBatches(
-            messagesPerBatch = messagesPerBatch,
-            batchesCount = batchesCount,
-            overlapCount = overlap,
-            increase = increase
-        )
-        whenever(storage.getGroupedMessageBatches(eq("test"), eq(startTimestamp), eq(endTimestamp))).thenReturn(batchesList)
+        configureStorage(messagesPerBatch, batchesCount, overlap, increase)
 
         val channelMessages = mock<ResponseHandler> {}
         val context: MessageRequestContext = MockRequestContext(channelMessages)
-        extractor.getMessagesGroup("test", CradleGroupRequest(startTimestamp, endTimestamp, sort = true, rawOnly = false), requestContext = context)
+        extractor.getMessagesGroup(GROUP_NAME, CradleGroupRequest(startTimestamp, endTimestamp, sort = true, rawOnly = false), requestContext = context)
 
         val captor = argumentCaptor<MessageGroupBatch>()
         verify(messageRouter, times(ceil(messagesCount.toDouble() / batchSize).toInt())).send(captor.capture(), any())
@@ -250,6 +284,23 @@ internal class TestCradleMessageExtractor {
             "Unexpected messages count: $messages"
         }
         validateOrder(messages, messagesCount.toInt())
+    }
+
+    private fun configureStorage(
+        messagesPerBatch: Long,
+        batchesCount: Int,
+        overlap: Long,
+        increase: Long
+    ) {
+        val batchesList: List<StoredGroupMessageBatch> = createBatches(
+            messagesPerBatch = messagesPerBatch,
+            batchesCount = batchesCount,
+            overlapCount = overlap,
+            increase = increase
+        )
+        whenever(storage.getGroupedMessageBatches(eq(GROUP_NAME), eq(startTimestamp), eq(endTimestamp))).thenReturn(
+            batchesList
+        )
     }
 
     private fun validateOrder(messages: List<RawMessage>, expectedUniqueMessages: Int) {
@@ -269,7 +320,12 @@ internal class TestCradleMessageExtractor {
         }
     }
 
-    private class MockRequestContext(channelMessages: ResponseHandler) : MessageRequestContext(channelMessages) {
+    private class MockRequestContext(
+        channelMessages: ResponseHandler
+    ) : MessageRequestContext(
+        channelMessages,
+        streamInfo = spy(ProviderStreamInfo())
+    ) {
         override fun createMessageDetails(
             id: String,
             time: Long,
@@ -314,5 +370,6 @@ internal class TestCradleMessageExtractor {
 
     companion object {
         private val LOGGER = KotlinLogging.logger { }
+        private const val GROUP_NAME = "test"
     }
 }

@@ -15,9 +15,16 @@
  */
 package com.exactpro.th2.lwdataprovider.db
 
+import com.exactpro.th2.lwdataprovider.RequestContext
+import io.prometheus.client.Collector
 import io.prometheus.client.Counter
 
 fun <T> Iterable<T>.withMetric(counter: Counter.Child, size: (T) -> Number = { 1 }): Iterable<T> = MetricIterable(counter, size, this)
+
+fun RequestContext<*>.incCradleBatchProcessTime(startNanos: Long) {
+    cradleBatchProcessTimeCounter
+        .inc((System.nanoTime() - startNanos) / Collector.NANOSECONDS_PER_SECOND)
+}
 
 private class MetricIterable<T>(
     private val counter: Counter.Child,

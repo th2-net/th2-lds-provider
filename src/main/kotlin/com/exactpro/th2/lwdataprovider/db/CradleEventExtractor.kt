@@ -31,7 +31,7 @@ import java.time.Instant
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.temporal.ChronoUnit
-import java.util.Collections
+import java.util.*
 import java.util.stream.Collectors
 
 
@@ -186,29 +186,34 @@ class CradleEventExtractor (cradleManager: CradleManager) {
         requestContext: EventRequestContext<*>, count: LongCounter
     ) {
         for (testEvent in testEvents) {
-            if (testEvent.isSingle) {
-                val singleEv = testEvent.asSingle()
-                val event = EventProducer.fromSingleEvent(singleEv)
-                event.body = String(singleEv.content)
-                event.attachedMessageIds = loadAttachedMessages(singleEv.messageIds)
-                count.value++
-                requestContext.processEvent(event.convertToEvent())
-                requestContext.addProcessedEvents(1)
-            } else if (testEvent.isBatch) {
-                val batch = testEvent.asBatch()
-                val eventsList = batch.testEvents
-                for (batchEvent in eventsList) {
-                    val batchEventBody = EventProducer.fromBatchEvent(batchEvent, batch)
-                    batchEventBody.body = String(batchEvent.content)
-                    batchEventBody.attachedMessageIds = loadAttachedMessages(batchEvent.messageIds)
-
-                    requestContext.processEvent(batchEventBody.convertToEvent())
+            val startNanos: Long = System.nanoTime()
+            try {
+                if (testEvent.isSingle) {
+                    val singleEv = testEvent.asSingle()
+                    val event = EventProducer.fromSingleEvent(singleEv)
+                    event.body = String(singleEv.content)
+                    event.attachedMessageIds = loadAttachedMessages(singleEv.messageIds)
                     count.value++
+                    requestContext.processEvent(event.convertToEvent())
+                    requestContext.addProcessedEvents(1)
+                } else if (testEvent.isBatch) {
+                    val batch = testEvent.asBatch()
+                    val eventsList = batch.testEvents
+                    for (batchEvent in eventsList) {
+                        val batchEventBody = EventProducer.fromBatchEvent(batchEvent, batch)
+                        batchEventBody.body = String(batchEvent.content)
+                        batchEventBody.attachedMessageIds = loadAttachedMessages(batchEvent.messageIds)
+
+                        requestContext.processEvent(batchEventBody.convertToEvent())
+                        count.value++
+                    }
+                    requestContext.addProcessedEvents(eventsList.size)
                 }
-                requestContext.addProcessedEvents(eventsList.size)
-            }
-            if (requestContext.isLimitReached() || !requestContext.contextAlive) {
-                return
+                if (requestContext.isLimitReached() || !requestContext.contextAlive) {
+                    return
+                }
+            } finally {
+                requestContext.incCradleBatchProcessTime(startNanos)
             }
         }
     }

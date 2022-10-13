@@ -29,11 +29,13 @@ import com.exactpro.th2.lwdataprovider.RabbitMqDecoder
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.entities.requests.MessageRequestKind
-import com.exactpro.th2.lwdataprovider.entities.requests.MessageRequestKind.*
+import com.exactpro.th2.lwdataprovider.entities.requests.MessageRequestKind.RAW_AND_PARSE
+import com.exactpro.th2.lwdataprovider.entities.requests.MessageRequestKind.RAW_WITHOUT_SENDING_TO_CODEC
+import com.exactpro.th2.lwdataprovider.entities.requests.MessageRequestKind.RAW_WITH_SENDING_TO_CODEC
 import com.exactpro.th2.lwdataprovider.grpc.toRawMessage
 import mu.KotlinLogging
 import java.time.Instant
-import java.util.LinkedList
+import java.util.*
 import kotlin.concurrent.withLock
 import kotlin.system.measureTimeMillis
 
@@ -275,47 +277,52 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         val buffer: LinkedList<StoredMessage> = LinkedList()
         val remaining: LinkedList<StoredMessage> = LinkedList()
         while (iterator.hasNext()) {
-            prev = currentBatch
-            currentBatch = iterator.next()
-            check(prev.firstTimestamp <= currentBatch.firstTimestamp) {
-                "Unordered batches received: ${prev.toShortInfo()} and ${currentBatch.toShortInfo()}"
-            }
-            val needFiltration = prev.isNeedFiltration()
-
-            if (prev.lastTimestamp < currentBatch.firstTimestamp) {
-                if (needFiltration) {
-                    prev.messages.filterTo(buffer, StoredMessage::inRange and parameters.preFilter)
-                } else {
-                    buffer.addAll(prev.messages.preFilter())
+            val startNanos: Long = System.nanoTime()
+            try {
+                prev = currentBatch
+                currentBatch = iterator.next()
+                check(prev.firstTimestamp <= currentBatch.firstTimestamp) {
+                    "Unordered batches received: ${prev.toShortInfo()} and ${currentBatch.toShortInfo()}"
                 }
-                requestContext.updateLastMessage(group, buffer.last)
-                tryDrain(group, buffer, detailsBuffer, batchBuilder, sort, requestContext, kind)
-            } else {
-                generateSequence { if (!sort || remaining.peek()?.timestampLess(currentBatch) == true) remaining.poll() else null }.toCollection(buffer)
+                val needFiltration = prev.isNeedFiltration()
 
-                val messageCount = prev.messageCount
-                val prevRemaining = remaining.size
-                prev.messages.forEachIndexed { index, msg ->
-                    if ((needFiltration && !msg.inRange()) || parameters.preFilter?.invoke(msg) == false) {
-                        return@forEachIndexed
-                    }
-                    if (!sort || msg.timestampLess(currentBatch)) {
-                        buffer += msg
+                if (prev.lastTimestamp < currentBatch.firstTimestamp) {
+                    if (needFiltration) {
+                        prev.messages.filterTo(buffer, StoredMessage::inRange and parameters.preFilter)
                     } else {
-                        check(remaining.size < groupBufferSize) {
-                            "the group buffer size cannot hold all messages: current size $groupBufferSize but needs ${messageCount - index} more"
-                        }
-                        remaining += msg
+                        buffer.addAll(prev.messages.preFilter())
                     }
-                }
-
-                val lastMsg = if (prevRemaining == remaining.size) {
-                    buffer.last
+                    requestContext.updateLastMessage(group, buffer.last)
+                    tryDrain(group, buffer, detailsBuffer, batchBuilder, sort, requestContext, kind)
                 } else {
-                    remaining.last
+                    generateSequence { if (!sort || remaining.peek()?.timestampLess(currentBatch) == true) remaining.poll() else null }.toCollection(buffer)
+
+                    val messageCount = prev.messageCount
+                    val prevRemaining = remaining.size
+                    prev.messages.forEachIndexed { index, msg ->
+                        if ((needFiltration && !msg.inRange()) || parameters.preFilter?.invoke(msg) == false) {
+                            return@forEachIndexed
+                        }
+                        if (!sort || msg.timestampLess(currentBatch)) {
+                            buffer += msg
+                        } else {
+                            check(remaining.size < groupBufferSize) {
+                                "the group buffer size cannot hold all messages: current size $groupBufferSize but needs ${messageCount - index} more"
+                            }
+                            remaining += msg
+                        }
+                    }
+
+                    val lastMsg = if (prevRemaining == remaining.size) {
+                        buffer.last
+                    } else {
+                        remaining.last
+                    }
+                    requestContext.updateLastMessage(group, lastMsg)
+                    tryDrain(group, buffer, detailsBuffer, batchBuilder, sort, requestContext, kind)
                 }
-                requestContext.updateLastMessage(group, lastMsg)
-                tryDrain(group, buffer, detailsBuffer, batchBuilder, sort, requestContext, kind)
+            } finally {
+                requestContext.incCradleBatchProcessTime(startNanos)
             }
         }
         val remainingMessages = currentBatch.filterIfRequired()

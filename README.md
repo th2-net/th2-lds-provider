@@ -13,6 +13,8 @@ This component is similar to [rpt-data-provider](https://github.com/th2-net/th2-
 * th2_ldp_response_buffer_size(request_id) : Gauge - Actual number of message/event in response buffer.
   * The request_id label is value from pool active requests.
 
+* th2_ldp_cradle_batch_process_time_seconds(request_id) : Counter - Time is seconds which LwDP process cradle batch
+  * The request_id label is value from pool active requests.
 * th2_ldp_load_messages_from_cradle_total(request_id, cradle_search_message_method) : Counter - Number of messages loaded from cradle. 
   * The request_id label is value from pool active requests.
   * The cradle_search_message_method label has SINGLE_MESSAGE, MESSAGES, MESSAGES_FROM_GROUP values

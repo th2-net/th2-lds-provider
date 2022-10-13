@@ -22,6 +22,7 @@ import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.exactpro.th2.lwdataprovider.metrics.BackPressureMetric
 import com.exactpro.th2.lwdataprovider.metrics.CradleSearchMessageMethod
+import com.exactpro.th2.lwdataprovider.metrics.CRADLE_BATCH_PROCESS_TIME_COUNTER
 import com.exactpro.th2.lwdataprovider.metrics.LOAD_MESSAGES_FROM_CRADLE_COUNTER
 import com.exactpro.th2.lwdataprovider.metrics.RequestIdPool
 import io.prometheus.client.Counter
@@ -47,6 +48,7 @@ abstract class RequestContext<T>(
     val backPressureMetric = BackPressureMetric(requestId)
     abstract val sendResponseCounter: Counter.Child
     abstract val loadFromCradleCounter: Counter.Child
+    val cradleBatchProcessTimeCounter: Counter.Child = CRADLE_BATCH_PROCESS_TIME_COUNTER.labels(requestId)
 
     @Volatile
     var contextAlive: Boolean = true

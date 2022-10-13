@@ -254,12 +254,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         val messagesGroup: Iterable<StoredGroupMessageBatch> = cradleManager.storage.getGroupedMessageBatches(group, start, end)
             .withMetric(requestContext.loadFromCradleCounter, StoredGroupMessageBatch::getMessageCount)
             .withMetric(requestContext.cradleBatchCounter)
-            .withMetric(requestContext.cradleDataSizeCounter) {
-                it.messages.asSequence()
-                    .map(StoredMessage::getContent)
-                    .map(ByteArray::size)
-                    .sum()
-            }
+            .withMetric(requestContext.cradleDataSizeCounter, StoredGroupMessageBatch::getBatchSize)
         val iterator = messagesGroup.iterator()
         if (!iterator.hasNext()) {
             logger.info { "Empty response received from cradle" }

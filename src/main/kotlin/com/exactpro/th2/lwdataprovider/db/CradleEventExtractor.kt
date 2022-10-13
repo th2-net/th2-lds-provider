@@ -19,6 +19,7 @@ package com.exactpro.th2.lwdataprovider.db
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.cassandra.CassandraCradleStorage
 import com.exactpro.cradle.messages.StoredMessageId
+import com.exactpro.cradle.testevents.BatchedStoredTestEvent
 import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.cradle.testevents.StoredTestEventWrapper
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
@@ -42,9 +43,17 @@ class CradleEventExtractor (cradleManager: CradleManager) {
     companion object {
         private val logger = KotlinLogging.logger { }
 
-        private fun size(wrapper: StoredTestEventWrapper): Long = when (wrapper.isBatch) {
-            true -> wrapper.asBatch().batchSize
+        private fun size(wrapper: StoredTestEventWrapper): Int = when (wrapper.isBatch) {
+            true -> wrapper.asBatch().testEvents.size
             false -> 1
+        }
+
+        private fun sizeInBytes(wrapper: StoredTestEventWrapper): Int = when (wrapper.isBatch) {
+            true -> wrapper.asBatch().testEvents.asSequence()
+                .map(BatchedStoredTestEvent::getContent)
+                .map(ByteArray::size)
+                .sum()
+            false -> wrapper.asSingle().content.size
         }
     }
 
@@ -140,6 +149,8 @@ class CradleEventExtractor (cradleManager: CradleManager) {
             logger.info { "Extracting events from ${splitByDate.first} to ${splitByDate.second} processed."}
             val testEvents = storage.getTestEvents(splitByDate.first, splitByDate.second)
                 .withMetric(requestContext.loadFromCradleCounter, ::size)
+                .withMetric(requestContext.cradleBatchCounter)
+                .withMetric(requestContext.cradleDataSizeCounter, ::sizeInBytes)
             processEvents(testEvents, requestContext, counter)
             logger.info { "Events for this period loaded. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms"}
             if (requestContext.isLimitReached()) {
@@ -160,6 +171,8 @@ class CradleEventExtractor (cradleManager: CradleManager) {
             logger.info { "Extracting events from ${splitByDate.first} to ${splitByDate.second} with parent ${id.eventId} processed."}
             val testEvents = storage.getTestEvents(id.eventId, splitByDate.first, splitByDate.second)
                 .withMetric(requestContext.loadFromCradleCounter, ::size)
+                .withMetric(requestContext.cradleBatchCounter)
+                .withMetric(requestContext.cradleDataSizeCounter, ::sizeInBytes)
             processEvents(testEvents, requestContext, counter)
             logger.info { "Events for this period loaded. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms"}
             if (requestContext.isLimitReached()) {

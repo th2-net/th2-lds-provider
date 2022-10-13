@@ -54,6 +54,18 @@ val RESPONSE_BUFFER_SIZE_GAUGE: Gauge = Gauge.build()
     .labelNames(REQUEST_ID_LABEL)
     .register()
 
+val CRADLE_BATCHES_COUNTER: Counter = Counter.build()
+    .name("th2_ldp_load_batches_from_cradle_total")
+    .help("Number of batches loaded from cradle")
+    .labelNames(REQUEST_ID_LABEL)
+    .register()
+
+val CRADLE_DATA_SIZE_BYTE_COUNTER: Counter = Counter.build()
+    .name("th2_ldp_load_bytes_from_cradle_total")
+    .help("Number of bytes loaded from cradle")
+    .labelNames(REQUEST_ID_LABEL)
+    .register()
+
 val CRADLE_BATCH_PROCESS_TIME_COUNTER: Counter = Counter.build()
     .name("th2_ldp_cradle_batch_process_time_seconds")
     .help("Time is seconds which LwDP process cradle batch")

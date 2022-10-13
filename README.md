@@ -15,6 +15,10 @@ This component is similar to [rpt-data-provider](https://github.com/th2-net/th2-
 
 * th2_ldp_cradle_batch_process_time_seconds(request_id) : Counter - Time is seconds which LwDP process cradle batch
   * The request_id label is value from pool active requests.
+* th2_ldp_load_batches_from_cradle_total(request_id) : Counter - Number of batches loaded from cradle
+  * The request_id label is value from pool active requests.
+* th2_ldp_load_bytes_from_cradle_total(request_id) : Counter - Number of bytes loaded from cradle
+  * The request_id label is value from pool active requests.
 * th2_ldp_load_messages_from_cradle_total(request_id, cradle_search_message_method) : Counter - Number of messages loaded from cradle. 
   * The request_id label is value from pool active requests.
   * The cradle_search_message_method label has SINGLE_MESSAGE, MESSAGES, MESSAGES_FROM_GROUP values

@@ -45,9 +45,10 @@ class TestMessageIntervalInfoAccumulator {
         assertNull(accumulator.accumulateAndGet(GrpcEvent(event = EventResponse.getDefaultInstance())))
         assertEquals(0L, accumulator.get())
 
-        assertFailsWith<java.lang.RuntimeException> {
+//        assertFailsWith<java.lang.RuntimeException> {
             accumulator.accumulateAndGet(GrpcEvent(message = MessageSearchResponse.getDefaultInstance()))
-        }
+            assertEquals(0L, accumulator.get())
+//        }
 
         assertNull(accumulator.accumulateAndGet(GrpcEvent(message = generateMessageResponse("S1", FIRST))))
         assertEquals(1L, accumulator.get())

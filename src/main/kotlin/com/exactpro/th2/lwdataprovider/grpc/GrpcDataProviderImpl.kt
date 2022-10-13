@@ -230,7 +230,8 @@ open class GrpcDataProviderImpl(
         override fun accumulateAndGet(event: GrpcEvent): T? {
             event.message?.message?.let { groupResponse ->
                 if (!groupResponse.hasMessageId()) {
-                    error("Message response without id ${shortDebugString(groupResponse)}")
+                    LOGGER.warn { "Message response without id ${shortDebugString(event.message)}" }
+                    return null
                 }
 
                 accumulator.compute(groupResponse.toStreamId()) { streamId, streamInfo ->

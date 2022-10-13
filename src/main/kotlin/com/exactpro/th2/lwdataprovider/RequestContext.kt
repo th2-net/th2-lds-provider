@@ -186,4 +186,10 @@ abstract class RequestedMessageDetails<T> (
             }
         }
     }
+
+    override fun toString(): String {
+        return "RequestedMessageDetails(id='$id', time=$time, th2 id=${storedMessage.id})"
+    }
+
+
 }

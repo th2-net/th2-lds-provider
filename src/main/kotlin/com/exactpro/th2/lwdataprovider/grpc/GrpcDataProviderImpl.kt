@@ -48,6 +48,8 @@ import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import com.exactpro.th2.lwdataprovider.metrics.CradleSearchMessageMethod.MESSAGES
 import com.exactpro.th2.lwdataprovider.metrics.CradleSearchMessageMethod.MESSAGES_FROM_GROUP
 import com.exactpro.th2.lwdataprovider.metrics.CradleSearchMessageMethod.SINGLE_MESSAGE
+import com.google.protobuf.TextFormat
+import com.google.protobuf.TextFormat.shortDebugString
 import com.google.protobuf.util.Timestamps
 import io.grpc.stub.ServerCallStreamObserver
 import io.grpc.stub.StreamObserver
@@ -220,13 +222,17 @@ open class GrpcDataProviderImpl(
         }
     }
 
-    private class MessageIntervalInfoAccumulator<T>(
+    internal class MessageIntervalInfoAccumulator<T>(
         private val transform: Collection<MessageStreamInfo.Builder>.() -> T
     ) : Accumulator<T> {
         private val accumulator = ConcurrentHashMap<StreamId, MessageStreamInfo.Builder>()
 
         override fun accumulateAndGet(event: GrpcEvent): T? {
             event.message?.message?.let { groupResponse ->
+                if (!groupResponse.hasMessageId()) {
+                    error("Message response without id ${shortDebugString(groupResponse)}")
+                }
+
                 accumulator.compute(groupResponse.toStreamId()) { streamId, streamInfo ->
                     streamInfo?.apply {
                         numberOfMessages += 1

@@ -47,6 +47,7 @@ import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import io.prometheus.client.Counter
 import mu.KotlinLogging
 import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -277,7 +278,7 @@ internal class TestCradleMessageExtractor {
     @Test
     fun `test request kind RAW_WITH_SENDING_TO_CODEC`() {
         val channelMessages = mock<ResponseHandler<MockEvent>> {}
-        val context: MessageRequestContext<MockEvent> = spy(MockRequestContext(channelMessages))
+        val context = spy(MockRequestContext(channelMessages))
         val increase = 1L
         val batchesCount = 5
         val messagesPerBatch = 5L
@@ -287,6 +288,11 @@ internal class TestCradleMessageExtractor {
 
         val routerCaptor = argumentCaptor<MessageGroupBatch>()
         verify(messageRouter, times(ceil(batchesCount.toDouble() / messagesPerBatch).toInt())).send(routerCaptor.capture(), any())
+        assertEquals((batchesCount * messagesPerBatch).toInt(), context.messageDetails.size)
+        context.messageDetails.forEach {
+            verify(it, times(1)).notifyMessage()
+            verify(it, times(1)).responseMessage()
+        }
 
         verify(context.streamInfo, times(batchesCount)).registerMessage(any(), any(), eq(GROUP_NAME))
         verify(context, times((batchesCount * messagesPerBatch).toInt())).createMessageDetails(any(), any(), any(), any(), any())
@@ -348,6 +354,9 @@ internal class TestCradleMessageExtractor {
         channelMessages,
         streamInfo = spy(ProviderStreamInfo())
     ) {override val sendResponseCounter: Counter.Child = mock {  }
+
+        val messageDetails = mutableListOf<RequestedMessageDetails<MockEvent>>()
+
         override fun createMessageDetails(
             id: String,
             time: Long,
@@ -355,7 +364,7 @@ internal class TestCradleMessageExtractor {
             responseFormats: List<String>,
             onResponse: () -> Unit
         ): RequestedMessageDetails<MockEvent> {
-            return createMockDetails(id)
+            return createMockDetails(id).also(messageDetails::add)
         }
 
         override fun addStreamInfo() {

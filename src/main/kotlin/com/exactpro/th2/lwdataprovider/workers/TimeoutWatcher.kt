@@ -18,11 +18,10 @@ package com.exactpro.th2.lwdataprovider.workers
 
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import mu.KotlinLogging
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
 class TimerWatcher (private val decodeBuffer: DecodeQueueBuffer,
-                    private val configuration: Configuration
+                    configuration: Configuration
 ) {
     
     private val timeout: Long = configuration.decodingTimeout
@@ -31,7 +30,7 @@ class TimerWatcher (private val decodeBuffer: DecodeQueueBuffer,
     private var thread: Thread? = null
 
     companion object {
-        private val logger = KotlinLogging.logger { }
+        private val K_LOGGER = KotlinLogging.logger { }
     }
     
 
@@ -48,7 +47,7 @@ class TimerWatcher (private val decodeBuffer: DecodeQueueBuffer,
     
     private fun run() {
 
-        logger.debug { "Timeout watcher started" }
+        K_LOGGER.debug { "Timeout watcher started" }
         while (running) {
             val currentTime = System.currentTimeMillis()
             var mintime = currentTime
@@ -59,6 +58,7 @@ class TimerWatcher (private val decodeBuffer: DecodeQueueBuffer,
                 while (iterator.hasNext() && !timeoutReached) {
                     val requestedMessageDetails = iterator.next()
                     if (currentTime - requestedMessageDetails.time >= timeout) {
+                        K_LOGGER.warn { "Response for message has not been received from codec by timeout $timeout, request: $requestedMessageDetails" }
                         //duplicated messages should not be asked again. so timeout is mutual. asked only first (oldest) message
                         val list = decodeBuffer.removeById(entry.key)
                         list?.forEach {
@@ -82,12 +82,12 @@ class TimerWatcher (private val decodeBuffer: DecodeQueueBuffer,
                     Thread.sleep(sleepTime)
                 } catch (e: InterruptedException) {
                     running = false
-                    logger.warn(e) { "Someone stopped timeout watcher" }
+                    K_LOGGER.warn(e) { "Someone stopped timeout watcher" }
                     break
                 }
             }
         }
-        logger.debug { "Timeout watcher finished" }
+        K_LOGGER.debug { "Timeout watcher finished" }
        
-    }    
+    }
 }

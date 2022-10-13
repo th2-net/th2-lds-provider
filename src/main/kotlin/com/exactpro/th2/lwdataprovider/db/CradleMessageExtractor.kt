@@ -408,7 +408,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                         notifyMessage()
                     }
                     if (detailsBuffer.size == batchSize) {
-                        requestContext.sendBatch(group, batchBuilder, detailsBuffer)
+                        sendBatchWithoutWaiting(group, batchBuilder, detailsBuffer)
                     }
                 }
                 RAW_AND_PARSE -> {
@@ -422,7 +422,20 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         if (!kind.sendToCodec) { //if (rawOnly) {
             return
         }
-        requestContext.sendBatch(group, batchBuilder, detailsBuffer)
+        if (kind.waitParsed) {
+            requestContext.sendBatch(group, batchBuilder, detailsBuffer)
+        } else {
+            sendBatchWithoutWaiting(group, batchBuilder, detailsBuffer)
+        }
+    }
+
+    private fun <T> sendBatchWithoutWaiting(alias: String, builder: MessageGroupBatch.Builder, detailsBuf: MutableList<RequestedMessageDetails<T>>) {
+        if (detailsBuf.isEmpty()) {
+            return
+        }
+        decoder.sendBatchMessage(builder.build(), alias)
+        builder.clear()
+        detailsBuf.clear()
     }
 
     private fun <T> MessageRequestContext<T>.sendBatch(alias: String, builder: MessageGroupBatch.Builder, detailsBuf: MutableList<RequestedMessageDetails<T>>) {

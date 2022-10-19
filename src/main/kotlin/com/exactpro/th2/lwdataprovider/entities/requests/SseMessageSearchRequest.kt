@@ -89,11 +89,16 @@ data class SseMessageSearchRequest(
         onlyRaw = parameters["onlyRaw"]?.firstOrNull()?.toBoolean() ?: false
     )
 
+
     constructor(grpcRequest: MessageSearchRequest) : this(
-        startTimestamp = grpcRequest.startTimestamp?.toInstant(),
+        startTimestamp = if (grpcRequest.hasStartTimestamp()){
+            grpcRequest.startTimestamp?.toInstant()
+        } else null,
         stream = grpcRequest.streamList.map { it.toProviderMessageStreams() },
         searchDirection = grpcRequest.searchDirection.toProviderRelation(),
-        endTimestamp = grpcRequest.endTimestamp?.toInstant(),
+        endTimestamp = if (grpcRequest.hasEndTimestamp()){
+            grpcRequest.endTimestamp?.toInstant()
+        } else null,
         resumeFromIdsList = toMessageIds(grpcRequest.streamPointerList),
         resultCountLimit = if (grpcRequest.hasResultCountLimit()) grpcRequest.resultCountLimit.value else null,
         keepOpen = if (grpcRequest.hasKeepOpen()) grpcRequest.keepOpen.value else false,
@@ -101,6 +106,10 @@ data class SseMessageSearchRequest(
         lookupLimitDays = null,
         onlyRaw = false // NOT SUPPORTED in GRPC
     )
+
+    init {
+        checkRequest()
+    }
 
     private fun checkEndTimestamp() {
         if (endTimestamp == null || startTimestamp == null) return

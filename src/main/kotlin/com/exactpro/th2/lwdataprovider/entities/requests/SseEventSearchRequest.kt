@@ -98,6 +98,10 @@ data class SseEventSearchRequest(
         } else false
     )
 
+    init {
+        checkRequest()
+    }
+
     private fun checkEndTimestamp() {
         if (endTimestamp == null || startTimestamp == null) return
 

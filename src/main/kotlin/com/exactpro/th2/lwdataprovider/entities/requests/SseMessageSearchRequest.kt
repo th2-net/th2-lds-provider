@@ -27,7 +27,6 @@ import com.exactpro.th2.lwdataprovider.grpc.toProviderMessageStreams
 import com.exactpro.th2.lwdataprovider.grpc.toProviderRelation
 import com.exactpro.th2.lwdataprovider.grpc.toStoredMessageId
 import java.time.Instant
-import kotlin.streams.toList
 
 data class SseMessageSearchRequest(
     val startTimestamp: Instant?,
@@ -41,6 +40,9 @@ data class SseMessageSearchRequest(
     val resumeFromIdsList: List<StoredMessageId>?,
     val onlyRaw: Boolean
 ) {
+    init {
+        checkRequest()
+    }
 
     companion object {
         private fun asCradleTimeRelation(value: String): TimeRelation {
@@ -92,24 +94,22 @@ data class SseMessageSearchRequest(
 
     constructor(grpcRequest: MessageSearchRequest) : this(
         startTimestamp = if (grpcRequest.hasStartTimestamp()){
-            grpcRequest.startTimestamp?.toInstant()
+            grpcRequest.startTimestamp.toInstant()
         } else null,
         stream = grpcRequest.streamList.map { it.toProviderMessageStreams() },
         searchDirection = grpcRequest.searchDirection.toProviderRelation(),
         endTimestamp = if (grpcRequest.hasEndTimestamp()){
-            grpcRequest.endTimestamp?.toInstant()
+            grpcRequest.endTimestamp.toInstant()
         } else null,
-        resumeFromIdsList = toMessageIds(grpcRequest.streamPointerList),
+        resumeFromIdsList = if (grpcRequest.streamPointerList.isNotEmpty()){
+            toMessageIds(grpcRequest.streamPointerList)
+        } else null,
         resultCountLimit = if (grpcRequest.hasResultCountLimit()) grpcRequest.resultCountLimit.value else null,
         keepOpen = if (grpcRequest.hasKeepOpen()) grpcRequest.keepOpen.value else false,
         attachedEvents = false, // disabled
         lookupLimitDays = null,
         onlyRaw = false // NOT SUPPORTED in GRPC
     )
-
-    init {
-        checkRequest()
-    }
 
     private fun checkEndTimestamp() {
         if (endTimestamp == null || startTimestamp == null) return

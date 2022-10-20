@@ -1,93 +1,162 @@
+/*******************************************************************************
+ * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
 package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.cradle.TimeRelation
+import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.dataprovider.grpc.EventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
+import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 import com.google.protobuf.Timestamp
 import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
 class TestSseEventSearchRequest {
-    @Test
-    fun testConstructorParam(){
+
+    @Nested
+    inner class TestConstructorParam(){
+        @Test
+        // when startTimestamp and resumeFromId - nulls, should throw exception
+        fun testEmptyParamsMap(){
+            assertThrows<InvalidRequestException> {
+                SseEventSearchRequest(mapOf())
+            }
+        }
+
+        @Test
+        // resumeFromId != null, startTimestamp and endTimestamp - nulls
+        fun testTimestampNullsResumeIdNotNull(){
+            val eventSearchReq = SseEventSearchRequest(mapOf("resumeFromId" to listOf("1")))
+            Assertions.assertNull(eventSearchReq.startTimestamp)
+            Assertions.assertNull(eventSearchReq.endTimestamp)
+        }
+
+        @Test
         // startTimestamp - 1, endTimestamp - 2, searchDirection - AFTER (default)
-        var params = mutableMapOf("startTimestamp" to listOf("1"),
-            "endTimestamp" to listOf("2", "3"))
-        var eventSearchReq = SseEventSearchRequest(params)
-        Assertions.assertNotNull(eventSearchReq.startTimestamp)
-        Assertions.assertNotNull(eventSearchReq.endTimestamp)
-        Assertions.assertEquals(TimeRelation.AFTER, eventSearchReq.searchDirection)
-
-        // startTimestamp and resumeFromId - nulls
-        params.remove("startTimestamp")
-        params.remove("endTimestamp")
-        assertThrows<InvalidRequestException> {
-            eventSearchReq = SseEventSearchRequest(params)
+        fun testEndAfterStartDirectionDefault(){
+            val eventSearchReq = SseEventSearchRequest(mapOf("startTimestamp" to listOf("1"),
+                "endTimestamp" to listOf("2", "3")))
+            Assertions.assertEquals(TimeRelation.AFTER, eventSearchReq.searchDirection)
+            Assertions.assertNotNull(eventSearchReq.startTimestamp)
+            Assertions.assertNotNull(eventSearchReq.endTimestamp)
+            Assertions.assertTrue(eventSearchReq.endTimestamp!! > eventSearchReq.startTimestamp!!)
         }
 
-        // resumeFromId != null - testing checkEndTimestamp validation from here till the end
-        params["resumeFromId"] = listOf("1")
-        eventSearchReq = SseEventSearchRequest(params)
-        Assertions.assertNull(eventSearchReq.startTimestamp)
-        Assertions.assertNull(eventSearchReq.endTimestamp)
-
-        // startTimestamp - 1, endTimestamp - 2, searchDirection - AFTER
-        params["startTimestamp"] = listOf("1")
-        params["endTimestamp"] = listOf("2")
-        params["searchDirection"] = listOf("next")
-        eventSearchReq = SseEventSearchRequest(params)
-        Assertions.assertNotNull(eventSearchReq.startTimestamp)
-        Assertions.assertNotNull(eventSearchReq.endTimestamp)
-
+        @Test
         // startTimestamp - 1, endTimestamp - 2, searchDirection - BEFORE
-        params["searchDirection"] = listOf("previous")
-        assertThrows<InvalidRequestException> {
-            eventSearchReq = SseEventSearchRequest(params)
+        fun testEndAfterStartDirectionBefore(){
+            assertThrows<InvalidRequestException> {
+                SseMessageSearchRequest(mapOf("startTimestamp" to listOf("1"),
+                    "endTimestamp" to listOf("2"), "searchDirection" to listOf("previous")))
+            }
         }
 
+        @Test
         // startTimestamp - 3, endTimestamp - 2, searchDirection - BEFORE
-        params["startTimestamp"] = listOf("3")
-        eventSearchReq = SseEventSearchRequest(params)
-
-        // startTimestamp - 3, endTimestamp - 2, searchDirection - AFTER
-        params["searchDirection"] = listOf("next")
-        assertThrows<InvalidRequestException> {
-            eventSearchReq = SseEventSearchRequest(params)
+        fun testEndBeforeStartDirectionBefore(){
+            val eventSearchReq = SseEventSearchRequest(mapOf("startTimestamp" to listOf("3"),
+                "endTimestamp" to listOf("2", "3"), "searchDirection" to listOf("previous")))
+            Assertions.assertEquals(TimeRelation.BEFORE, eventSearchReq.searchDirection)
+            Assertions.assertNotNull(eventSearchReq.startTimestamp)
+            Assertions.assertNotNull(eventSearchReq.endTimestamp)
+            Assertions.assertTrue(eventSearchReq.endTimestamp!! < eventSearchReq.startTimestamp!!)
         }
 
+        @Test
+        // startTimestamp - 3, endTimestamp - 2, searchDirection - AFTER
+        fun testEndBeforeStartDirectionAfter(){
+            assertThrows<InvalidRequestException> {
+                SseEventSearchRequest(mapOf("startTimestamp" to listOf("3"),
+                    "endTimestamp" to listOf("2"), "searchDirection" to listOf("next")))
+            }
+        }
     }
 
-    @Test
-    fun testConstructorGrpc(){
-        // startTimestamp - 1, endTimestamp - 2, searchDirection - AFTER (default)
-        var startTimestamp = Timestamp.newBuilder().setNanos(1).build()
-        var endTimestamp = Timestamp.newBuilder().setNanos(2).build()
-        var grpcRequest = EventSearchRequest.newBuilder().setStartTimestamp(startTimestamp).setEndTimestamp(endTimestamp).build()
-        var messageSearchReq = SseEventSearchRequest(grpcRequest)
-        Assertions.assertNotNull(messageSearchReq.startTimestamp)
-        Assertions.assertNotNull(messageSearchReq.endTimestamp)
-        Assertions.assertEquals(TimeRelation.AFTER, messageSearchReq.searchDirection)
-
-        // startTimestamp - 1, endTimestamp - 2, searchDirection - BEFORE
-        grpcRequest = EventSearchRequest.newBuilder().setStartTimestamp(startTimestamp).setEndTimestamp(endTimestamp).
-        setSearchDirection(com.exactpro.th2.dataprovider.grpc.TimeRelation.PREVIOUS).build()
-        assertThrows<InvalidRequestException> {
-            messageSearchReq = SseEventSearchRequest(grpcRequest)
+    @Nested
+    inner class TestConstructorGrpc {
+        @Test
+        // when startTimestamp and resumeFromId - nulls, should throw exception
+        fun testEmptyRequest(){
+            assertThrows<InvalidRequestException> {
+                SseEventSearchRequest(EventSearchRequest.newBuilder().build())
+            }
         }
 
-        // startTimestamp - 3, endTimestamp - 2, searchDirection - BEFORE
-        startTimestamp = Timestamp.newBuilder().setNanos(3).build()
-        grpcRequest = EventSearchRequest.newBuilder().setStartTimestamp(startTimestamp).setEndTimestamp(endTimestamp).
-        setSearchDirection(com.exactpro.th2.dataprovider.grpc.TimeRelation.PREVIOUS).build()
-        messageSearchReq = SseEventSearchRequest(grpcRequest)
+        @Test
+        // resumeFromId != null, startTimestamp and endTimestamp - nulls
+        fun testTimestampNullsResumeIdNotNull(){
+            val grpcRequest = EventSearchRequest.newBuilder().setResumeFromId(EventID.newBuilder().setId("1")).build()
+            val eventSearchReq = SseEventSearchRequest(grpcRequest)
+            Assertions.assertNull(eventSearchReq.startTimestamp)
+            Assertions.assertNull(eventSearchReq.endTimestamp)
+        }
 
+        @Test
+        // startTimestamp - 1, endTimestamp - 2, searchDirection - AFTER (default)
+        fun testEndAfterStartDirectionDefault(){
+            val startTimestamp = Timestamp.newBuilder().setNanos(1).build()
+            val endTimestamp = Timestamp.newBuilder().setNanos(2).build()
+            val grpcRequest = EventSearchRequest.newBuilder().setStartTimestamp(startTimestamp).setEndTimestamp(endTimestamp).build()
+            val eventSearchReq = SseEventSearchRequest(grpcRequest)
+            Assertions.assertEquals(TimeRelation.AFTER, eventSearchReq.searchDirection)
+            Assertions.assertNotNull(eventSearchReq.startTimestamp)
+            Assertions.assertNotNull(eventSearchReq.endTimestamp)
+            Assertions.assertTrue(eventSearchReq.endTimestamp!! > eventSearchReq.startTimestamp!!)
+        }
+
+        @Test
+        // startTimestamp - 1, endTimestamp - 2, searchDirection - BEFORE
+        fun testEndAfterStartDirectionBefore(){
+            val startTimestamp = Timestamp.newBuilder().setNanos(1).build()
+            val endTimestamp = Timestamp.newBuilder().setNanos(2).build()
+            val grpcRequest = EventSearchRequest.newBuilder().setStartTimestamp(startTimestamp).setEndTimestamp(endTimestamp).
+                setSearchDirection(com.exactpro.th2.dataprovider.grpc.TimeRelation.PREVIOUS).build()
+            assertThrows<InvalidRequestException> {
+                SseEventSearchRequest(grpcRequest)
+            }
+        }
+
+        @Test
+        // startTimestamp - 3, endTimestamp - 2, searchDirection - BEFORE
+        fun testEndBeforeStartDirectionBefore(){
+            val startTimestamp = Timestamp.newBuilder().setNanos(3).build()
+            val endTimestamp = Timestamp.newBuilder().setNanos(2).build()
+            val grpcRequest = EventSearchRequest.newBuilder().setStartTimestamp(startTimestamp).setEndTimestamp(endTimestamp).
+                setSearchDirection(com.exactpro.th2.dataprovider.grpc.TimeRelation.PREVIOUS).build()
+            val eventSearchReq = SseEventSearchRequest(grpcRequest)
+            Assertions.assertEquals(TimeRelation.BEFORE, eventSearchReq.searchDirection)
+            Assertions.assertNotNull(eventSearchReq.startTimestamp)
+            Assertions.assertNotNull(eventSearchReq.endTimestamp)
+            Assertions.assertTrue(eventSearchReq.endTimestamp!! < eventSearchReq.startTimestamp!!)
+        }
+
+        @Test
         // startTimestamp - 3, endTimestamp - 2, searchDirection - AFTER
-        grpcRequest = EventSearchRequest.newBuilder().setStartTimestamp(startTimestamp).setEndTimestamp(endTimestamp).
-        setSearchDirection(com.exactpro.th2.dataprovider.grpc.TimeRelation.NEXT).build()
-        assertThrows<InvalidRequestException> {
-            messageSearchReq = SseEventSearchRequest(grpcRequest)
+        fun testEndBeforeStartDirectionAfter(){
+            val startTimestamp = Timestamp.newBuilder().setNanos(3).build()
+            val endTimestamp = Timestamp.newBuilder().setNanos(2).build()
+            val grpcRequest = EventSearchRequest.newBuilder().setStartTimestamp(startTimestamp).setEndTimestamp(endTimestamp).
+                setSearchDirection(com.exactpro.th2.dataprovider.grpc.TimeRelation.NEXT).build()
+            assertThrows<InvalidRequestException> {
+                SseEventSearchRequest(grpcRequest)
+            }
         }
     }
 }

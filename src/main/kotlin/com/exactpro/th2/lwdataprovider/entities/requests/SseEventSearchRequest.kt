@@ -36,6 +36,10 @@ data class SseEventSearchRequest(
     val metadataOnly: Boolean,
     val attachedMessages: Boolean
 ) {
+    init {
+        checkRequest()
+    }
+
     companion object {
         private fun asCradleTimeRelation(value: String): TimeRelation {
             if (value == "next") return TimeRelation.AFTER
@@ -97,10 +101,6 @@ data class SseEventSearchRequest(
             request.attachedMessages.value
         } else false
     )
-
-    init {
-        checkRequest()
-    }
 
     private fun checkEndTimestamp() {
         if (endTimestamp == null || startTimestamp == null) return

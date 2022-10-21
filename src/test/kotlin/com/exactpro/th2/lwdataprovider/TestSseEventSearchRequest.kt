@@ -27,62 +27,69 @@ import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import com.exactpro.th2.dataprovider.grpc.TimeRelation as GrpcTimeRelation
 
 class TestSseEventSearchRequest {
 
     @Nested
     inner class TestConstructorParam(){
-        @Test
         // when startTimestamp and resumeFromId - nulls, should throw exception
+        @Test
         fun testEmptyParamsMap(){
-            assertThrows<InvalidRequestException> {
+            assertThrows<InvalidRequestException>("must throw invalidRequestException"){
                 SseEventSearchRequest(mapOf())
             }
         }
 
-        @Test
         // resumeFromId != null, startTimestamp and endTimestamp - nulls
+        @Test
         fun testTimestampNullsResumeIdNotNull(){
             val eventSearchReq = SseEventSearchRequest(mapOf("resumeFromId" to listOf("1")))
-            Assertions.assertNull(eventSearchReq.startTimestamp)
-            Assertions.assertNull(eventSearchReq.endTimestamp)
+            Assertions.assertNull(eventSearchReq.startTimestamp, "start timestamp must be null")
+            Assertions.assertNull(eventSearchReq.endTimestamp, "end timestamp must be null")
         }
 
-        @Test
         // startTimestamp - 1, endTimestamp - 2, searchDirection - AFTER (default)
+        @Test
         fun testEndAfterStartDirectionDefault(){
             val eventSearchReq = SseEventSearchRequest(mapOf("startTimestamp" to listOf("1"),
                 "endTimestamp" to listOf("2", "3")))
-            Assertions.assertEquals(TimeRelation.AFTER, eventSearchReq.searchDirection)
-            Assertions.assertNotNull(eventSearchReq.startTimestamp)
-            Assertions.assertNotNull(eventSearchReq.endTimestamp)
-            Assertions.assertTrue(eventSearchReq.endTimestamp!! > eventSearchReq.startTimestamp!!)
+            Assertions.assertEquals(TimeRelation.AFTER, eventSearchReq.searchDirection, "search direction must be AFTER")
+            Assertions.assertNotNull(eventSearchReq.startTimestamp, "start timestamp must be not null")
+            Assertions.assertNotNull(eventSearchReq.endTimestamp, "end timestamp must be not null")
+            val messageSupp = {
+                "end timestamp: " + eventSearchReq.endTimestamp + " must be after start timestamp: " + eventSearchReq.startTimestamp
+            }
+            Assertions.assertTrue(eventSearchReq.endTimestamp!! > eventSearchReq.startTimestamp!!, messageSupp)
         }
 
-        @Test
         // startTimestamp - 1, endTimestamp - 2, searchDirection - BEFORE
+        @Test
         fun testEndAfterStartDirectionBefore(){
-            assertThrows<InvalidRequestException> {
+            assertThrows<InvalidRequestException>("must throw invalidRequestException"){
                 SseMessageSearchRequest(mapOf("startTimestamp" to listOf("1"),
                     "endTimestamp" to listOf("2"), "searchDirection" to listOf("previous")))
             }
         }
 
-        @Test
         // startTimestamp - 3, endTimestamp - 2, searchDirection - BEFORE
+        @Test
         fun testEndBeforeStartDirectionBefore(){
             val eventSearchReq = SseEventSearchRequest(mapOf("startTimestamp" to listOf("3"),
                 "endTimestamp" to listOf("2", "3"), "searchDirection" to listOf("previous")))
-            Assertions.assertEquals(TimeRelation.BEFORE, eventSearchReq.searchDirection)
-            Assertions.assertNotNull(eventSearchReq.startTimestamp)
-            Assertions.assertNotNull(eventSearchReq.endTimestamp)
-            Assertions.assertTrue(eventSearchReq.endTimestamp!! < eventSearchReq.startTimestamp!!)
+            Assertions.assertEquals(TimeRelation.BEFORE, eventSearchReq.searchDirection, "search direction must be BEFORE")
+            Assertions.assertNotNull(eventSearchReq.startTimestamp, "start timestamp must be not null")
+            Assertions.assertNotNull(eventSearchReq.endTimestamp, "end timestamp must be not null")
+            val messageSupp = {
+                "end timestamp: " + eventSearchReq.endTimestamp + " must be before start timestamp: " + eventSearchReq.startTimestamp
+            }
+            Assertions.assertTrue(eventSearchReq.endTimestamp!! < eventSearchReq.startTimestamp!!, messageSupp)
         }
 
-        @Test
         // startTimestamp - 3, endTimestamp - 2, searchDirection - AFTER
+        @Test
         fun testEndBeforeStartDirectionAfter(){
-            assertThrows<InvalidRequestException> {
+            assertThrows<InvalidRequestException>("must throw invalidRequestException"){
                 SseEventSearchRequest(mapOf("startTimestamp" to listOf("3"),
                     "endTimestamp" to listOf("2"), "searchDirection" to listOf("next")))
             }
@@ -91,70 +98,76 @@ class TestSseEventSearchRequest {
 
     @Nested
     inner class TestConstructorGrpc {
-        @Test
         // when startTimestamp and resumeFromId - nulls, should throw exception
+        @Test
         fun testEmptyRequest(){
-            assertThrows<InvalidRequestException> {
+            assertThrows<InvalidRequestException>("must throw invalidRequestException") {
                 SseEventSearchRequest(EventSearchRequest.newBuilder().build())
             }
         }
 
-        @Test
         // resumeFromId != null, startTimestamp and endTimestamp - nulls
+        @Test
         fun testTimestampNullsResumeIdNotNull(){
             val grpcRequest = EventSearchRequest.newBuilder().setResumeFromId(EventID.newBuilder().setId("1")).build()
             val eventSearchReq = SseEventSearchRequest(grpcRequest)
-            Assertions.assertNull(eventSearchReq.startTimestamp)
-            Assertions.assertNull(eventSearchReq.endTimestamp)
+            Assertions.assertNull(eventSearchReq.startTimestamp, "start timestamp must be null")
+            Assertions.assertNull(eventSearchReq.endTimestamp, "end timestamp must be null")
         }
 
-        @Test
         // startTimestamp - 1, endTimestamp - 2, searchDirection - AFTER (default)
+        @Test
         fun testEndAfterStartDirectionDefault(){
             val startTimestamp = Timestamp.newBuilder().setNanos(1).build()
             val endTimestamp = Timestamp.newBuilder().setNanos(2).build()
             val grpcRequest = EventSearchRequest.newBuilder().setStartTimestamp(startTimestamp).setEndTimestamp(endTimestamp).build()
             val eventSearchReq = SseEventSearchRequest(grpcRequest)
-            Assertions.assertEquals(TimeRelation.AFTER, eventSearchReq.searchDirection)
-            Assertions.assertNotNull(eventSearchReq.startTimestamp)
-            Assertions.assertNotNull(eventSearchReq.endTimestamp)
-            Assertions.assertTrue(eventSearchReq.endTimestamp!! > eventSearchReq.startTimestamp!!)
+            Assertions.assertEquals(TimeRelation.AFTER, eventSearchReq.searchDirection, "search direction must be AFTER")
+            Assertions.assertNotNull(eventSearchReq.startTimestamp, "start timestamp must be not null")
+            Assertions.assertNotNull(eventSearchReq.endTimestamp, "end timestamp must be not null")
+            val messageSupp = {
+                "end timestamp: " + eventSearchReq.endTimestamp + " must be after start timestamp: " + eventSearchReq.startTimestamp
+            }
+            Assertions.assertTrue(eventSearchReq.endTimestamp!! > eventSearchReq.startTimestamp!!, messageSupp)
         }
 
-        @Test
         // startTimestamp - 1, endTimestamp - 2, searchDirection - BEFORE
+        @Test
         fun testEndAfterStartDirectionBefore(){
             val startTimestamp = Timestamp.newBuilder().setNanos(1).build()
             val endTimestamp = Timestamp.newBuilder().setNanos(2).build()
             val grpcRequest = EventSearchRequest.newBuilder().setStartTimestamp(startTimestamp).setEndTimestamp(endTimestamp).
-                setSearchDirection(com.exactpro.th2.dataprovider.grpc.TimeRelation.PREVIOUS).build()
-            assertThrows<InvalidRequestException> {
+                setSearchDirection(GrpcTimeRelation.PREVIOUS).build()
+            assertThrows<InvalidRequestException>("must throw invalidRequestException"){
                 SseEventSearchRequest(grpcRequest)
             }
         }
 
-        @Test
         // startTimestamp - 3, endTimestamp - 2, searchDirection - BEFORE
+        @Test
         fun testEndBeforeStartDirectionBefore(){
             val startTimestamp = Timestamp.newBuilder().setNanos(3).build()
             val endTimestamp = Timestamp.newBuilder().setNanos(2).build()
             val grpcRequest = EventSearchRequest.newBuilder().setStartTimestamp(startTimestamp).setEndTimestamp(endTimestamp).
-                setSearchDirection(com.exactpro.th2.dataprovider.grpc.TimeRelation.PREVIOUS).build()
+                setSearchDirection(GrpcTimeRelation.PREVIOUS).build()
             val eventSearchReq = SseEventSearchRequest(grpcRequest)
-            Assertions.assertEquals(TimeRelation.BEFORE, eventSearchReq.searchDirection)
-            Assertions.assertNotNull(eventSearchReq.startTimestamp)
-            Assertions.assertNotNull(eventSearchReq.endTimestamp)
-            Assertions.assertTrue(eventSearchReq.endTimestamp!! < eventSearchReq.startTimestamp!!)
+            Assertions.assertEquals(TimeRelation.BEFORE, eventSearchReq.searchDirection, "search direction must be BEFORE")
+            Assertions.assertNotNull(eventSearchReq.startTimestamp, "start timestamp must be not null")
+            Assertions.assertNotNull(eventSearchReq.endTimestamp, "end timestamp must be not null")
+            val messageSupp = {
+                "end timestamp: " + eventSearchReq.endTimestamp + " must be before start timestamp: " + eventSearchReq.startTimestamp
+            }
+            Assertions.assertTrue(eventSearchReq.endTimestamp!! < eventSearchReq.startTimestamp!!, messageSupp)
         }
 
-        @Test
         // startTimestamp - 3, endTimestamp - 2, searchDirection - AFTER
+        @Test
         fun testEndBeforeStartDirectionAfter(){
             val startTimestamp = Timestamp.newBuilder().setNanos(3).build()
             val endTimestamp = Timestamp.newBuilder().setNanos(2).build()
             val grpcRequest = EventSearchRequest.newBuilder().setStartTimestamp(startTimestamp).setEndTimestamp(endTimestamp).
-                setSearchDirection(com.exactpro.th2.dataprovider.grpc.TimeRelation.NEXT).build()
-            assertThrows<InvalidRequestException> {
+                setSearchDirection(GrpcTimeRelation.NEXT).build()
+            assertThrows<InvalidRequestException>("must throw invalidRequestException"){
                 SseEventSearchRequest(grpcRequest)
             }
         }

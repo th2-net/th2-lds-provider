@@ -17,11 +17,10 @@
 package com.exactpro.th2.lwdataprovider.entities.requests
 
 import com.exactpro.cradle.TimeRelation
+import com.exactpro.th2.dataprovider.grpc.EventSearchRequest
+import com.exactpro.th2.dataprovider.grpc.TimeRelation.PREVIOUS
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
-import com.exactpro.th2.lwdataprovider.entities.responses.BaseEventEntity
-import com.exactpro.th2.dataprovider.grpc.EventSearchRequest
-import com.exactpro.th2.dataprovider.grpc.TimeRelation.*
 import java.time.Instant
 
 data class SseEventSearchRequest(
@@ -36,6 +35,10 @@ data class SseEventSearchRequest(
     val metadataOnly: Boolean,
     val attachedMessages: Boolean
 ) {
+    init {
+        checkRequest()
+    }
+
     companion object {
         private fun asCradleTimeRelation(value: String): TimeRelation {
             if (value == "next") return TimeRelation.AFTER

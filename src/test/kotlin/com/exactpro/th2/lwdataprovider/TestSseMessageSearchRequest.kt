@@ -56,10 +56,9 @@ class TestSseMessageSearchRequest {
             Assertions.assertEquals(TimeRelation.AFTER, messageSearchReq.searchDirection, "search direction must be AFTER")
             Assertions.assertNotNull(messageSearchReq.startTimestamp, "start timestamp must be not null")
             Assertions.assertNotNull(messageSearchReq.endTimestamp, "end time stamp must be not null")
-            val messageSupp = {
+            Assertions.assertTrue(messageSearchReq.endTimestamp!! > messageSearchReq.startTimestamp!!){
                 "end timestamp: " + messageSearchReq.endTimestamp + " must be after start timestamp: " + messageSearchReq.startTimestamp
             }
-            Assertions.assertTrue(messageSearchReq.endTimestamp!! > messageSearchReq.startTimestamp!!, messageSupp)
         }
 
         // startTimestamp - 1, endTimestamp - 2, searchDirection - BEFORE
@@ -79,10 +78,9 @@ class TestSseMessageSearchRequest {
             Assertions.assertEquals(TimeRelation.BEFORE, messageSearchReq.searchDirection, "search direction must be BEFORE")
             Assertions.assertNotNull(messageSearchReq.startTimestamp, "start timestamp must be not null")
             Assertions.assertNotNull(messageSearchReq.endTimestamp, "end timestamp must be not null")
-            val messageSupp = {
+            Assertions.assertTrue(messageSearchReq.endTimestamp!! < messageSearchReq.startTimestamp!!){
                 "end timestamp: " + messageSearchReq.endTimestamp + " must be after before timestamp: " + messageSearchReq.startTimestamp
             }
-            Assertions.assertTrue(messageSearchReq.endTimestamp!! < messageSearchReq.startTimestamp!!, messageSupp)
         }
 
         // startTimestamp - 3, endTimestamp - 2, searchDirection - AFTER
@@ -126,10 +124,9 @@ class TestSseMessageSearchRequest {
             Assertions.assertEquals(TimeRelation.AFTER, messageSearchReq.searchDirection, "search direction must be AFTER")
             Assertions.assertNotNull(messageSearchReq.startTimestamp, "start timestamp must be not null")
             Assertions.assertNotNull(messageSearchReq.endTimestamp, "end timestamp must be not null")
-            val messageSupp = {
+            Assertions.assertTrue(messageSearchReq.endTimestamp!! > messageSearchReq.startTimestamp!!){
                 "end timestamp: " + messageSearchReq.endTimestamp + " must be after start timestamp: " + messageSearchReq.startTimestamp
             }
-            Assertions.assertTrue(messageSearchReq.endTimestamp!! > messageSearchReq.startTimestamp!!,messageSupp)
         }
 
         // startTimestamp - 1, endTimestamp - 2, searchDirection - BEFORE
@@ -155,10 +152,9 @@ class TestSseMessageSearchRequest {
             Assertions.assertEquals(TimeRelation.BEFORE, messageSearchReq.searchDirection, "search direction must be BEFORE")
             Assertions.assertNotNull(messageSearchReq.startTimestamp, "start timestamp must be not null")
             Assertions.assertNotNull(messageSearchReq.endTimestamp, "end timestamp must be not null")
-            val messageSupp = {
+            Assertions.assertTrue(messageSearchReq.endTimestamp!! < messageSearchReq.startTimestamp!!){
                 "end timestamp: " + messageSearchReq.endTimestamp + " must be before start timestamp: " + messageSearchReq.startTimestamp
             }
-            Assertions.assertTrue(messageSearchReq.endTimestamp!! < messageSearchReq.startTimestamp!!, messageSupp)
         }
 
         // startTimestamp - 3, endTimestamp - 2, searchDirection - AFTER

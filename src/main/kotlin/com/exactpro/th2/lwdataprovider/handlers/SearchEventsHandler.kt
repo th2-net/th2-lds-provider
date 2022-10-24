@@ -37,6 +37,7 @@ class SearchEventsHandler(
             try {
                 cradle.getEvents(request, requestContext)
             } catch (e: Exception) {
+                logger.error(e) { "cannot process event search request: $request" }
                 requestContext.writeErrorMessage(e.message?:"")
                 requestContext.finishStream()
             }
@@ -49,6 +50,7 @@ class SearchEventsHandler(
             try {
                 cradle.getSingleEvents(request, requestContext)
             } catch (e: Exception) {
+                logger.error(e) { "cannot process single event request: $request" }
                 requestContext.writeErrorMessage(e.message?:"")
                 requestContext.finishStream()
             }

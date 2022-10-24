@@ -46,7 +46,7 @@ class GetMessagesServlet (
         checkNotNull(resp)
         
         val queryParametersMap = getParameters(req)
-        logger.info { "Received search sse event request with parameters: $queryParametersMap" }
+        logger.info { "Received search sse messages request with parameters: $queryParametersMap" }
         
         val request = SseMessageSearchRequest(queryParametersMap)
         request.checkRequest()

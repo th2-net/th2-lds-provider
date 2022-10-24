@@ -35,6 +35,7 @@ import com.exactpro.th2.lwdataprovider.workers.TimerWatcher
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -44,6 +45,7 @@ class Context(
     val configuration: Configuration,
 
     val jacksonMapper: ObjectMapper = jacksonObjectMapper()
+        .registerModule(JavaTimeModule())
         .enable(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY)
         .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
         .disable(SerializationFeature.INDENT_OUTPUT),

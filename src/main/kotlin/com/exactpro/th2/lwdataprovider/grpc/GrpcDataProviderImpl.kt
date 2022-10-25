@@ -265,7 +265,7 @@ open class GrpcDataProviderImpl(
                     size += storedMessage.content.size
 
                     if (size >= configuration.batchSize) {
-                        messageRouter.send(batch.build())
+                        messageRouter.send(batch.build(), "to_codec")
 
                         batch = MessageGroupBatch.newBuilder()
                         size = 0L

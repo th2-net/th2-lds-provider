@@ -230,7 +230,7 @@ open class GrpcDataProviderImpl(
                     messageCounter.inc(storedBatch.messageCount.toDouble())
                     batchSizeCounter.inc(storedBatch.batchSize.toDouble())
                 }.filterNot { storedBatch ->
-                    storedBatch.lastTimestamp > to
+                    storedBatch.firstTimestamp > to
                 } // TODO: optional sort here
                 .map(StoredGroupMessageBatch::getMessages)
                 .flatMap(Collection<StoredMessage>::asSequence)
@@ -238,10 +238,6 @@ open class GrpcDataProviderImpl(
                     storedMessage.timestamp < from || storedMessage.timestamp >= to
                 }
                 .forEach { storedMessage ->
-                    if (storedMessage.timestamp < from || storedMessage.timestamp >= to) {
-                        return@forEach
-                    }
-
                     storedMessage.toRawMessage().also { rawMessage ->
                         accumulator.compute(rawMessage.toStreamId()) { streamId, streamInfo ->
                             streamInfo?.apply {

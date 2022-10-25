@@ -39,8 +39,11 @@ import java.util.*
 import kotlin.concurrent.withLock
 import kotlin.system.measureTimeMillis
 
-class CradleMessageExtractor(configuration: Configuration, private val cradleManager: CradleManager,
-                             private val decoder: RabbitMqDecoder) {
+class CradleMessageExtractor(
+    configuration: Configuration,
+    private val cradleManager: CradleManager,
+    private val decoder: RabbitMqDecoder
+) {
 
     private val storage = cradleManager.storage
     private val batchSize = configuration.batchSize
@@ -57,7 +60,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
     fun getStreams(): Collection<String> = storage.streams
 
-    fun <T> getMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext<T>, responseFormats: List<String>) {
+    fun <T> getMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext<T>) {
 
         var msgCount = 0
         val time = measureTimeMillis {

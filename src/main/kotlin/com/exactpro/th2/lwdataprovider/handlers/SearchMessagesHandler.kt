@@ -43,13 +43,13 @@ class SearchMessagesHandler(
 
     fun extractStreamNames(): Collection<String> {
         logger.info { "Getting stream names" }
-        return cradleMsgExtractor.getStreams();
+        return cradleMsgExtractor.getStreams()
     }
     
     fun loadMessages(request: SseMessageSearchRequest, requestContext: MessageRequestContext<*>, configuration: Configuration) {
         
         if (request.stream == null && request.resumeFromIdsList.isNullOrEmpty()) {
-            return;
+            return
         }
 
         threadPool.execute {
@@ -60,9 +60,9 @@ class SearchMessagesHandler(
                     request.resumeFromIdsList.forEach { resumeFromId ->
                         requestContext.streamInfo.registerSession(resumeFromId.streamName, resumeFromId.direction)
                         if (limitReached)
-                            return@forEach;
+                            return@forEach
                         if (!requestContext.contextAlive)
-                            return@execute;
+                            return@execute
                         loadByResumeId(resumeFromId, request, requestContext, configuration)
                         limitReached = requestContext.limitReached(request)
                     }
@@ -70,9 +70,9 @@ class SearchMessagesHandler(
                     request.stream?.forEach { (stream, direction) ->
                         requestContext.streamInfo.registerSession(stream, direction)
                         if (limitReached)
-                            return@forEach;
+                            return@forEach
                         if (!requestContext.contextAlive)
-                            return@execute;
+                            return@execute
                         loadByStream(stream, direction, request, requestContext, configuration)
 
                         limitReached = requestContext.limitReached(request)
@@ -105,7 +105,7 @@ class SearchMessagesHandler(
 
         threadPool.execute {
             try {
-                cradleMsgExtractor.getMessage(StoredMessageId.fromString(request.msgId), request.onlyRaw, requestContext);
+                cradleMsgExtractor.getMessage(StoredMessageId.fromString(request.msgId), request.onlyRaw, requestContext)
                 requestContext.allDataLoadedFromCradle()
                 if (requestContext.requestedMessages.isEmpty()) {
                     requestContext.finishStream()
@@ -272,7 +272,7 @@ class SearchMessagesHandler(
         if (request.onlyRaw || (responseFormats.contains("BASE_64") && responseFormats.size == 1)) {
             cradleMsgExtractor.getRawMessages(filter, requestContext)
         } else {
-            cradleMsgExtractor.getMessages(filter, requestContext, responseFormats)
+            cradleMsgExtractor.getMessages(filter, requestContext)
         }
     }
 
@@ -296,7 +296,7 @@ class SearchMessagesHandler(
         if (request.onlyRaw || (responseFormats.contains("BASE_64") && responseFormats.size == 1)) {
             cradleMsgExtractor.getRawMessages(filter, requestContext)
         } else {
-            cradleMsgExtractor.getMessages(filter, requestContext, responseFormats)
+            cradleMsgExtractor.getMessages(filter, requestContext)
         }
     }
 

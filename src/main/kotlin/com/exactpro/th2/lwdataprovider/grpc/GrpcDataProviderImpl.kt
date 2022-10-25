@@ -16,15 +16,22 @@
 
 package com.exactpro.th2.lwdataprovider.grpc
 
+import com.exactpro.cradle.CradleManager
+import com.exactpro.cradle.messages.StoredGroupMessageBatch
+import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.EventID
+import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.MessageID
+import com.exactpro.th2.common.grpc.RawMessage
+import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.dataprovider.grpc.CradleMessageGroupsRequest
 import com.exactpro.th2.dataprovider.grpc.CradleMessageGroupsResponse
 import com.exactpro.th2.dataprovider.grpc.DataProviderGrpc
 import com.exactpro.th2.dataprovider.grpc.EventResponse
 import com.exactpro.th2.dataprovider.grpc.EventSearchRequest
 import com.exactpro.th2.dataprovider.grpc.EventSearchResponse
+import com.exactpro.th2.dataprovider.grpc.Group
 import com.exactpro.th2.dataprovider.grpc.MessageGroupResponse
 import com.exactpro.th2.dataprovider.grpc.MessageGroupsSearchRequest
 import com.exactpro.th2.dataprovider.grpc.MessageGroupsSearchResponse
@@ -45,16 +52,21 @@ import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
+import com.exactpro.th2.lwdataprovider.metrics.CRADLE_BATCHES_COUNTER
+import com.exactpro.th2.lwdataprovider.metrics.CRADLE_DATA_SIZE_BYTE_COUNTER
 import com.exactpro.th2.lwdataprovider.metrics.CradleSearchMessageMethod.MESSAGES
 import com.exactpro.th2.lwdataprovider.metrics.CradleSearchMessageMethod.MESSAGES_FROM_GROUP
 import com.exactpro.th2.lwdataprovider.metrics.CradleSearchMessageMethod.SINGLE_MESSAGE
-import com.google.protobuf.TextFormat
+import com.exactpro.th2.lwdataprovider.metrics.LOAD_MESSAGES_FROM_CRADLE_COUNTER
+import com.exactpro.th2.lwdataprovider.metrics.RequestIdPool
 import com.google.protobuf.TextFormat.shortDebugString
+import com.google.protobuf.Timestamp
 import com.google.protobuf.util.Timestamps
 import io.grpc.stub.ServerCallStreamObserver
 import io.grpc.stub.StreamObserver
 import io.prometheus.client.Counter
 import mu.KotlinLogging
+import org.apache.commons.lang3.StringUtils
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantLock
@@ -64,11 +76,26 @@ import kotlin.math.min
 open class GrpcDataProviderImpl(
     private val configuration: Configuration,
     private val searchMessagesHandler: SearchMessagesHandler,
+    private val messageRouter: MessageRouter<MessageGroupBatch>, //FIXME: added for test
+    private val cradleManager: CradleManager, //FIXME: added for test
     private val searchEventsHandler: SearchEventsHandler
 ): DataProviderGrpc.DataProviderImplBase() {
 
     companion object {
         private val LOGGER = KotlinLogging.logger { }
+
+        private fun MessageGroupResponse.toStreamId() =
+            StreamId(messageId.connectionId.sessionAlias, messageId.direction)
+
+        private fun RawMessage.toStreamId() = with(metadata.id) { StreamId(connectionId.sessionAlias, direction) }
+
+        private fun Timestamp.compare(timestamp: Timestamp) = when (val result = seconds.compareTo(timestamp.seconds)) {
+            0 -> nanos.compareTo(timestamp.nanos)
+            else -> result
+        }
+
+        private fun max(t1: Timestamp, t2: Timestamp) = if (t1.compare(t2) > 0) t1 else t2
+        private fun min(t1: Timestamp, t2: Timestamp) = if (t1.compare(t2) < 0) t1 else t2
     }
 
     override fun getEvent(request: EventID?, responseObserver: StreamObserver<EventResponse>?) {
@@ -172,32 +199,121 @@ open class GrpcDataProviderImpl(
         request: CradleMessageGroupsRequest,
         responseObserver: StreamObserver<CradleMessageGroupsResponse>
     ) {
-        val queue = ArrayBlockingQueue<GrpcEvent>(configuration.responseQueueSize)
-        val requestParams = MessagesGroupRequest.fromGrpcRequest(request)
-        LOGGER.info { "Loading messages groups $requestParams" }
-        val grpcResponseHandler = GrpcResponseHandler(queue)
-        val context = GrpcMessageRequestContext(grpcResponseHandler, maxMessagesPerRequest = configuration.bufferPerQuery, cradleSearchMessageMethod = MESSAGES_FROM_GROUP)
-        val loadingStep = context.startStep("messages_group_loading")
-        val serverCallStreamObserver = MetricServerCallStreamObserver(responseObserver, context.sendResponseCounter) {
-            messageIntervalInfo.messagesInfoList.asSequence()
-                .map(MessageStreamInfo::getNumberOfMessages)
-                .sum()
-        }
         try {
-            searchMessagesHandler.loadMessageGroups(requestParams, context)
-            processResponse(serverCallStreamObserver, context, loadingStep::finish, MessageIntervalInfoAccumulator {
-                CradleMessageGroupsResponse.newBuilder().apply {
-                    messageIntervalInfoBuilder.apply {
-                        this.startTimestamp = request.startTimestamp
-                        this.endTimestamp = request.endTimestamp
-                        forEach(this::addMessagesInfo)
+            val name = MESSAGES_FROM_GROUP.name
+            val requestId = RequestIdPool.getId()
+            val messageCounter = LOAD_MESSAGES_FROM_CRADLE_COUNTER.labels(requestId, name)
+            val batchSizeCounter = CRADLE_DATA_SIZE_BYTE_COUNTER.labels(requestId)
+            val batchCounter = CRADLE_BATCHES_COUNTER.labels(requestId)
+            val accumulator = hashMapOf<StreamId, MessageStreamInfo.Builder>()
+
+            val from =
+                if (request.hasStartTimestamp()) request.startTimestamp.toInstant() else error("missing start timestamp")
+            val to = if (request.hasEndTimestamp()) request.endTimestamp.toInstant() else error("missing end timestamp")
+            val groups = request.messageGroupList.asSequence()
+                .map(Group::getName)
+                .filterNot(StringUtils::isBlank)
+                .toSet()
+                .also {
+                    check(it.isNotEmpty()) {
+                        "group name cannot be empty"
                     }
-                }.build()
-            })
-        } catch (ex: Exception) {
-            loadingStep.finish()
-            throw ex
+                }
+
+            var batch = MessageGroupBatch.newBuilder()
+            var size = 0L
+            groups.asSequence()
+                .map { group -> cradleManager.storage.getGroupedMessageBatches(group, from, to).iterator() }
+                .flatMap(Iterator<StoredGroupMessageBatch>::asSequence)
+                .onEach { storedBatch ->
+                    batchCounter.inc()
+                    messageCounter.inc(storedBatch.messageCount.toDouble())
+                    batchSizeCounter.inc(storedBatch.batchSize.toDouble())
+                }.filter { storedBatch ->
+                    storedBatch.lastTimestamp > to
+                } // TODO: optional sort here
+                .map(StoredGroupMessageBatch::getMessages)
+                .flatMap(Collection<StoredMessage>::asSequence)
+                .forEach { storedMessage ->
+                    if (storedMessage.timestamp < from || storedMessage.timestamp >= to) {
+                        return@forEach
+                    }
+
+                    storedMessage.toRawMessage().also { rawMessage ->
+                        accumulator.compute(rawMessage.toStreamId()) { streamId, streamInfo ->
+                            streamInfo?.apply {
+                                numberOfMessages += 1
+                                maxTimestamp = max(maxTimestamp, rawMessage.metadata.timestamp)
+                                minTimestamp = min(minTimestamp, rawMessage.metadata.timestamp)
+                                maxSequence = max(maxSequence, rawMessage.metadata.id.sequence)
+                                minSequence = min(minSequence, rawMessage.metadata.id.sequence)
+                            } ?: MessageStreamInfo.newBuilder().apply {
+                                sessionAlias = streamId.sessionAlias
+                                direction = streamId.direction
+
+                                numberOfMessages = 1
+                                maxTimestamp = rawMessage.metadata.timestamp
+                                minTimestamp = rawMessage.metadata.timestamp
+                                maxSequence = rawMessage.metadata.id.sequence
+                                minSequence = rawMessage.metadata.id.sequence
+                            }
+                        }
+
+                        batch.addGroups(rawMessage.toMessageGroup())
+                    }
+
+                    size += storedMessage.content.size
+
+                    if (size >= configuration.batchSize) {
+                        messageRouter.send(batch.build())
+
+                        batch = MessageGroupBatch.newBuilder()
+                        size = 0L
+                    }
+                }
+
+            responseObserver.onNext(CradleMessageGroupsResponse.newBuilder().apply {
+                messageIntervalInfoBuilder.apply {
+                    this.startTimestamp = request.startTimestamp
+                    this.endTimestamp = request.endTimestamp
+                    accumulator.asSequence()
+                        .map { (_, value) -> value.build() }
+                        .forEach(this::addMessagesInfo)
+                }
+            }.build())
+            responseObserver.onCompleted()
+
+        } catch (e: Exception) {
+            LOGGER.error(e) { "Load group request failure, request ${shortDebugString(request)}" }
         }
+
+
+//        val queue = ArrayBlockingQueue<GrpcEvent>(configuration.responseQueueSize)
+//        val requestParams = MessagesGroupRequest.fromGrpcRequest(request)
+//        LOGGER.info { "Loading messages groups $requestParams" }
+//        val grpcResponseHandler = GrpcResponseHandler(queue)
+//        val context = GrpcMessageRequestContext(grpcResponseHandler, maxMessagesPerRequest = configuration.bufferPerQuery, cradleSearchMessageMethod = MESSAGES_FROM_GROUP)
+//        val loadingStep = context.startStep("messages_group_loading")
+//        val serverCallStreamObserver = MetricServerCallStreamObserver(responseObserver, context.sendResponseCounter) {
+//            messageIntervalInfo.messagesInfoList.asSequence()
+//                .map(MessageStreamInfo::getNumberOfMessages)
+//                .sum()
+//        }
+//        try {
+//            searchMessagesHandler.loadMessageGroups(requestParams, context)
+//            processResponse(serverCallStreamObserver, context, loadingStep::finish, MessageIntervalInfoAccumulator {
+//                CradleMessageGroupsResponse.newBuilder().apply {
+//                    messageIntervalInfoBuilder.apply {
+//                        this.startTimestamp = request.startTimestamp
+//                        this.endTimestamp = request.endTimestamp
+//                        forEach(this::addMessagesInfo)
+//                    }
+//                }.build()
+//            })
+//        } catch (ex: Exception) {
+//            loadingStep.finish()
+//            throw ex
+//        }
     }
 
     override fun searchMessageGroups(
@@ -242,14 +358,14 @@ open class GrpcDataProviderImpl(
                         maxSequence = max(maxSequence, groupResponse.messageId.sequence)
                         minSequence = min(minSequence, groupResponse.messageId.sequence)
                     } ?: MessageStreamInfo.newBuilder().apply {
-                            sessionAlias = streamId.sessionAlias
-                            direction = streamId.direction
-                            numberOfMessages = 1
-                            maxTimestamp = groupResponse.timestamp
-                            minTimestamp = groupResponse.timestamp
-                            maxSequence = groupResponse.messageId.sequence
-                            minSequence = groupResponse.messageId.sequence
-                        }
+                        sessionAlias = streamId.sessionAlias
+                        direction = streamId.direction
+                        numberOfMessages = 1
+                        maxTimestamp = groupResponse.timestamp
+                        minTimestamp = groupResponse.timestamp
+                        maxSequence = groupResponse.messageId.sequence
+                        minSequence = groupResponse.messageId.sequence
+                    }
                 }
             }
             return null
@@ -257,10 +373,9 @@ open class GrpcDataProviderImpl(
 
         override fun get(): T = accumulator.values.transform()
 
-        private fun MessageGroupResponse.toStreamId() = StreamId(messageId.connectionId.sessionAlias, messageId.direction)
-
-        private data class StreamId(val sessionAlias: String, val direction: Direction)
     }
+
+    internal data class StreamId(val sessionAlias: String, val direction: Direction)
 
     private class MessageGroupsAccumulator(private val batchSize: Int) : Accumulator<MessageGroupsSearchResponse> {
         private val lock = ReentrantLock()

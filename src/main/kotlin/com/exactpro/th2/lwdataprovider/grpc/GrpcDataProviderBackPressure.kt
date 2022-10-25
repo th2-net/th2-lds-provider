@@ -16,6 +16,9 @@
 
 package com.exactpro.th2.lwdataprovider.grpc
 
+import com.exactpro.cradle.CradleManager
+import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.lwdataprovider.GrpcEvent
 import com.exactpro.th2.lwdataprovider.RequestContext
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
@@ -27,8 +30,16 @@ import mu.KotlinLogging
 class GrpcDataProviderBackPressure(
     configuration: Configuration,
     searchMessagesHandler: SearchMessagesHandler,
+    messageRouter: MessageRouter<MessageGroupBatch>,
+    cradleManager: CradleManager,
     searchEventsHandler: SearchEventsHandler
-) : GrpcDataProviderImpl(configuration, searchMessagesHandler, searchEventsHandler) {
+) : GrpcDataProviderImpl(
+    configuration,
+    searchMessagesHandler,
+    messageRouter,
+    cradleManager,
+    searchEventsHandler
+) {
 
     companion object {
         private val logger = KotlinLogging.logger { }

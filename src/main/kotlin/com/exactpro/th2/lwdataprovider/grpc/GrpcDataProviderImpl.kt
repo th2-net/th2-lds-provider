@@ -272,6 +272,10 @@ open class GrpcDataProviderImpl(
                     }
                 }
 
+            if (size != 0L) {
+                messageRouter.send(batch.build(), "to_codec")
+            }
+
             responseObserver.onNext(CradleMessageGroupsResponse.newBuilder().apply {
                 messageIntervalInfoBuilder.apply {
                     this.startTimestamp = request.startTimestamp

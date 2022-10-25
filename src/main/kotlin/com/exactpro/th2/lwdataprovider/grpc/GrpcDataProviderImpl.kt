@@ -199,9 +199,9 @@ open class GrpcDataProviderImpl(
         request: CradleMessageGroupsRequest,
         responseObserver: StreamObserver<CradleMessageGroupsResponse>
     ) {
+        val requestId = RequestIdPool.getId()
         try {
             val name = MESSAGES_FROM_GROUP.name
-            val requestId = RequestIdPool.getId()
             val messageCounter = LOAD_MESSAGES_FROM_CRADLE_COUNTER.labels(requestId, name)
             val batchSizeCounter = CRADLE_DATA_SIZE_BYTE_COUNTER.labels(requestId)
             val batchCounter = CRADLE_BATCHES_COUNTER.labels(requestId)
@@ -289,6 +289,8 @@ open class GrpcDataProviderImpl(
 
         } catch (e: Exception) {
             LOGGER.error(e) { "Load group request failure, request ${shortDebugString(request)}" }
+        } finally {
+            RequestIdPool.releaseId(requestId)
         }
 
 

@@ -287,11 +287,9 @@ open class GrpcDataProviderImpl(
                     storedMessage.timestamp < from || storedMessage.timestamp >= to
                 }
                 .forEach { storedMessage ->
-                    System.nanoTime().also { currentTime ->
-                        if (previousTime != 0L) {
-                            PREPARE_MESSAGE_HISTOGRAM.observe(SimpleTimer.elapsedSecondsFromNanos(previousTime, currentTime))
-                        }
-                        previousTime = currentTime
+                    if (previousTime != 0L) {
+                        PREPARE_MESSAGE_HISTOGRAM
+                            .observe(SimpleTimer.elapsedSecondsFromNanos(previousTime, System.nanoTime()))
                     }
                     PROCESS_MESSAGE_HISTOGRAM.measure {
                         val rawMessage = TO_RAW_MESSAGE_HISTOGRAM.measure {
@@ -329,6 +327,7 @@ open class GrpcDataProviderImpl(
                             }
                         }
                     }
+                    previousTime = System.nanoTime()
                 }
 
             if (size != 0L) {

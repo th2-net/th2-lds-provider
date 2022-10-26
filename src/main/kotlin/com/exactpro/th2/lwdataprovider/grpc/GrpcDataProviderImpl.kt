@@ -101,26 +101,31 @@ open class GrpcDataProviderImpl(
 
         private val TO_RAW_MESSAGE_HISTOGRAM = Histogram.build()
             .name("th2_ldp_test_convert_to_raw_message")
+            .help("th2_ldp_test_convert_to_raw_message")
             .buckets(*DEFAULT_BUCKETS)
             .register()
 
         private val TO_RAW_GROUP_HISTOGRAM = Histogram.build()
             .name("th2_ldp_test_convert_to_group_message")
+            .help("th2_ldp_test_convert_to_group_message")
             .buckets(*DEFAULT_BUCKETS)
             .register()
 
         private val BUILD_GROUP_HISTOGRAM = Histogram.build()
             .name("th2_ldp_test_build_group_message")
+            .help("th2_ldp_test_build_group_message")
             .buckets(*DEFAULT_BUCKETS)
             .register()
 
         private val SEND_BATCH_HISTOGRAM = Histogram.build()
             .name("th2_ldp_test_send_batch")
+            .help("th2_ldp_test_send_batch")
             .buckets(*DEFAULT_BUCKETS)
             .register()
 
         private val PROCESS_MESSAGE_HISTOGRAM = Histogram.build()
             .name("th2_ldp_test_process_message")
+            .help("th2_ldp_test_process_message")
             .buckets(*DEFAULT_BUCKETS)
             .register()
 

@@ -67,6 +67,7 @@ import io.grpc.stub.ServerCallStreamObserver
 import io.grpc.stub.StreamObserver
 import io.prometheus.client.Counter
 import io.prometheus.client.Histogram
+import io.prometheus.client.SimpleTimer
 import mu.KotlinLogging
 import org.apache.commons.lang3.StringUtils
 import java.util.concurrent.ArrayBlockingQueue
@@ -126,6 +127,12 @@ open class GrpcDataProviderImpl(
         private val PROCESS_MESSAGE_HISTOGRAM = Histogram.build()
             .name("th2_ldp_test_process_message")
             .help("th2_ldp_test_process_message")
+            .buckets(*DEFAULT_BUCKETS)
+            .register()
+
+        private val PREPARE_MESSAGE_HISTOGRAM = Histogram.build()
+            .name("th2_ldp_test_prepare_message")
+            .help("th2_ldp_test_prepare_message")
             .buckets(*DEFAULT_BUCKETS)
             .register()
 
@@ -263,6 +270,7 @@ open class GrpcDataProviderImpl(
 
             var builder = MessageGroupBatch.newBuilder()
             var size = 0L
+            var previousTime = 0L
             groups.asSequence()
                 .map { group -> cradleManager.storage.getGroupedMessageBatches(group, from, to).iterator() }
                 .flatMap(Iterator<StoredGroupMessageBatch>::asSequence)
@@ -279,6 +287,12 @@ open class GrpcDataProviderImpl(
                     storedMessage.timestamp < from || storedMessage.timestamp >= to
                 }
                 .forEach { storedMessage ->
+                    System.nanoTime().also { currentTime ->
+                        if (previousTime != 0L) {
+                            PREPARE_MESSAGE_HISTOGRAM.observe(SimpleTimer.elapsedSecondsFromNanos(previousTime, currentTime))
+                        }
+                        previousTime = currentTime
+                    }
                     PROCESS_MESSAGE_HISTOGRAM.measure {
                         val rawMessage = TO_RAW_MESSAGE_HISTOGRAM.measure {
                             storedMessage.toRawMessage()

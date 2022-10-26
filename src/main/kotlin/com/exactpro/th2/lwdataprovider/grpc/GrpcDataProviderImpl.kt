@@ -24,6 +24,7 @@ import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.grpc.RawMessage
+import com.exactpro.th2.common.metrics.DEFAULT_BUCKETS
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.dataprovider.grpc.CradleMessageGroupsRequest
 import com.exactpro.th2.dataprovider.grpc.CradleMessageGroupsResponse
@@ -65,6 +66,7 @@ import com.google.protobuf.util.Timestamps
 import io.grpc.stub.ServerCallStreamObserver
 import io.grpc.stub.StreamObserver
 import io.prometheus.client.Counter
+import io.prometheus.client.Histogram
 import mu.KotlinLogging
 import org.apache.commons.lang3.StringUtils
 import java.util.concurrent.ArrayBlockingQueue
@@ -96,6 +98,40 @@ open class GrpcDataProviderImpl(
 
         private fun max(t1: Timestamp, t2: Timestamp) = if (t1.compare(t2) > 0) t1 else t2
         private fun min(t1: Timestamp, t2: Timestamp) = if (t1.compare(t2) < 0) t1 else t2
+
+        private val TO_RAW_MESSAGE_HISTOGRAM = Histogram.build()
+            .name("th2_ldp_test_convert_to_raw_message")
+            .buckets(*DEFAULT_BUCKETS)
+            .register()
+
+        private val TO_RAW_GROUP_HISTOGRAM = Histogram.build()
+            .name("th2_ldp_test_convert_to_group_message")
+            .buckets(*DEFAULT_BUCKETS)
+            .register()
+
+        private val BUILD_GROUP_HISTOGRAM = Histogram.build()
+            .name("th2_ldp_test_build_group_message")
+            .buckets(*DEFAULT_BUCKETS)
+            .register()
+
+        private val SEND_BATCH_HISTOGRAM = Histogram.build()
+            .name("th2_ldp_test_send_batch")
+            .buckets(*DEFAULT_BUCKETS)
+            .register()
+
+        private val PROCESS_MESSAGE_HISTOGRAM = Histogram.build()
+            .name("th2_ldp_test_process_message")
+            .buckets(*DEFAULT_BUCKETS)
+            .register()
+
+        private inline fun <T> Histogram.measure(func: () -> T): T {
+            val timer = startTimer()
+            try {
+                return func.invoke()
+            } finally {
+                timer.observeDuration()
+            }
+        }
     }
 
     override fun getEvent(request: EventID?, responseObserver: StreamObserver<EventResponse>?) {
@@ -220,7 +256,7 @@ open class GrpcDataProviderImpl(
                     }
                 }
 
-            var batch = MessageGroupBatch.newBuilder()
+            var builder = MessageGroupBatch.newBuilder()
             var size = 0L
             groups.asSequence()
                 .map { group -> cradleManager.storage.getGroupedMessageBatches(group, from, to).iterator() }
@@ -238,7 +274,23 @@ open class GrpcDataProviderImpl(
                     storedMessage.timestamp < from || storedMessage.timestamp >= to
                 }
                 .forEach { storedMessage ->
-                    storedMessage.toRawMessage().also { rawMessage ->
+                    PROCESS_MESSAGE_HISTOGRAM.measure {
+                        val rawMessage = TO_RAW_MESSAGE_HISTOGRAM.measure {
+                            storedMessage.toRawMessage()
+                        }
+
+                        builder.addGroups(TO_RAW_GROUP_HISTOGRAM.measure {
+                            rawMessage.toMessageGroup()
+                        })
+                        size += storedMessage.content.size
+
+                        if (size >= configuration.batchSize) {
+                            val batch = BUILD_GROUP_HISTOGRAM.measure { builder.build() }
+                            SEND_BATCH_HISTOGRAM.measure { messageRouter.send(batch, "to_codec") }
+                            builder = MessageGroupBatch.newBuilder()
+                            size = 0L
+                        }
+
                         accumulator.compute(rawMessage.toStreamId()) { streamId, streamInfo ->
                             streamInfo?.apply {
                                 numberOfMessages += 1
@@ -257,22 +309,11 @@ open class GrpcDataProviderImpl(
                                 minSequence = rawMessage.metadata.id.sequence
                             }
                         }
-
-                        batch.addGroups(rawMessage.toMessageGroup())
-                    }
-
-                    size += storedMessage.content.size
-
-                    if (size >= configuration.batchSize) {
-                        messageRouter.send(batch.build(), "to_codec")
-
-                        batch = MessageGroupBatch.newBuilder()
-                        size = 0L
                     }
                 }
 
             if (size != 0L) {
-                messageRouter.send(batch.build(), "to_codec")
+                messageRouter.send(builder.build(), "to_codec")
             }
 
             responseObserver.onNext(CradleMessageGroupsResponse.newBuilder().apply {

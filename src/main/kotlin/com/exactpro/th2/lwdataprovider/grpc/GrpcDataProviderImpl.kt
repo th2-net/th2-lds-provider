@@ -270,7 +270,7 @@ open class GrpcDataProviderImpl(
 
             var builder = MessageGroupBatch.newBuilder()
             var size = 0L
-            var previousTime = 0L
+            var previousTime = System.nanoTime()
             groups.asSequence()
                 .map { group -> cradleManager.storage.getGroupedMessageBatches(group, from, to).iterator() }
                 .flatMap(Iterator<StoredGroupMessageBatch>::asSequence)
@@ -287,10 +287,9 @@ open class GrpcDataProviderImpl(
                     storedMessage.timestamp < from || storedMessage.timestamp >= to
                 }
                 .forEach { storedMessage ->
-                    if (previousTime != 0L) {
-                        PREPARE_MESSAGE_HISTOGRAM
-                            .observe(SimpleTimer.elapsedSecondsFromNanos(previousTime, System.nanoTime()))
-                    }
+                    PREPARE_MESSAGE_HISTOGRAM
+                        .observe(SimpleTimer.elapsedSecondsFromNanos(previousTime, System.nanoTime()))
+
                     PROCESS_MESSAGE_HISTOGRAM.measure {
                         val rawMessage = TO_RAW_MESSAGE_HISTOGRAM.measure {
                             storedMessage.toRawMessage()

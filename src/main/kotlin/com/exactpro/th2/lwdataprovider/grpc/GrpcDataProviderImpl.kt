@@ -288,6 +288,7 @@ open class GrpcDataProviderImpl(
 
         } catch (e: Exception) {
             LOGGER.error(e) { "Load group request failure, request ${shortDebugString(request)}" }
+            responseObserver.onError(e)
         } finally {
             RequestIdPool.releaseId(requestId)
         }

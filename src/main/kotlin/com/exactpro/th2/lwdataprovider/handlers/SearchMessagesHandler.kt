@@ -66,8 +66,7 @@ class SearchMessagesHandler(
                                 index().isLessThanOrEqualTo(resumeFromId.index)
                             }
 
-                            request.startTimestamp?.let { timestampFrom().isGreaterThanOrEqualTo(it) }
-                            request.endTimestamp?.let { timestampTo().isLessThan(it) }
+                            modifyFilterBuilderTimestamps(request)
                             request.resultCountLimit?.let { limit(max(it - requestContext.loadedMessages, 0)) }
 
                         }.build()
@@ -89,8 +88,7 @@ class SearchMessagesHandler(
                         val filter = StoredMessageFilterBuilder().apply {
                             streamName().isEqualTo(stream)
                             direction().isEqualTo(direction)
-                            request.startTimestamp?.let { timestampFrom().isGreaterThanOrEqualTo(it) }
-                            request.endTimestamp?.let { timestampTo().isLessThan(it) }
+                            modifyFilterBuilderTimestamps(request)
                             request.resultCountLimit?.let { limit(max(it - requestContext.loadedMessages, 0)) }
                         }.build()
 

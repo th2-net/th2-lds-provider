@@ -16,7 +16,9 @@
 
 package com.exactpro.th2.lwdataprovider.handlers
 
+import com.exactpro.cradle.Order
 import com.exactpro.cradle.TimeRelation.AFTER
+import com.exactpro.cradle.TimeRelation.BEFORE
 import com.exactpro.cradle.messages.StoredMessageFilterBuilder
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.lwdataprovider.MessageRequestContext
@@ -64,6 +66,7 @@ class SearchMessagesHandler(
                                 index().isGreaterThanOrEqualTo(resumeFromId.index)
                             } else {
                                 index().isLessThanOrEqualTo(resumeFromId.index)
+                                order(Order.REVERSE)
                             }
 
                             modifyFilterBuilderTimestamps(request)
@@ -89,6 +92,9 @@ class SearchMessagesHandler(
                             streamName().isEqualTo(stream)
                             direction().isEqualTo(direction)
                             modifyFilterBuilderTimestamps(request)
+                            if(request.searchDirection == BEFORE){
+                                order(Order.REVERSE)
+                            }
                             request.resultCountLimit?.let { limit(max(it - requestContext.loadedMessages, 0)) }
                         }.build()
 

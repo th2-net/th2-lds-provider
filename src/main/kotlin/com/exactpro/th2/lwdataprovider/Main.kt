@@ -35,7 +35,7 @@ import kotlin.system.exitProcess
 
 private val logger = KotlinLogging.logger {}
 
-class Main {
+class Main(args: Array<String>) {
 
     private val configurationFactory: CommonFactory
 
@@ -45,16 +45,19 @@ class Main {
     private val lock = ReentrantLock()
     private val condition: Condition = lock.newCondition()
 
-    constructor(args: Array<String>) {
-
+    init {
         configureShutdownHook(resources, lock, condition)
-
+        Thread.setDefaultUncaughtExceptionHandler { t, e ->
+            "Unhandled exception on the thread ${t.name}".also { message ->
+                System.err.println(message)
+                e.printStackTrace()
+                logger.error(e) { message }
+            }
+        }
         configurationFactory = CommonFactory.createFromArguments(*args)
         resources += configurationFactory
-
         val configuration =
             Configuration(configurationFactory.getCustomConfiguration(CustomConfigurationClass::class.java))
-
         context = Context(
             configuration,
 
@@ -141,7 +144,7 @@ class Main {
 fun main(args: Array<String>) {
     try {
         Main(args).run()
-    } catch (ex: Exception) {
+    } catch (ex: Throwable) {
         logger.error(ex) { "Cannot start the box" }
         exitProcess(1)
     }

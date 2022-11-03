@@ -247,6 +247,7 @@ open class GrpcDataProviderImpl(
         request: CradleMessageGroupsRequest,
         responseObserver: StreamObserver<CradleMessageGroupsResponse>
     ) {
+        LOGGER.info { "load cradle group messages is starting, request ${shortDebugString(request)}" }
         val requestId = RequestIdPool.getId()
         try {
             val name = MESSAGES_FROM_GROUP.name
@@ -333,7 +334,7 @@ open class GrpcDataProviderImpl(
                 messageRouter.send(builder.build(), "to_codec")
             }
 
-            responseObserver.onNext(CradleMessageGroupsResponse.newBuilder().apply {
+            val response = CradleMessageGroupsResponse.newBuilder().apply {
                 messageIntervalInfoBuilder.apply {
                     this.startTimestamp = request.startTimestamp
                     this.endTimestamp = request.endTimestamp
@@ -341,14 +342,17 @@ open class GrpcDataProviderImpl(
                         .map { (_, value) -> value.build() }
                         .forEach(this::addMessagesInfo)
                 }
-            }.build())
+            }.build()
+            responseObserver.onNext(response)
             responseObserver.onCompleted()
 
+            LOGGER.info { "load cradle group messages has gracefully completed, response ${shortDebugString(response)}" }
         } catch (e: Exception) {
             LOGGER.error(e) { "Load group request failure, request ${shortDebugString(request)}" }
             responseObserver.onError(e)
         } finally {
             RequestIdPool.releaseId(requestId)
+            LOGGER.info { "load cradle group messages has end, request ${shortDebugString(request)}" }
         }
 
 

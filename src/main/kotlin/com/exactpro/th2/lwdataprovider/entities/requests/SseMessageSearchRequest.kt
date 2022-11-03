@@ -27,7 +27,6 @@ import com.exactpro.th2.lwdataprovider.grpc.toProviderMessageStreams
 import com.exactpro.th2.lwdataprovider.grpc.toProviderRelation
 import com.exactpro.th2.lwdataprovider.grpc.toStoredMessageId
 import java.time.Instant
-import kotlin.streams.toList
 
 data class SseMessageSearchRequest(
     val startTimestamp: Instant?,
@@ -43,10 +42,7 @@ data class SseMessageSearchRequest(
     val responseFormats: List<String>?
 ) {
     init {
-        if (keepOpen) {
-            requireNotNull(startTimestamp) { "the start timestamp must be specified if keep open is used" }
-            requireNotNull(endTimestamp) { "the end timestamp must be specified if keep open is used" }
-        }
+        checkRequest()
     }
 
     companion object {
@@ -97,12 +93,19 @@ data class SseMessageSearchRequest(
         responseFormats = parameters["responseFormats"]
     )
 
+
     constructor(grpcRequest: MessageSearchRequest) : this(
-        startTimestamp = grpcRequest.startTimestamp?.toInstant(),
+        startTimestamp = if (grpcRequest.hasStartTimestamp()){
+            grpcRequest.startTimestamp.toInstant()
+        } else null,
         stream = grpcRequest.streamList.map { it.toProviderMessageStreams() },
         searchDirection = grpcRequest.searchDirection.toProviderRelation(),
-        endTimestamp = grpcRequest.endTimestamp?.toInstant(),
-        resumeFromIdsList = toMessageIds(grpcRequest.streamPointerList),
+        endTimestamp = if (grpcRequest.hasEndTimestamp()){
+            grpcRequest.endTimestamp.toInstant()
+        } else null,
+        resumeFromIdsList = if (grpcRequest.streamPointerList.isNotEmpty()){
+            toMessageIds(grpcRequest.streamPointerList)
+        } else null,
         resultCountLimit = if (grpcRequest.hasResultCountLimit()) grpcRequest.resultCountLimit.value else null,
         keepOpen = if (grpcRequest.hasKeepOpen()) grpcRequest.keepOpen.value else false,
         attachedEvents = false, // disabled

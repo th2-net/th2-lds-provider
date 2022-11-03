@@ -19,6 +19,7 @@ package com.exactpro.th2.lwdataprovider.handlers
 import com.exactpro.cradle.Direction
 import com.exactpro.cradle.Order
 import com.exactpro.cradle.TimeRelation.AFTER
+import com.exactpro.cradle.TimeRelation.BEFORE
 import com.exactpro.cradle.messages.StoredMessageFilterBuilder
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.lwdataprovider.MessageRequestContext
@@ -62,9 +63,27 @@ class SearchMessagesHandler(
                         if (limitReached)
                             return@forEach
                         if (!requestContext.contextAlive)
-                            return@execute
-                        loadByResumeId(resumeFromId, request, requestContext, configuration)
-                        limitReached = requestContext.limitReached(request)
+                            return@execute;
+                        val filter = StoredMessageFilterBuilder().apply {
+                            streamName().isEqualTo(resumeFromId.streamName)
+                            direction().isEqualTo(resumeFromId.direction)
+                            if (request.searchDirection == AFTER) {
+                                index().isGreaterThanOrEqualTo(resumeFromId.index)
+                            } else {
+                                index().isLessThanOrEqualTo(resumeFromId.index)
+                                order(Order.REVERSE)
+                            }
+
+                            modifyFilterBuilderTimestamps(request)
+                            request.resultCountLimit?.let { limit(max(it - requestContext.loadedMessages, 0)) }
+
+                        }.build()
+
+                        if (!request.onlyRaw)
+                            cradleMsgExtractor.getMessages(filter, requestContext)
+                        else
+                            cradleMsgExtractor.getRawMessages(filter, requestContext)
+                        limitReached = request.resultCountLimit != null && request.resultCountLimit <= requestContext.loadedMessages
                     }
                 } else {
                     request.stream?.forEach { (stream, direction) ->
@@ -72,8 +91,22 @@ class SearchMessagesHandler(
                         if (limitReached)
                             return@forEach
                         if (!requestContext.contextAlive)
-                            return@execute
-                        loadByStream(stream, direction, request, requestContext, configuration)
+                            return@execute;
+
+                        val filter = StoredMessageFilterBuilder().apply {
+                            streamName().isEqualTo(stream)
+                            direction().isEqualTo(direction)
+                            modifyFilterBuilderTimestamps(request)
+                            if(request.searchDirection == BEFORE){
+                                order(Order.REVERSE)
+                            }
+                            request.resultCountLimit?.let { limit(max(it - requestContext.loadedMessages, 0)) }
+                        }.build()
+
+                        if (!request.onlyRaw)
+                            cradleMsgExtractor.getMessages(filter, requestContext)
+                        else
+                            cradleMsgExtractor.getRawMessages(filter, requestContext)
 
                         limitReached = requestContext.limitReached(request)
                     }

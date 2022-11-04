@@ -347,12 +347,12 @@ open class GrpcDataProviderImpl(
             responseObserver.onCompleted()
 
             LOGGER.info { "load cradle group messages has gracefully completed, response ${shortDebugString(response)}" }
-        } catch (e: Exception) {
-            LOGGER.error(e) { "Load group request failure, request ${shortDebugString(request)}" }
+        } catch (e: Throwable) {
+            LOGGER.error(e) { "Load group request failure, request" }
             responseObserver.onError(e)
         } finally {
+            LOGGER.info { "load cradle group messages has end, request" }
             RequestIdPool.releaseId(requestId)
-            LOGGER.info { "load cradle group messages has end, request ${shortDebugString(request)}" }
         }
 
 

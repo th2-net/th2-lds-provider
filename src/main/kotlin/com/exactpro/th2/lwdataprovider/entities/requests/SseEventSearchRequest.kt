@@ -34,13 +34,13 @@ class SseEventSearchRequest(
     val metadataOnly: Boolean,
     val attachedMessages: Boolean,
 
-    private val passedEndTimestamp: Instant?
+    passedEndTimestamp: Instant?
 ) {
 
     val endTimestamp : Instant?
 
     init {
-        endTimestamp = getInitEndTimestamp()
+        endTimestamp = getInitEndTimestamp(passedEndTimestamp)
         checkRequest()
     }
 
@@ -130,7 +130,7 @@ class SseEventSearchRequest(
         checkEndTimestamp()
     }
 
-    private fun getInitEndTimestamp() : Instant? {
+    private fun getInitEndTimestamp(passedEndTimestamp: Instant?) : Instant? {
         return if (resultCountLimit != null && passedEndTimestamp == null){
             if(searchDirection == TimeRelation.AFTER){
                 Instant.MAX

@@ -16,8 +16,11 @@
 
 package com.exactpro.th2.lwdataprovider.configuration
 
+import mu.KotlinLogging
 import java.util.*
+import kotlin.math.max
 
+private val LOGGER = KotlinLogging.logger { }
 
 class CustomConfigurationClass {
     var hostname: String? = null
@@ -35,18 +38,31 @@ class CustomConfigurationClass {
 
 class Configuration(customConfiguration: CustomConfigurationClass) {
 
-    val hostname: String = VariableBuilder.getVariable("hostname", customConfiguration.hostname, "localhost")
-    val port: Int = VariableBuilder.getVariable("port", customConfiguration.port, 8080)
-    val keepAliveTimeout: Long = VariableBuilder.getVariable("keepAliveTimeout", customConfiguration.keepAliveTimeout, 5000)
-    val maxBufferDecodeQueue: Int = VariableBuilder.getVariable("maxBufferDecodeQueue", customConfiguration.maxBufferDecodeQueue, 10_000)
-    val decodingTimeout: Long = VariableBuilder.getVariable("decodingTimeout", customConfiguration.decodingTimeout, 60_000)
-    val responseQueueSize: Int = VariableBuilder.getVariable("responseQueueSize", customConfiguration.responseQueueSize, 1000)
-    val execThreadPoolSize: Int = VariableBuilder.getVariable("execThreadPoolSize", customConfiguration.execThreadPoolSize, 10)
-    val batchSize: Int = VariableBuilder.getVariable("batchSize", customConfiguration.batchSize, 100)
-    val mode: Mode = VariableBuilder.getVariable("mode",
-        customConfiguration.mode?.let { Mode.valueOf(it.uppercase(Locale.getDefault())) }, Mode.HTTP)
-    val grpcBackPressure: Boolean = VariableBuilder.getVariable("grpcBackPressure", customConfiguration.grpcBackPressure, false)
-    val bufferPerQuery: Int = VariableBuilder.getVariable("bufferPerQuery", customConfiguration.bufferPerQuery, 0)
+    val hostname: String = VariableBuilder.getVariable(customConfiguration::hostname, "localhost")
+    val port: Int = VariableBuilder.getVariable(customConfiguration::port, 8080)
+    val keepAliveTimeout: Long = VariableBuilder.getVariable(customConfiguration::keepAliveTimeout, 5000)
+    val maxBufferDecodeQueue: Int = VariableBuilder.getVariable(customConfiguration::maxBufferDecodeQueue, 10_000)
+    val decodingTimeout: Long = VariableBuilder.getVariable(customConfiguration::decodingTimeout, 60_000)
+    val responseQueueSize: Int = VariableBuilder.getVariable(customConfiguration::responseQueueSize, 1000)
+    val execThreadPoolSize: Int = VariableBuilder.getVariable(customConfiguration::execThreadPoolSize, 10)
+    val batchSize: Int = VariableBuilder.getVariable(customConfiguration::batchSize, 100)
+    val mode: Mode = VariableBuilder.getVariable(customConfiguration::mode, Mode.HTTP) {
+        it.let { Mode.valueOf(it.uppercase(Locale.getDefault())) }
+    }
+    val grpcBackPressure: Boolean = VariableBuilder.getVariable(customConfiguration::grpcBackPressure, false)
+    val bufferPerQuery: Int = VariableBuilder.getVariable(customConfiguration::bufferPerQuery, max(maxBufferDecodeQueue / execThreadPoolSize, 1))
+    init {
+        check(bufferPerQuery <= maxBufferDecodeQueue) {
+            "buffer per queue ($bufferPerQuery) must be less or equal to the total buffer size ($maxBufferDecodeQueue)"
+        }
+        val batchBoundary = bufferPerQuery.takeIf { it > 0 } ?: maxBufferDecodeQueue
+        check(batchSize <= batchBoundary) {
+            "bath size ($batchSize) must be less or equal to $batchBoundary"
+        }
+        if (mode == Mode.GRPC && grpcBackPressure) {
+            LOGGER.warn { "gRPC backpressure works only with ${Mode.GRPC} mode but current mode is $mode" }
+        }
+    }
 }
 
 enum class Mode {

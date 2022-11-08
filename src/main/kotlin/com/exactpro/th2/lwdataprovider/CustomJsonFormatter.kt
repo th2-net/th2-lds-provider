@@ -82,7 +82,7 @@ class CustomJsonFormatter  {
                 sb.append('}')
             }
             Value.KindCase.NULL_VALUE -> {
-                sb.append("{\"nullValue\": {}")
+                sb.append("{\"nullValue\":\"NULL_VALUE\"}")
             }
             else -> {
             }

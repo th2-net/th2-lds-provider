@@ -21,12 +21,13 @@ import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.dataprovider.grpc.EventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
-import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
+import com.google.protobuf.Int32Value
 import com.google.protobuf.Timestamp
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import java.time.Instant
 import com.exactpro.th2.dataprovider.grpc.TimeRelation as GrpcTimeRelation
 
 class TestSseEventSearchRequest {
@@ -41,12 +42,11 @@ class TestSseEventSearchRequest {
             }
         }
 
-        // resumeFromId != null, startTimestamp and endTimestamp - nulls
+        // resumeFromId != null, startTimestamp == null and endTimestamp != null
         @Test
-        fun testTimestampNullsResumeIdNotNull(){
-            val eventSearchReq = SseEventSearchRequest(mapOf("resumeFromId" to listOf("1")))
+        fun testStartTimestampNullResumeIdNotNull(){
+            val eventSearchReq = SseEventSearchRequest(mapOf("resumeFromId" to listOf("1"), "endTimestamp" to listOf("2")))
             Assertions.assertNull(eventSearchReq.startTimestamp, "start timestamp must be null")
-            Assertions.assertNull(eventSearchReq.endTimestamp, "end timestamp must be null")
         }
 
         // startTimestamp - 1, endTimestamp - 2, searchDirection - AFTER (default)
@@ -67,7 +67,7 @@ class TestSseEventSearchRequest {
         @Test
         fun testEndAfterStartDirectionBefore(){
             assertThrows<InvalidRequestException>("must throw invalidRequestException"){
-                SseMessageSearchRequest(mapOf("startTimestamp" to listOf("1"),
+                SseEventSearchRequest(mapOf("startTimestamp" to listOf("1"),
                     "endTimestamp" to listOf("2"), "searchDirection" to listOf("previous")))
             }
         }
@@ -93,6 +93,34 @@ class TestSseEventSearchRequest {
                     "endTimestamp" to listOf("2"), "searchDirection" to listOf("next")))
             }
         }
+
+        @Test
+        fun testLimitNotSetEndTimestampNotSet(){
+            assertThrows<InvalidRequestException>("must throw invalidRequestException"){
+                SseEventSearchRequest(mapOf("startTimestamp" to listOf("1")))
+            }
+        }
+
+        @Test
+        fun testLimitSetEndTimestampNotSetDirAfter(){
+            val eventSearchReq = SseEventSearchRequest(mapOf("startTimestamp" to listOf("1"),
+                "resultCountLimit" to listOf("5")))
+            Assertions.assertEquals(Instant.MAX, eventSearchReq.endTimestamp)
+        }
+
+        @Test
+        fun testLimitSetEndTimestampNotSetDirBefore(){
+            val eventSearchReq = SseEventSearchRequest(mapOf("startTimestamp" to listOf("2"),
+                "resultCountLimit" to listOf("5"), "searchDirection" to listOf("previous")))
+            Assertions.assertEquals(Instant.MIN, eventSearchReq.endTimestamp)
+        }
+
+        @Test
+        fun testLimitSetEndTimestampSet(){
+            val eventSearchReq = SseEventSearchRequest(mapOf("startTimestamp" to listOf("1"),
+                "endTimestamp" to listOf("2"), "resultCountLimit" to listOf("5")))
+            Assertions.assertEquals(Instant.ofEpochMilli(2), eventSearchReq.endTimestamp)
+        }
     }
 
     @Nested
@@ -105,13 +133,13 @@ class TestSseEventSearchRequest {
             }
         }
 
-        // resumeFromId != null, startTimestamp and endTimestamp - nulls
+        // resumeFromId != null, startTimestamp == null and endTimestamp != null
         @Test
-        fun testTimestampNullsResumeIdNotNull(){
-            val grpcRequest = EventSearchRequest.newBuilder().setResumeFromId(EventID.newBuilder().setId("1")).build()
+        fun testStartTimestampNullResumeIdNotNull(){
+            val endTimestamp = Timestamp.newBuilder().setNanos(2).build()
+            val grpcRequest = EventSearchRequest.newBuilder().setResumeFromId(EventID.newBuilder().setId("1")).setEndTimestamp(endTimestamp).build()
             val eventSearchReq = SseEventSearchRequest(grpcRequest)
             Assertions.assertNull(eventSearchReq.startTimestamp, "start timestamp must be null")
-            Assertions.assertNull(eventSearchReq.endTimestamp, "end timestamp must be null")
         }
 
         // startTimestamp - 1, endTimestamp - 2, searchDirection - AFTER (default)
@@ -167,6 +195,44 @@ class TestSseEventSearchRequest {
             assertThrows<InvalidRequestException>("must throw invalidRequestException"){
                 SseEventSearchRequest(grpcRequest)
             }
+        }
+
+        @Test
+        fun testLimitNotSetEndTimestampNotSet(){
+            assertThrows<InvalidRequestException>("must throw invalidRequestException"){
+                val startTimestamp = Timestamp.newBuilder().setNanos(1).build()
+                SseEventSearchRequest(EventSearchRequest.newBuilder().setStartTimestamp(startTimestamp).build())
+            }
+        }
+
+        @Test
+        fun testLimitSetEndTimestampNotSetDirAfter(){
+            val startTimestamp = Timestamp.newBuilder().setNanos(1).build()
+            val resultCountLimit = Int32Value.newBuilder().setValue(5).build()
+            val grpcRequest = EventSearchRequest.newBuilder().setStartTimestamp(startTimestamp).setResultCountLimit(resultCountLimit).build()
+            val eventSearchReq = SseEventSearchRequest(grpcRequest)
+            Assertions.assertEquals(Instant.MAX, eventSearchReq.endTimestamp)
+        }
+
+        @Test
+        fun testLimitSetEndTimestampNotSetDirBefore(){
+            val startTimestamp = Timestamp.newBuilder().setNanos(2).build()
+            val resultCountLimit = Int32Value.newBuilder().setValue(5).build()
+            val grpcRequest = EventSearchRequest.newBuilder().setStartTimestamp(startTimestamp).setResultCountLimit(resultCountLimit).
+                    setSearchDirection(GrpcTimeRelation.PREVIOUS).build()
+            val eventSearchReq = SseEventSearchRequest(grpcRequest)
+            Assertions.assertEquals(Instant.MIN, eventSearchReq.endTimestamp)
+        }
+
+        @Test
+        fun testLimitSetEndTimestampSet(){
+            val startTimestamp = Timestamp.newBuilder().setNanos(1).build()
+            val endTimestamp = Timestamp.newBuilder().setNanos(2).build()
+            val resultCountLimit = Int32Value.newBuilder().setValue(5).build()
+            val grpcRequest = EventSearchRequest.newBuilder().setStartTimestamp(startTimestamp).setEndTimestamp(endTimestamp).
+                    setResultCountLimit(resultCountLimit).build()
+            val eventSearchReq = SseEventSearchRequest(grpcRequest)
+            Assertions.assertEquals(Instant.ofEpochSecond(0, 2), eventSearchReq.endTimestamp)
         }
     }
 }

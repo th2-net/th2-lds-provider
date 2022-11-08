@@ -128,7 +128,7 @@ data class SseMessageSearchRequest(
             throw InvalidRequestException("One of the 'startTimestamp' or 'resumeFromId' or 'messageId' must not be null")
     }
 
-    fun checkRequest() {
+    private fun checkRequest() {
         checkStartPoint()
         checkEndTimestamp()
     }

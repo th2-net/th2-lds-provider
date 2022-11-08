@@ -18,11 +18,17 @@ package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.th2.common.message.message
 import com.exactpro.th2.common.value.nullValue
+import com.exactpro.th2.common.value.toValue
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 
 internal class TestCustomJsonFormatter {
     private val formatter = CustomJsonFormatter()
+    private val objectMapper = ObjectMapper()
 
     @Test
     fun `prints null values correctly`() {
@@ -31,11 +37,28 @@ internal class TestCustomJsonFormatter {
         }.build()
 
         val result = formatter.print(message)
+        assertDoesNotThrow({ "invalid JSON: $result" }) {
+            objectMapper.readTree(result)
+        }
         assertEquals(
             // language JSON
             "{\"fields\":{\"nullValue\":{\"nullValue\":\"NULL_VALUE\"}}}",
             result,
             "unexpected result for null value",
         )
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["\\", "/", "\"", "'"])
+    fun `escapes character`(value: String) {
+        val message = message().apply {
+            putFields("value", value.toValue())
+        }.build()
+
+        val result = formatter.print(message)
+        val node = assertDoesNotThrow({ "invalid JSON: $result" }) {
+            objectMapper.readTree(result)
+        }
+        assertEquals(value, node.get("fields")?.get("value")?.get("simpleValue")?.asText(), "unexpected value in json $result")
     }
 }

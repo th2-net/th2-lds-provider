@@ -27,6 +27,7 @@ class CustomJsonFormatter  {
     
     companion object {
         private const val QUOTE_CHAR = '"'.code
+        private const val BACK_SLASH = '\\'.code
     }
     
     fun print(msg : Message) : String {
@@ -91,7 +92,7 @@ class CustomJsonFormatter  {
 
     private fun isNeedToEscape(s: String) : Boolean {
         // ascii 32 is space, all chars below should be escaped
-        return s.chars().anyMatch { it < 32 || it == QUOTE_CHAR }
+        return s.chars().anyMatch { it < 32 || it == QUOTE_CHAR || it == BACK_SLASH }
     }
     
     private fun convertStringToJson(s: String, builder: StringBuilder) {

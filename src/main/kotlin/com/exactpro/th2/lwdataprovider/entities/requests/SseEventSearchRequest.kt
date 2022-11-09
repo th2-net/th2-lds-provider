@@ -23,19 +23,24 @@ import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestExcepti
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import java.time.Instant
 
-data class SseEventSearchRequest(
+class SseEventSearchRequest(
     val startTimestamp: Instant?,
     val parentEvent: ProviderEventId?,
     val searchDirection: TimeRelation,
-    val endTimestamp: Instant?,
     val resumeFromId: String?,
     val resultCountLimit: Int?,
     val keepOpen: Boolean,
     val limitForParent: Long?,
     val metadataOnly: Boolean,
-    val attachedMessages: Boolean
+    val attachedMessages: Boolean,
+
+    passedEndTimestamp: Instant?
 ) {
+
+    val endTimestamp : Instant
+
     init {
+        endTimestamp = getInitEndTimestamp(passedEndTimestamp, resultCountLimit, searchDirection)
         checkRequest()
     }
 
@@ -54,7 +59,7 @@ data class SseEventSearchRequest(
         searchDirection = parameters["searchDirection"]?.firstOrNull()?.let {
             asCradleTimeRelation(it)
         } ?: TimeRelation.AFTER,
-        endTimestamp = parameters["endTimestamp"]?.firstOrNull()?.let { Instant.ofEpochMilli(it.toLong()) },
+        passedEndTimestamp = parameters["endTimestamp"]?.firstOrNull()?.let { Instant.ofEpochMilli(it.toLong()) },
         resumeFromId = parameters["resumeFromId"]?.firstOrNull(),
         resultCountLimit = parameters["resultCountLimit"]?.firstOrNull()?.toInt(),
         keepOpen = parameters["keepOpen"]?.firstOrNull()?.toBoolean() ?: false,
@@ -77,7 +82,7 @@ data class SseEventSearchRequest(
                 else -> TimeRelation.AFTER
             }
         },
-        endTimestamp = if (request.hasEndTimestamp())
+        passedEndTimestamp = if (request.hasEndTimestamp())
             request.endTimestamp.let {
                 Instant.ofEpochSecond(it.seconds, it.nanos.toLong())
             } else null,
@@ -102,7 +107,7 @@ data class SseEventSearchRequest(
     )
 
     private fun checkEndTimestamp() {
-        if (endTimestamp == null || startTimestamp == null) return
+        if (startTimestamp == null) return
 
         if (searchDirection == TimeRelation.AFTER) {
             if (startTimestamp.isAfter(endTimestamp))
@@ -118,8 +123,15 @@ data class SseEventSearchRequest(
             throw InvalidRequestException("One of the 'startTimestamp' or 'resumeFromId' must not be null")
     }
 
-    fun checkRequest() {
+    private fun checkRequest() {
         checkStartPoint()
         checkEndTimestamp()
+    }
+
+    override fun toString(): String {
+        return "SseEventSearchRequest(startTimestamp=$startTimestamp, endTimestamp=$endTimestamp, parentEvent=$parentEvent," +
+                " searchDirection=$searchDirection, resumeFromId=$resumeFromId, resultCountLimit=$resultCountLimit," +
+                " keepOpen=$keepOpen, limitForParent=$limitForParent, metadataOnly=$metadataOnly, " +
+                "attachedMessages=$attachedMessages)"
     }
 }

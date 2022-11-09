@@ -14,18 +14,21 @@
  * limitations under the License.
  ******************************************************************************/
 
-package com.exactpro.th2.lwdataprovider.handlers
+package com.exactpro.th2.lwdataprovider.entities.requests
 
-import com.exactpro.cradle.TimeRelation.AFTER
-import com.exactpro.cradle.messages.StoredMessageFilterBuilder
-import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
+import com.exactpro.cradle.TimeRelation
+import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
+import java.time.Instant
 
-fun StoredMessageFilterBuilder.modifyFilterBuilderTimestamps(request: SseMessageSearchRequest){
-    if (request.searchDirection == AFTER){
-        request.startTimestamp?.let { timestampFrom().isGreaterThanOrEqualTo(it) }
-        request.endTimestamp?.let { timestampTo().isLessThan(it) }
+fun getInitEndTimestamp(passedEndTimestamp: Instant?, resultCountLimit: Int?,
+                        searchDirection: TimeRelation) : Instant {
+    return if (resultCountLimit != null && passedEndTimestamp == null){
+        if(searchDirection == TimeRelation.AFTER){
+            Instant.MAX
+        } else {
+            Instant.MIN
+        }
     } else {
-        request.endTimestamp?.let { timestampFrom().isGreaterThanOrEqualTo(it) }
-        request.startTimestamp?.let { timestampTo().isLessThan(it) }
+        passedEndTimestamp ?: throw InvalidRequestException("If limit is not set, passed end timestamp must be not null")
     }
 }

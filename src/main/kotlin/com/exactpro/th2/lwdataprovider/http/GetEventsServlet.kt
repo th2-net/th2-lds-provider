@@ -50,7 +50,6 @@ class GetEventsServlet
         logger.info { "Received search sse event request with parameters: $queryParametersMap" }
 
         val request = SseEventSearchRequest(queryParametersMap)
-        request.checkRequest()
         
         val queue = ArrayBlockingQueue<SseEvent>(configuration.responseQueueSize)
         val sseResponseBuilder = SseResponseHandler(queue, SseResponseBuilder(jacksonMapper))

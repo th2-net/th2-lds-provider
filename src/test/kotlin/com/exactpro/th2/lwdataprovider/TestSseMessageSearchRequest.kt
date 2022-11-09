@@ -21,11 +21,13 @@ import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest
 import com.exactpro.th2.dataprovider.grpc.MessageStreamPointer
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
+import com.google.protobuf.Int32Value
 import com.google.protobuf.Timestamp
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import java.time.Instant
 import com.exactpro.th2.dataprovider.grpc.TimeRelation as GrpcTimeRelation
 
 class TestSseMessageSearchRequest {
@@ -40,12 +42,11 @@ class TestSseMessageSearchRequest {
             }
         }
 
-        // resumeFromIdsList != null, startTimestamp and endTimestamp - nulls
+        // resumeFromId != null, startTimestamp == null and endTimestamp != null
         @Test
-        fun testTimestampNullsResumeIdListNotNull(){
-            val messageSearchReq = SseMessageSearchRequest(mapOf("messageId" to listOf("name:first:1")))
+        fun testStartTimestampNullResumeIdListNotNull(){
+            val messageSearchReq = SseMessageSearchRequest(mapOf("messageId" to listOf("name:first:1"), "endTimestamp" to listOf("2")))
             Assertions.assertNull(messageSearchReq.startTimestamp, "start timestamp must be null")
-            Assertions.assertNull(messageSearchReq.endTimestamp, "end timestamp must be null")
         }
 
         // startTimestamp - 1, endTimestamp - 2, searchDirection - AFTER (default)
@@ -91,6 +92,34 @@ class TestSseMessageSearchRequest {
                     "endTimestamp" to listOf("2"), "searchDirection" to listOf("next")))
             }
         }
+
+        @Test
+        fun testLimitNotSetEndTimestampNotSet(){
+            assertThrows<InvalidRequestException>("must throw invalidRequestException"){
+                SseMessageSearchRequest(mapOf("startTimestamp" to listOf("1")))
+            }
+        }
+
+        @Test
+        fun testLimitSetEndTimestampNotSetDirAfter(){
+            val messageSearchReq = SseMessageSearchRequest(mapOf("startTimestamp" to listOf("1"),
+                "resultCountLimit" to listOf("5")))
+            Assertions.assertEquals(Instant.MAX, messageSearchReq.endTimestamp)
+        }
+
+        @Test
+        fun testLimitSetEndTimestampNotSetDirBefore(){
+            val messageSearchReq = SseMessageSearchRequest(mapOf("startTimestamp" to listOf("2"),
+                "resultCountLimit" to listOf("5"), "searchDirection" to listOf("previous")))
+            Assertions.assertEquals(Instant.MIN, messageSearchReq.endTimestamp)
+        }
+
+        @Test
+        fun testLimitSetEndTimestampSet(){
+            val messageSearchReq = SseMessageSearchRequest(mapOf("startTimestamp" to listOf("1"),
+                "endTimestamp" to listOf("2"), "resultCountLimit" to listOf("5")))
+            Assertions.assertEquals(Instant.ofEpochMilli(2), messageSearchReq.endTimestamp)
+        }
     }
 
     @Nested
@@ -103,15 +132,15 @@ class TestSseMessageSearchRequest {
             }
         }
 
-        // resumeFromIdsList != null, startTimestamp and endTimestamp - nulls
+        // resumeFromId != null, startTimestamp == null and endTimestamp != null
         @Test
-        fun testTimestampNullsResumeIdNotNull(){
+        fun testStartTimestampNullResumeIdNotNull(){
             val messageStreamP = MessageStreamPointer.newBuilder()
+            val endTimestamp = Timestamp.newBuilder().setNanos(2)
             val grpcRequest = MessageSearchRequest.newBuilder().addStreamPointer(messageStreamP)
-                .build()
+                .setEndTimestamp(endTimestamp).build()
             val messageSearchReq = SseMessageSearchRequest(grpcRequest)
             Assertions.assertNull(messageSearchReq.startTimestamp, "start timestamp must be null")
-            Assertions.assertNull(messageSearchReq.endTimestamp, "end timestamp must be null")
         }
 
         // startTimestamp - 1, endTimestamp - 2, searchDirection - AFTER (default)
@@ -167,6 +196,44 @@ class TestSseMessageSearchRequest {
             assertThrows<InvalidRequestException>("must throw invalidRequestException"){
                 SseMessageSearchRequest(grpcRequest)
             }
+        }
+
+        @Test
+        fun testLimitNotSetEndTimestampNotSet(){
+            assertThrows<InvalidRequestException>("must throw invalidRequestException"){
+                val startTimestamp = Timestamp.newBuilder().setNanos(1).build()
+                SseMessageSearchRequest(MessageSearchRequest.newBuilder().setStartTimestamp(startTimestamp).build())
+            }
+        }
+
+        @Test
+        fun testLimitSetEndTimestampNotSetDirAfter(){
+            val startTimestamp = Timestamp.newBuilder().setNanos(1).build()
+            val resultCountLimit = Int32Value.newBuilder().setValue(5).build()
+            val grpcRequest = MessageSearchRequest.newBuilder().setStartTimestamp(startTimestamp).setResultCountLimit(resultCountLimit).build()
+            val messageSearchReq = SseMessageSearchRequest(grpcRequest)
+            Assertions.assertEquals(Instant.MAX, messageSearchReq.endTimestamp)
+        }
+
+        @Test
+        fun testLimitSetEndTimestampNotSetDirBefore(){
+            val startTimestamp = Timestamp.newBuilder().setNanos(2).build()
+            val resultCountLimit = Int32Value.newBuilder().setValue(5).build()
+            val grpcRequest = MessageSearchRequest.newBuilder().setStartTimestamp(startTimestamp).setResultCountLimit(resultCountLimit).
+            setSearchDirection(GrpcTimeRelation.PREVIOUS).build()
+            val messageSearchReq = SseMessageSearchRequest(grpcRequest)
+            Assertions.assertEquals(Instant.MIN, messageSearchReq.endTimestamp)
+        }
+
+        @Test
+        fun testLimitSetEndTimestampSet(){
+            val startTimestamp = Timestamp.newBuilder().setNanos(1).build()
+            val endTimestamp = Timestamp.newBuilder().setNanos(2).build()
+            val resultCountLimit = Int32Value.newBuilder().setValue(5).build()
+            val grpcRequest = MessageSearchRequest.newBuilder().setStartTimestamp(startTimestamp).setEndTimestamp(endTimestamp).
+            setResultCountLimit(resultCountLimit).build()
+            val messageSearchReq = SseMessageSearchRequest(grpcRequest)
+            Assertions.assertEquals(Instant.ofEpochSecond(0, 2), messageSearchReq.endTimestamp)
         }
     }
 }

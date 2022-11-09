@@ -23,9 +23,9 @@ import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 fun StoredMessageFilterBuilder.modifyFilterBuilderTimestamps(request: SseMessageSearchRequest){
     if (request.searchDirection == AFTER){
         request.startTimestamp?.let { timestampFrom().isGreaterThanOrEqualTo(it) }
-        request.endTimestamp?.let { timestampTo().isLessThan(it) }
+        request.endTimestamp.let { timestampTo().isLessThan(it) }
     } else {
-        request.endTimestamp?.let { timestampFrom().isGreaterThanOrEqualTo(it) }
+        request.endTimestamp.let { timestampFrom().isGreaterThanOrEqualTo(it) }
         request.startTimestamp?.let { timestampTo().isLessThan(it) }
     }
 }

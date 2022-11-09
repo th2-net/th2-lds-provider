@@ -137,6 +137,13 @@ class SseMessageSearchRequest(
         checkStartPoint()
         checkEndTimestamp()
     }
+
+    override fun toString(): String {
+        return "SseMessageSearchRequest(startTimestamp=$startTimestamp, endTimestamp=$endTimestamp, stream=$stream," +
+                " searchDirection=$searchDirection, resultCountLimit=$resultCountLimit, " +
+                "keepOpen=$keepOpen, attachedEvents=$attachedEvents, lookupLimitDays=$lookupLimitDays, " +
+                "resumeFromIdsList=$resumeFromIdsList, onlyRaw=$onlyRaw)"
+    }
 }
 
 data class ProviderMessageStream(val sessionAlias: String, val direction: Direction)

@@ -129,9 +129,9 @@ class SseEventSearchRequest(
     }
 
     override fun toString(): String {
-        return "SseEventSearchRequest(startTimestamp=$startTimestamp, parentEvent=$parentEvent," +
+        return "SseEventSearchRequest(startTimestamp=$startTimestamp, endTimestamp=$endTimestamp, parentEvent=$parentEvent," +
                 " searchDirection=$searchDirection, resumeFromId=$resumeFromId, resultCountLimit=$resultCountLimit," +
                 " keepOpen=$keepOpen, limitForParent=$limitForParent, metadataOnly=$metadataOnly, " +
-                "attachedMessages=$attachedMessages, endTimestamp=$endTimestamp)"
+                "attachedMessages=$attachedMessages)"
     }
 }

@@ -28,19 +28,24 @@ import com.exactpro.th2.lwdataprovider.grpc.toProviderRelation
 import com.exactpro.th2.lwdataprovider.grpc.toStoredMessageId
 import java.time.Instant
 
-data class SseMessageSearchRequest(
+class SseMessageSearchRequest(
     val startTimestamp: Instant?,
     val stream: List<ProviderMessageStream>?,
     val searchDirection: TimeRelation,
-    val endTimestamp: Instant?,
     val resultCountLimit: Int?,
     val keepOpen: Boolean,
     val attachedEvents: Boolean,
     val lookupLimitDays: Int?,
     val resumeFromIdsList: List<StoredMessageId>?,
-    val onlyRaw: Boolean
+    val onlyRaw: Boolean,
+
+    passedEndTimestamp: Instant?
 ) {
+
+    val endTimestamp : Instant
+
     init {
+        endTimestamp = getInitEndTimestamp(passedEndTimestamp, resultCountLimit, searchDirection)
         checkRequest()
     }
 
@@ -82,7 +87,7 @@ data class SseMessageSearchRequest(
         searchDirection = parameters["searchDirection"]?.firstOrNull()?.let {
             asCradleTimeRelation(it)
         } ?: TimeRelation.AFTER,
-        endTimestamp = parameters["endTimestamp"]?.firstOrNull()?.let { Instant.ofEpochMilli(it.toLong()) },
+        passedEndTimestamp = parameters["endTimestamp"]?.firstOrNull()?.let { Instant.ofEpochMilli(it.toLong()) },
         resumeFromIdsList = parameters["messageId"]?.map { StoredMessageId.fromString(it) },
         resultCountLimit = parameters["resultCountLimit"]?.firstOrNull()?.toInt(),
         keepOpen = parameters["keepOpen"]?.firstOrNull()?.toBoolean() ?: false,
@@ -98,7 +103,7 @@ data class SseMessageSearchRequest(
         } else null,
         stream = grpcRequest.streamList.map { it.toProviderMessageStreams() },
         searchDirection = grpcRequest.searchDirection.toProviderRelation(),
-        endTimestamp = if (grpcRequest.hasEndTimestamp()){
+        passedEndTimestamp = if (grpcRequest.hasEndTimestamp()){
             grpcRequest.endTimestamp.toInstant()
         } else null,
         resumeFromIdsList = if (grpcRequest.streamPointerList.isNotEmpty()){
@@ -112,7 +117,7 @@ data class SseMessageSearchRequest(
     )
 
     private fun checkEndTimestamp() {
-        if (endTimestamp == null || startTimestamp == null) return
+        if (startTimestamp == null) return
 
         if (searchDirection == TimeRelation.AFTER) {
             if (startTimestamp.isAfter(endTimestamp))

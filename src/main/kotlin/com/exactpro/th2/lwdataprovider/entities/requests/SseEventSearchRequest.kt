@@ -37,10 +37,10 @@ class SseEventSearchRequest(
     passedEndTimestamp: Instant?
 ) {
 
-    val endTimestamp : Instant?
+    val endTimestamp : Instant
 
     init {
-        endTimestamp = getInitEndTimestamp(passedEndTimestamp)
+        endTimestamp = getInitEndTimestamp(passedEndTimestamp, resultCountLimit, searchDirection)
         checkRequest()
     }
 
@@ -107,8 +107,6 @@ class SseEventSearchRequest(
     )
 
     private fun checkEndTimestamp() {
-        if (endTimestamp == null) throw InvalidRequestException("endTimestamp must be not null")
-
         if (startTimestamp == null) return
 
         if (searchDirection == TimeRelation.AFTER) {
@@ -128,14 +126,6 @@ class SseEventSearchRequest(
     private fun checkRequest() {
         checkStartPoint()
         checkEndTimestamp()
-    }
-
-    private fun getInitEndTimestamp(passedEndTimestamp: Instant?) : Instant? {
-        return if (resultCountLimit != null && passedEndTimestamp == null){
-            if(searchDirection == TimeRelation.AFTER){
-                Instant.MAX
-            } else Instant.MIN
-        } else passedEndTimestamp
     }
 
     override fun toString(): String {

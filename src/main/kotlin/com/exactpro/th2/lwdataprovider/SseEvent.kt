@@ -40,39 +40,39 @@ enum class EventType {
 
 data class SseEvent(val data: String = "empty data", val event: EventType, val metadata: String? = null) {
     companion object {
-        fun build(jacksonMapper: ObjectMapper, event: EventTreeNode, counter: AtomicLong): SseEvent {
+        fun build(jacksonMapper: ObjectMapper, event: EventTreeNode, counter: Long): SseEvent {
             return SseEvent(
                 jacksonMapper.writeValueAsString(event),
                 EventType.EVENT,
-                counter.incrementAndGet().toString()
+                counter.toString()
             )
         }
 
-        fun build(jacksonMapper: ObjectMapper, event: Event, counter: AtomicLong): SseEvent {
+        fun build(jacksonMapper: ObjectMapper, event: Event, counter: Long): SseEvent {
             return SseEvent(
                 jacksonMapper.writeValueAsString(event),
                 EventType.EVENT,
-                counter.incrementAndGet().toString()
+                counter.toString()
             )
         }
 
-        fun build(jacksonMapper: ObjectMapper, message: ProviderMessage, counter: AtomicLong): SseEvent {
+        fun build(jacksonMapper: ObjectMapper, message: ProviderMessage, counter: Long): SseEvent {
             return SseEvent(
                 jacksonMapper.writeValueAsString(message),
                 EventType.MESSAGE,
-                counter.incrementAndGet().toString()
+                counter.toString()
             )
         }
 
         fun build(
             jacksonMapper: ObjectMapper,
             lastScannedObjectInfo: LastScannedObjectInfo,
-            counter: AtomicLong
+            counter: Long
         ): SseEvent {
             return SseEvent(
                 data = jacksonMapper.writeValueAsString(lastScannedObjectInfo),
                 event = EventType.KEEP_ALIVE,
-                metadata = counter.incrementAndGet().toString()
+                metadata = counter.toString()
             )
         }
         

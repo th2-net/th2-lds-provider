@@ -46,7 +46,10 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
     }
 
     fun getEvents(filter: SseEventSearchRequest, requestContext: EventRequestContext) {
-        val dates = splitByDates(filter.startTimestamp, filter.endTimestamp)
+        val dates = splitByDates(
+            requireNotNull(filter.startTimestamp) { "start timestamp is not set" },
+            requireNotNull(filter.endTimestamp) { "end timestamp is not set" }
+        )
         if (filter.resultCountLimit != null && filter.resultCountLimit > 0) {
             requestContext.eventsLimit = filter.resultCountLimit
         }
@@ -110,9 +113,7 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
     }
 
 
-    private fun splitByDates(from: Instant?, to: Instant?): Collection<Pair<Instant, Instant>> {
-        checkNotNull(from)
-        checkNotNull(to)
+    private fun splitByDates(from: Instant, to: Instant): Collection<Pair<Instant, Instant>> {
         require(!from.isAfter(to)) { "Lower boundary should specify timestamp before upper boundary, but got $from > $to" }
         var localFrom: LocalDateTime = toLocal(from)
         val localTo: LocalDateTime = toLocal(to)

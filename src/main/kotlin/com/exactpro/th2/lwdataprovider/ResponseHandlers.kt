@@ -22,12 +22,11 @@ import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.google.gson.Gson
 import java.util.Collections
 import java.util.concurrent.ArrayBlockingQueue
-import java.util.concurrent.atomic.AtomicLong
 
 interface ResponseHandler {
 
     fun finishStream()
-    fun keepAliveEvent(obj: LastScannedObjectInfo, counter: AtomicLong)
+    fun keepAliveEvent(obj: LastScannedObjectInfo, counter: Long)
     fun writeErrorMessage(text: String)
     fun writeErrorMessage(error: Throwable)
 }
@@ -39,7 +38,7 @@ class SseResponseHandler (val buffer: ArrayBlockingQueue<SseEvent>,
         buffer.put(SseEvent(event = EventType.CLOSE))
     }
 
-    override fun keepAliveEvent(obj: LastScannedObjectInfo, counter: AtomicLong) {
+    override fun keepAliveEvent(obj: LastScannedObjectInfo, counter: Long) {
         buffer.put(responseBuilder.build(obj, counter))
     }
 
@@ -62,7 +61,7 @@ class GrpcResponseHandler(val buffer: ArrayBlockingQueue<GrpcEvent>) : ResponseH
             buffer.put(GrpcEvent(close = true))
     }
 
-    override fun keepAliveEvent(obj: LastScannedObjectInfo, counter: AtomicLong) {
+    override fun keepAliveEvent(obj: LastScannedObjectInfo, counter: Long) {
 
     }
 

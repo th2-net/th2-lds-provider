@@ -51,7 +51,7 @@ abstract class RequestContext(
     }
 
     fun keepAliveEvent() {
-        channelMessages.keepAliveEvent(scannedObjectInfo, counter);
+        channelMessages.keepAliveEvent(scannedObjectInfo, counter.incrementAndGet());
     }
 
     fun cancel() {
@@ -124,12 +124,12 @@ abstract class MessageRequestContext(
     }
 
     fun startStep(name: String): StepHolder {
-        return StepHolder(name, METRICS.labels(name).startTimer())
+        return StepHolder(name, STEP_METRICS.labels(name).startTimer())
     }
 
     companion object {
-        private val METRICS = Histogram.build(
-            "message_pipeline_hist_time", "Time spent on each step for a message"
+        private val STEP_METRICS = Histogram.build(
+            "th2_ldp_message_pipeline_hist_time", "Time spent on each step for a message"
         ).buckets(.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, 25.0, 50.0, 75.0)
             .labelNames("step")
             .register()
@@ -185,7 +185,7 @@ abstract class RequestedMessageDetails(
     fun notifyMessage() {
         context.apply {
             requestedMessages.remove(id)
-            scannedObjectInfo.update(id, Instant.now(), counter)
+            scannedObjectInfo.update(id, Instant.now(), counter.get())
             if (requestedMessages.isEmpty() && allMessagesRequested.get()) {
                 addStreamInfo()
                 finishStream()

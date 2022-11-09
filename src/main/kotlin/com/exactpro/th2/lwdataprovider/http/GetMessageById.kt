@@ -17,7 +17,11 @@
 package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.cradle.Direction
-import com.exactpro.th2.lwdataprovider.*
+import com.exactpro.th2.lwdataprovider.EventType
+import com.exactpro.th2.lwdataprovider.MessageRequestContext
+import com.exactpro.th2.lwdataprovider.SseEvent
+import com.exactpro.th2.lwdataprovider.SseResponseBuilder
+import com.exactpro.th2.lwdataprovider.SseResponseHandler
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
@@ -30,25 +34,19 @@ import java.util.concurrent.ArrayBlockingQueue
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
 
-class GetMessageById (
-    private val configuration: Configuration, private val jacksonMapper: ObjectMapper,
+class GetMessageById(
+    private val configuration: Configuration,
+    private val jacksonMapper: ObjectMapper,
     private val keepAliveHandler: KeepAliveHandler,
     private val searchMessagesHandler: SearchMessagesHandler
-)
-    : NoSseServlet() {
-
-    private val customJsonFormatter = CustomJsonFormatter()
+) : NoSseServlet() {
 
     companion object {
         private val logger = KotlinLogging.logger { }
     }
-    
 
-    override fun doGet(req: HttpServletRequest?, resp: HttpServletResponse?) {
 
-        checkNotNull(req)
-        checkNotNull(resp)
-
+    override fun doGet(req: HttpServletRequest, resp: HttpServletResponse) {
         val queue = ArrayBlockingQueue<SseEvent>(2)
         var msgId = req.pathInfo
         if (msgId.startsWith('/'))
@@ -73,8 +71,8 @@ class GetMessageById (
         reqContext?.let { keepAliveHandler.removeKeepAliveData(it) }
         logger.info { "Processing search sse messages request finished" }
     }
-    
-    private fun checkId (msgId: String, out: ArrayBlockingQueue<SseEvent>) : String? {
+
+    private fun checkId(msgId: String, out: ArrayBlockingQueue<SseEvent>): String? {
 
         if (!msgId.contains('/') && !msgId.contains('?')) {
             val split = msgId.split(':')
@@ -85,10 +83,18 @@ class GetMessageById (
                     return split[0] + ":" + split[1].lowercase(Locale.getDefault()) + ":" + split[2]
             }
         }
-        
+
         logger.error("Invalid message id: $msgId")
-        out.put(SseEvent(Gson().toJson(Collections.singletonMap("message",
-            "Invalid message id: $msgId")), EventType.ERROR))
+        out.put(
+            SseEvent(
+                Gson().toJson(
+                    Collections.singletonMap(
+                        "message",
+                        "Invalid message id: $msgId"
+                    )
+                ), EventType.ERROR
+            )
+        )
         out.put(SseEvent(event = EventType.CLOSE))
         return null
     }

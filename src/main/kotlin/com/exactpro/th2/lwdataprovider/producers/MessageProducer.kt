@@ -28,24 +28,22 @@ class MessageProducer {
 
     companion object {
 
-        public fun createMessage(rawMessage: RequestedMessageDetails, formatter: CustomJsonFormatter): ProviderMessage {
+        fun createMessage(rawMessage: RequestedMessageDetails, formatter: CustomJsonFormatter): ProviderMessage {
             return ProviderMessage(
                 rawMessage.storedMessage,
-                rawMessage.parsedMessage?.let {
-                    it.stream().map { msg ->
-                        ProviderParsedMessage(msg.metadata.id, formatter.print(msg))
-                    }.toList() 
-                } ?: Collections.emptyList<ProviderParsedMessage>(),
+                rawMessage.parsedMessage?.asSequence()?.map { msg ->
+                    ProviderParsedMessage(msg.metadata.id, formatter.print(msg))
+                }?.toList() ?: emptyList(),
                 rawMessage.rawMessage.let {
                     Base64.getEncoder().encodeToString(it.body.toByteArray())
                 }
             )
         }
 
-        public fun createOnlyRawMessage(rawMessage: RequestedMessageDetails): ProviderMessage {
+        fun createOnlyRawMessage(rawMessage: RequestedMessageDetails): ProviderMessage {
             return ProviderMessage(
                 rawMessage.storedMessage,
-                Collections.emptyList<ProviderParsedMessage>(),
+                emptyList(),
                 rawMessage.rawMessage.let {
                     Base64.getEncoder().encodeToString(it.body.toByteArray())
                 }

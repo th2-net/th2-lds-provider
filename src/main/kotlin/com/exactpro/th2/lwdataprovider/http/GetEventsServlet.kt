@@ -16,40 +16,36 @@
 
 package com.exactpro.th2.lwdataprovider.http
 
-import com.exactpro.th2.lwdataprovider.SseResponseHandler
-import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
+import com.exactpro.th2.lwdataprovider.SseResponseHandler
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
+import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import com.fasterxml.jackson.databind.ObjectMapper
 import mu.KotlinLogging
 import java.util.concurrent.ArrayBlockingQueue
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
 
-class GetEventsServlet
-    (private val configuration: Configuration, private val jacksonMapper: ObjectMapper,
-     private val keepAliveHandler: KeepAliveHandler,
-     private val searchEventsHandler: SearchEventsHandler
-     )
-    : SseServlet() {
+class GetEventsServlet(
+    private val configuration: Configuration,
+    private val jacksonMapper: ObjectMapper,
+    private val keepAliveHandler: KeepAliveHandler,
+    private val searchEventsHandler: SearchEventsHandler
+) : SseServlet() {
 
     companion object {
         private val logger = KotlinLogging.logger { }
     }
-    
-    override fun doGet(req: HttpServletRequest?, resp: HttpServletResponse?) {
-        
-        checkNotNull(req)
-        checkNotNull(resp)
 
+    override fun doGet(req: HttpServletRequest, resp: HttpServletResponse) {
         val queryParametersMap = getParameters(req)
         logger.info { "Received search sse event request with parameters: $queryParametersMap" }
 
         val request = SseEventSearchRequest(queryParametersMap)
-        
+
         val queue = ArrayBlockingQueue<SseEvent>(configuration.responseQueueSize)
         val sseResponseBuilder = SseResponseHandler(queue, SseResponseBuilder(jacksonMapper))
         val reqContext = SseEventRequestContext(sseResponseBuilder)
@@ -60,6 +56,6 @@ class GetEventsServlet
         logger.info { "Processing search sse events request finished" }
         keepAliveHandler.removeKeepAliveData(reqContext)
     }
-    
+
 
 }

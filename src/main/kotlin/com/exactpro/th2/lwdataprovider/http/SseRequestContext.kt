@@ -48,7 +48,7 @@ class SseRequestedMessageDetails(
 
     override fun responseMessageInternal() {
         val msg = MessageProducer53.createMessage(this, context.jsonFormatter)
-        val event = context.channelMessages.responseBuilder.build(msg, this.context.counter)
+        val event = context.channelMessages.responseBuilder.build(msg, this.context.counter.incrementAndGet())
         context.channelMessages.buffer.put(event)
     }
 
@@ -79,8 +79,8 @@ class SseEventRequestContext(
 ) : EventRequestContext(channelMessages) {
 
     override fun processEvent(event: Event) {
-        val sseEvent = channelMessages.responseBuilder.build(event, counter)
+        val sseEvent = channelMessages.responseBuilder.build(event, counter.incrementAndGet())
         channelMessages.buffer.put(sseEvent)
-        scannedObjectInfo.update(event.eventId, System.currentTimeMillis(), counter)
+        scannedObjectInfo.update(event.eventId, System.currentTimeMillis(), counter.get())
     }
 }

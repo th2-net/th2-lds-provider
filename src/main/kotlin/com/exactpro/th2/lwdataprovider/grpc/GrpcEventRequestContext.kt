@@ -28,6 +28,6 @@ class GrpcEventRequestContext(
     override fun processEvent(event: Event) {
         val strResp = GrpcEventProducer.createEvent(event)
         channelMessages.addEvent(strResp)
-        scannedObjectInfo.update(event.eventId, System.currentTimeMillis(), counter)
+        scannedObjectInfo.update(event.eventId, System.currentTimeMillis(), counter.get())
     }
 }

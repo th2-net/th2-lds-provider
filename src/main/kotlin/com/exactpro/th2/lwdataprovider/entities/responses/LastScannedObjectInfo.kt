@@ -25,27 +25,21 @@ data class LastScannedObjectInfo(var id: String = "", var timestamp: Long = 0, v
         timestamp = lastTimestamp.toEpochMilli()
     }
 
-    fun update(event: BaseEventEntity, scanCnt: AtomicLong) {
-        id = event.id.toString()
-        timestamp = event.startTimestamp.toEpochMilli()
-        scanCounter = scanCnt.get()
+    fun update(event: BaseEventEntity, scanCnt: Long) {
+        update(event.id.toString(), event.startTimestamp, scanCnt)
     }
 
-    fun update(message: ProviderMessage, scanCnt: AtomicLong) {
-        id = message.id.toString()
-        timestamp = message.timestamp.toEpochMilli()
-        scanCounter = scanCnt.get()
+    fun update(message: ProviderMessage, scanCnt: Long) {
+        update(message.id, message.timestamp, scanCnt)
     }
 
-    fun update(id: String, timestamp: Instant?, scanCnt: AtomicLong) {
-        this.id = id
-        this.timestamp = timestamp?.toEpochMilli() ?: 0
-        this.scanCounter = scanCnt.get()
+    fun update(id: String, timestamp: Instant?, scanCnt: Long) {
+        update(id, timestamp?.toEpochMilli(), scanCnt)
     }
 
-    fun update(id: String, timestamp: Long?, scanCnt: AtomicLong) {
+    fun update(id: String, timestamp: Long?, scanCnt: Long) {
         this.id = id
         this.timestamp = timestamp?: 0
-        this.scanCounter = scanCnt.get()
+        this.scanCounter = scanCnt
     }
 }

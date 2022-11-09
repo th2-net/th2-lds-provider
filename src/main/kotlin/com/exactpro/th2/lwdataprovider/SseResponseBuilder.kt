@@ -28,24 +28,24 @@ import java.util.concurrent.atomic.AtomicLong
 
 class SseResponseBuilder (private val jacksonMapper: ObjectMapper = ObjectMapper()) {
 
-    fun build(event: EventTreeNode, counter: AtomicLong): SseEvent {
+    fun build(event: EventTreeNode, counter: Long): SseEvent {
         return SseEvent.build(jacksonMapper, event, counter)
     }
 
-    fun build(message: ProviderMessage, counter: AtomicLong): SseEvent {
+    fun build(message: ProviderMessage, counter: Long): SseEvent {
         return SseEvent.build(jacksonMapper, message, counter)
     }
 
     @Deprecated("5.3 version")
-    fun build(message: ProviderMessage53, counter: AtomicLong): SseEvent {
+    fun build(message: ProviderMessage53, counter: Long): SseEvent {
         return SseEvent(
             jacksonMapper.writeValueAsString(message),
             EventType.MESSAGE,
-            counter.incrementAndGet().toString()
+            counter.toString()
         )
     }
 
-    fun build(lastScannedObjectInfo: LastScannedObjectInfo, counter: AtomicLong): SseEvent {
+    fun build(lastScannedObjectInfo: LastScannedObjectInfo, counter: Long): SseEvent {
         return SseEvent.build(jacksonMapper, lastScannedObjectInfo, counter)
     }
 
@@ -53,7 +53,7 @@ class SseResponseBuilder (private val jacksonMapper: ObjectMapper = ObjectMapper
         return SseEvent.build(jacksonMapper, lastIdInStream)
     }
 
-    fun build(event: Event, lastEventId: AtomicLong): SseEvent {
+    fun build(event: Event, lastEventId: Long): SseEvent {
         return SseEvent.build(jacksonMapper, event, lastEventId)
     }
 

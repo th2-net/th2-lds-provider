@@ -43,7 +43,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
     fun getMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext) {
 
         var msgCount = 0
-        val time = measureTimeMillis { 
+        val time = measureTimeMillis {
             logger.info { "Executing query $filter" }
             val iterable = getMessagesFromCradle(filter, requestContext);
             val sessionName = filter.streamName.value

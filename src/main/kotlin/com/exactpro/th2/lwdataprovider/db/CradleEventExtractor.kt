@@ -65,6 +65,7 @@ class CradleEventExtractor(
     }
 
     fun getSingleEvents(filter: GetEventRequest, sink: DataSink<Event>) {
+        logger.info { "Extracting single event $filter" }
         val batchId = filter.batchId
         val eventId = StoredTestEventId(filter.eventId)
         if (batchId != null) {

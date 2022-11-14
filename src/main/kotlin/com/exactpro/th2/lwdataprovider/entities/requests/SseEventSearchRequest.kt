@@ -39,14 +39,14 @@ class SseEventSearchRequest(
     val metadataOnly: Boolean,
     val attachedMessages: Boolean,
 
-    passedEndTimestamp: Instant?,
+    endTimestamp: Instant?,
     val filter: DataFilter<BaseEventEntity> = DataFilter.acceptAll(),
 ) {
 
     val endTimestamp : Instant
 
     init {
-        endTimestamp = getInitEndTimestamp(passedEndTimestamp, resultCountLimit, searchDirection)
+        this.endTimestamp = getInitEndTimestamp(endTimestamp, resultCountLimit, searchDirection)
         checkRequest()
     }
 
@@ -67,7 +67,7 @@ class SseEventSearchRequest(
         searchDirection = parameters["searchDirection"]?.firstOrNull()?.let {
             asCradleTimeRelation(it)
         } ?: TimeRelation.AFTER,
-        passedEndTimestamp = parameters["endTimestamp"]?.firstOrNull()?.let { Instant.ofEpochMilli(it.toLong()) },
+        endTimestamp = parameters["endTimestamp"]?.firstOrNull()?.let { Instant.ofEpochMilli(it.toLong()) },
         resumeFromId = parameters["resumeFromId"]?.firstOrNull(),
         resultCountLimit = parameters["resultCountLimit"]?.firstOrNull()?.toInt(),
         keepOpen = parameters["keepOpen"]?.firstOrNull()?.toBoolean() ?: false,
@@ -91,7 +91,7 @@ class SseEventSearchRequest(
                 else -> TimeRelation.AFTER
             }
         },
-        passedEndTimestamp = if (request.hasEndTimestamp())
+        endTimestamp = if (request.hasEndTimestamp())
             request.endTimestamp.let {
                 Instant.ofEpochSecond(it.seconds, it.nanos.toLong())
             } else null,

@@ -21,6 +21,11 @@ import com.exactpro.th2.dataprovider.grpc.EventSearchRequest
 import com.exactpro.th2.dataprovider.grpc.TimeRelation.PREVIOUS
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
+import com.exactpro.th2.lwdataprovider.entities.requests.converter.GrpcFilterConverter
+import com.exactpro.th2.lwdataprovider.entities.requests.converter.HttpFilterConverter
+import com.exactpro.th2.lwdataprovider.entities.responses.BaseEventEntity
+import com.exactpro.th2.lwdataprovider.filter.DataFilter
+import com.exactpro.th2.lwdataprovider.filter.events.EventsFilterFactory
 import java.time.Instant
 
 class SseEventSearchRequest(
@@ -34,7 +39,8 @@ class SseEventSearchRequest(
     val metadataOnly: Boolean,
     val attachedMessages: Boolean,
 
-    passedEndTimestamp: Instant?
+    passedEndTimestamp: Instant?,
+    val filter: DataFilter<BaseEventEntity> = DataFilter.acceptAll(),
 ) {
 
     val endTimestamp : Instant
@@ -45,6 +51,8 @@ class SseEventSearchRequest(
     }
 
     companion object {
+        private val httpConverter = HttpFilterConverter()
+        private val grpcConverter = GrpcFilterConverter()
         private fun asCradleTimeRelation(value: String): TimeRelation {
             if (value == "next") return TimeRelation.AFTER
             if (value == "previous") return TimeRelation.BEFORE
@@ -65,7 +73,8 @@ class SseEventSearchRequest(
         keepOpen = parameters["keepOpen"]?.firstOrNull()?.toBoolean() ?: false,
         limitForParent = parameters["limitForParent"]?.firstOrNull()?.toLong(),
         metadataOnly = parameters["metadataOnly"]?.firstOrNull()?.toBoolean() ?: true,
-        attachedMessages = parameters["attachedMessages"]?.firstOrNull()?.toBoolean() ?: false
+        attachedMessages = parameters["attachedMessages"]?.firstOrNull()?.toBoolean() ?: false,
+        filter = EventsFilterFactory.create(httpConverter.convert(parameters)),
     )
 
     constructor(request: EventSearchRequest) : this(
@@ -103,7 +112,8 @@ class SseEventSearchRequest(
         } else true,
         attachedMessages = if (request.hasAttachedMessages()) {
             request.attachedMessages.value
-        } else false
+        } else false,
+        filter = EventsFilterFactory.create(grpcConverter.convert(request.filterList)),
     )
 
     private fun checkEndTimestamp() {

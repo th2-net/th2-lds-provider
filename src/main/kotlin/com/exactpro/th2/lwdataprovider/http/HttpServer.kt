@@ -20,6 +20,7 @@ import com.exactpro.th2.lwdataprovider.Context
 import mu.KotlinLogging
 import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.server.ServerConnector
+import org.eclipse.jetty.server.handler.gzip.GzipHandler
 import org.eclipse.jetty.servlet.ServletHandler
 import org.eclipse.jetty.servlet.ServletHolder
 
@@ -49,6 +50,7 @@ class HttpServer(private val context: Context) {
         server.connectors = arrayOf(connector)
         val servletHandler = ServletHandler()
         server.handler = servletHandler
+        server.insertHandler(GzipHandler())
 
         servletHandler.addServletWithMapping(ServletHolder(
             GetMessagesServlet(configuration, jacksonMapper, keepAliveHandler,

@@ -16,16 +16,16 @@
 
 package com.exactpro.th2.lwdataprovider.workers
 
-import com.exactpro.th2.lwdataprovider.RequestContext
+import com.exactpro.th2.lwdataprovider.KeepAliveListener
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import mu.KotlinLogging
 import java.util.ArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
-class KeepAliveHandler(private val configuration: Configuration) {
+class KeepAliveHandler(configuration: Configuration) {
     
-    private val data: MutableList<RequestContext> = ArrayList();
+    private val data: MutableList<KeepAliveListener> = ArrayList();
     private val running = AtomicBoolean(false)
     private val timeout = configuration.keepAliveTimeout
     private var thread: Thread? = null
@@ -34,12 +34,17 @@ class KeepAliveHandler(private val configuration: Configuration) {
         private val logger = KotlinLogging.logger { }
     }
     
-    @Synchronized fun addKeepAliveData(requestContext: RequestContext) {
-        data.add(requestContext)
+    @Synchronized
+    fun addKeepAliveData(listener: KeepAliveListener): AutoCloseable {
+        data.add(listener)
+        return AutoCloseable {
+            removeKeepAliveData(listener)
+        }
     }
 
-    @Synchronized fun removeKeepAliveData(requestContext: RequestContext) {
-        data.remove(requestContext)
+    @Synchronized
+    private fun removeKeepAliveData(listener: KeepAliveListener) {
+        data.remove(listener)
     }
     
     fun start() { 
@@ -59,8 +64,8 @@ class KeepAliveHandler(private val configuration: Configuration) {
         while (running.get()) {
             
             data.forEach {
-                if (System.currentTimeMillis() - it.scannedObjectInfo.timestamp >= timeout)
-                    it.keepAliveEvent()
+                if (System.currentTimeMillis() - it.lastTimestampMillis >= timeout)
+                    it.update()
             }
 
             try {

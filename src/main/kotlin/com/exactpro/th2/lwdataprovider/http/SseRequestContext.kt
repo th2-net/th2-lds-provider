@@ -16,71 +16,96 @@
 
 package com.exactpro.th2.lwdataprovider.http
 
-import com.exactpro.cradle.messages.StoredMessage
-import com.exactpro.th2.lwdataprovider.*
+import com.exactpro.th2.lwdataprovider.CustomJsonFormatter
+import com.exactpro.th2.lwdataprovider.EventType
+import com.exactpro.th2.lwdataprovider.KeepAliveListener
+import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
+import com.exactpro.th2.lwdataprovider.SseEvent
+import com.exactpro.th2.lwdataprovider.SseResponseBuilder
+import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
+import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
+import com.exactpro.th2.lwdataprovider.handlers.AbstractCancelableHandler
+import com.exactpro.th2.lwdataprovider.handlers.MessageResponseHandler
 import com.exactpro.th2.lwdataprovider.producers.MessageProducer53
+import com.google.gson.Gson
+import org.apache.commons.lang3.exception.ExceptionUtils
+import java.util.*
+import java.util.concurrent.BlockingQueue
+import java.util.concurrent.atomic.AtomicLong
 
-
-class MessageSseRequestContext(
-    override val channelMessages: SseResponseHandler,
-    val jsonFormatter: CustomJsonFormatter = CustomJsonFormatter(),
+class HttpMessagesRequestHandler(
+    private val buffer: BlockingQueue<SseEvent>,
+    private val builder: SseResponseBuilder,
+    dataMeasurement: DataMeasurement,
     maxMessagesPerRequest: Int = 0
-) : MessageRequestContext(channelMessages, maxMessagesPerRequest) {
+) : MessageResponseHandler(dataMeasurement, maxMessagesPerRequest), KeepAliveListener {
+    private val jsonFormatter = CustomJsonFormatter()
+    private val indexer = DataIndexer()
 
+    private val scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
 
-    override fun createMessageDetails(id: String, storedMessage: StoredMessage, onResponse: () -> Unit) : RequestedMessageDetails {
-        return SseRequestedMessageDetails(id, storedMessage, this, onResponse)
+    override val lastTimestampMillis: Long
+        get() = scannedObjectInfo.timestamp
+
+    override fun handleNextInternal(data: RequestedMessageDetails) {
+        val msg = MessageProducer53.createMessage(data, jsonFormatter)
+        buffer.put(builder.build(msg, indexer.nextIndex()))
     }
 
-    override fun addStreamInfo() {
-
+    override fun complete() {
+        buffer.put(SseEvent(event = EventType.CLOSE))
     }
 
+    override fun writeErrorMessage(text: String) {
+        buffer.put(SseEvent(Gson().toJson(Collections.singletonMap("message", text)), EventType.ERROR))
+    }
+
+    override fun writeErrorMessage(error: Throwable) {
+        writeErrorMessage(ExceptionUtils.getMessage(error))
+    }
+
+    override fun update() {
+        buffer.put(builder.build(scannedObjectInfo, indexer.nextIndex()))
+    }
 }
 
-class SseRequestedMessageDetails(
-    id: String,
-    storedMessage: StoredMessage,
-    override val context: MessageSseRequestContext,
-    onResponse: () -> Unit
-) : RequestedMessageDetails(id, storedMessage, context, onResponse) {
-
-    override fun responseMessageInternal() {
-        val msg = MessageProducer53.createMessage(this, context.jsonFormatter)
-        val event = context.channelMessages.responseBuilder.build(msg, this.context.counter.incrementAndGet())
-        context.channelMessages.buffer.put(event)
-    }
-
+class DataIndexer {
+    private val counter: AtomicLong = AtomicLong(0L)
+    fun nextIndex(): Long = counter.incrementAndGet()
 }
 
-abstract class EventRequestContext(
-    channelMessages: ResponseHandler
-) : RequestContext(channelMessages) {
+class HttpEventResponseHandler(
+    private val buffer: BlockingQueue<SseEvent>,
+    private val builder: SseResponseBuilder,
+) : AbstractCancelableHandler<Event>(), KeepAliveListener {
+    private val indexer = DataIndexer()
 
-    private var processedEvents: Int = 0;
-    var eventsLimit: Int = 0;
+    private val scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
 
-    abstract fun processEvent(event: Event);
+    override val lastTimestampMillis: Long
+        get() = scannedObjectInfo.timestamp
 
-    fun addProcessedEvents(count: Int) {
-        this.processedEvents += count;
+    override fun complete() {
+        buffer.put(SseEvent(event = EventType.CLOSE))
     }
 
-    @Suppress("ConvertTwoComparisonsToRangeCheck")
-    fun isLimitReached():Boolean {
-        return eventsLimit > 0 && processedEvents >= eventsLimit
+    override fun writeErrorMessage(text: String) {
+        buffer.put(SseEvent(Gson().toJson(Collections.singletonMap("message", text)), EventType.ERROR))
     }
 
-}
-
-class SseEventRequestContext(
-    override val channelMessages: SseResponseHandler
-) : EventRequestContext(channelMessages) {
-
-    override fun processEvent(event: Event) {
-        val sseEvent = channelMessages.responseBuilder.build(event, counter.incrementAndGet())
-        channelMessages.buffer.put(sseEvent)
-        scannedObjectInfo.update(event.eventId, System.currentTimeMillis(), counter.get())
+    override fun writeErrorMessage(error: Throwable) {
+        writeErrorMessage(ExceptionUtils.getMessage(error))
     }
+
+    override fun handleNext(data: Event) {
+        val index = indexer.nextIndex()
+        buffer.put(builder.build(data, index))
+        scannedObjectInfo.update(data.eventId, index)
+    }
+
+    override fun update() {
+        buffer.put(builder.build(scannedObjectInfo, indexer.nextIndex()))
+    }
+
 }

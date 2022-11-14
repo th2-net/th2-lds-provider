@@ -26,7 +26,9 @@ import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.fasterxml.jackson.databind.ObjectMapper
 import java.util.concurrent.atomic.AtomicLong
 
-class SseResponseBuilder (private val jacksonMapper: ObjectMapper = ObjectMapper()) {
+class SseResponseBuilder(
+    private val jacksonMapper: ObjectMapper = ObjectMapper(),
+) {
 
     fun build(event: EventTreeNode, counter: Long): SseEvent {
         return SseEvent.build(jacksonMapper, event, counter)

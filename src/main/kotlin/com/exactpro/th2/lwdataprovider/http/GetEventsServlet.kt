@@ -18,7 +18,6 @@ package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
-import com.exactpro.th2.lwdataprovider.SseResponseHandler
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
@@ -31,7 +30,7 @@ import javax.servlet.http.HttpServletResponse
 
 class GetEventsServlet(
     private val configuration: Configuration,
-    private val jacksonMapper: ObjectMapper,
+    private val sseResponseBuilder: SseResponseBuilder,
     private val keepAliveHandler: KeepAliveHandler,
     private val searchEventsHandler: SearchEventsHandler
 ) : SseServlet() {
@@ -47,14 +46,13 @@ class GetEventsServlet(
         val request = SseEventSearchRequest(queryParametersMap)
 
         val queue = ArrayBlockingQueue<SseEvent>(configuration.responseQueueSize)
-        val sseResponseBuilder = SseResponseHandler(queue, SseResponseBuilder(jacksonMapper))
-        val reqContext = SseEventRequestContext(sseResponseBuilder)
-        keepAliveHandler.addKeepAliveData(reqContext)
-        searchEventsHandler.loadEvents(request, reqContext)
+        val reqContext = HttpEventResponseHandler(queue, sseResponseBuilder)
+        keepAliveHandler.addKeepAliveData(reqContext).use {
+            searchEventsHandler.loadEvents(request, reqContext)
 
-        this.waitAndWrite(queue, resp, reqContext)
-        logger.info { "Processing search sse events request finished" }
-        keepAliveHandler.removeKeepAliveData(reqContext)
+            this.waitAndWrite(queue, resp)
+            logger.info { "Processing search sse events request finished" }
+        }
     }
 
 

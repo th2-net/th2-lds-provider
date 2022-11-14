@@ -17,7 +17,6 @@
 package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.th2.lwdataprovider.EventType
-import com.exactpro.th2.lwdataprovider.RequestContext
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseWriter
 import org.eclipse.jetty.http.HttpHeader
@@ -32,7 +31,6 @@ open class SseServlet : HttpServlet() {
     protected open fun waitAndWrite(
         queue: BlockingQueue<SseEvent>,
         resp: HttpServletResponse,
-        reqContext: RequestContext
     ) {
         resp.contentType = "text/event-stream"
         resp.status = HttpStatus.OK_200
@@ -48,7 +46,6 @@ open class SseServlet : HttpServlet() {
                 inProcess = false
             } else {
                 writer.writeEvent(event)
-                reqContext.onMessageSent()
             }
         }
     }

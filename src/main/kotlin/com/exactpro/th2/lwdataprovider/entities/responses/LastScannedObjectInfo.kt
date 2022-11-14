@@ -21,8 +21,8 @@ import java.util.concurrent.atomic.AtomicLong
 
 data class LastScannedObjectInfo(var id: String = "", var timestamp: Long = 0, var scanCounter: Long = 0) {
 
-    fun update(lastTimestamp: Instant) {
-        timestamp = lastTimestamp.toEpochMilli()
+    fun update(id: String, count: Long) {
+        update(id, System.currentTimeMillis(), count)
     }
 
     fun update(event: BaseEventEntity, scanCnt: Long) {

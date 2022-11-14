@@ -145,7 +145,6 @@ class DecodeQueueBuffer(
     private fun RequestedMessageDetails.responseFinished(response: List<Message>?) {
         parsedMessage = response
         responseMessage()
-        notifyMessage()  // TODO: should be joined to the previous one
     }
 
     companion object {

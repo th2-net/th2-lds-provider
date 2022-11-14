@@ -24,11 +24,6 @@ data class GetEventRequest(
     val eventId: String
 ) {
 
-    constructor(batchId: String?, eventId: String, parameters: Map<String, List<String>>) : this(
-        batchId = batchId,
-        eventId = eventId
-    )
-
     companion object {
 
         fun fromEventID(eventID: EventID) : GetEventRequest {

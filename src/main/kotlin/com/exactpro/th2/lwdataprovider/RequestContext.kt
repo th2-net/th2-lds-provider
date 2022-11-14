@@ -19,153 +19,11 @@ package com.exactpro.th2.lwdataprovider
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.RawMessage
-import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
-import io.prometheus.client.Histogram
-import mu.KotlinLogging
-import java.time.Instant
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.locks.Condition
-import java.util.concurrent.locks.ReentrantLock
-import javax.annotation.concurrent.GuardedBy
-import kotlin.concurrent.withLock
 
-abstract class RequestContext(
-    open val channelMessages: ResponseHandler,
-) {
-    val counter: AtomicLong = AtomicLong(0L)
-    val scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
-
-    @Volatile
-    var contextAlive: Boolean = true
-        private set
-
-    fun finishStream() {
-        channelMessages.finishStream()
-    }
-
-    fun writeErrorMessage(text: String) {
-        logger.error { "An error occurred: $text" }
-        channelMessages.writeErrorMessage(text)
-    }
-
-    fun keepAliveEvent() {
-        channelMessages.keepAliveEvent(scannedObjectInfo, counter.incrementAndGet());
-    }
-
-    fun cancel() {
-        contextAlive = false
-    }
-
-    open fun onMessageSent() {
-    }
-
-    companion object {
-        private val logger = KotlinLogging.logger { }
-    }
-}
-
-abstract class MessageRequestContext(
-    channelMessages: ResponseHandler,
-    private val maxMessagesPerRequest: Int = 0
-) : RequestContext(channelMessages) {
-    val requestedMessages: MutableMap<String, RequestedMessageDetails> = ConcurrentHashMap()
-    val streamInfo: ProviderStreamInfo = ProviderStreamInfo()
-
-    private val lock: ReentrantLock = ReentrantLock()
-    private val condition: Condition = lock.newCondition()
-
-    @GuardedBy("lock")
-    private var messagesInProcess: Int = 0
-
-    val allMessagesRequested: AtomicBoolean = AtomicBoolean(false)
-    var loadedMessages = 0
-
-    internal fun registerMessage(message: RequestedMessageDetails) {
-        requestedMessages[message.id] = message
-    }
-
-    fun allDataLoadedFromCradle() = allMessagesRequested.set(true)
-
-    abstract fun createMessageDetails(id: String, storedMessage: StoredMessage, onResponse: () -> Unit = {}): RequestedMessageDetails;
-    abstract fun addStreamInfo();
-
-    override fun onMessageSent() {
-        if (maxMessagesPerRequest <= 0) return
-        lock.withLock {
-            val curCount = messagesInProcess
-            messagesInProcess -= 1
-            if (messagesInProcess >= maxMessagesPerRequest) {
-                return
-            }
-            if (curCount >= maxMessagesPerRequest) {
-                condition.signal()
-            }
-        }
-    }
-
-    fun checkAndWaitForRequestLimit(msgBufferCount: Int) {
-        if (maxMessagesPerRequest <= 0) return
-        var submitted = false
-        startStep("await_queue").use {
-            do {
-                lock.withLock {
-                    val expectedSize = messagesInProcess + msgBufferCount
-                    if (maxMessagesPerRequest <= expectedSize) {
-                        condition.await()
-                    } else {
-                        messagesInProcess = expectedSize
-                        submitted = true
-                    }
-                }
-            } while (!submitted)
-        }
-    }
-
-    fun startStep(name: String): StepHolder {
-        return StepHolder(name, STEP_METRICS.labels(name).startTimer())
-    }
-
-    companion object {
-        private val STEP_METRICS = Histogram.build(
-            "th2_ldp_message_pipeline_hist_time", "Time spent on each step for a message"
-        ).buckets(.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, 25.0, 50.0, 75.0)
-            .labelNames("step")
-            .register()
-    }
-}
-
-class StepHolder(
-    private val name: String,
-    private val timer: Histogram.Timer
-) : AutoCloseable {
-    init {
-        LOGGER.trace { "Step $name started with timer ${timer.hashCode()}" }
-    }
-
-    private var finished: Boolean = false
-    fun finish() {
-        if (finished) {
-            return
-        }
-        LOGGER.trace { "Step $name finished with timer ${timer.hashCode()}" }
-        finished = true
-        timer.observeDuration()
-    }
-
-    companion object {
-        private val LOGGER = KotlinLogging.logger { }
-    }
-
-    override fun close() = finish()
-}
-
-abstract class RequestedMessageDetails(
+class RequestedMessageDetails(
     val id: String,
     val storedMessage: StoredMessage,
-    protected open val context: MessageRequestContext,
-    private val onResponse: () -> Unit = {}
+    private val onResponse: (RequestedMessageDetails) -> Unit = {}
 ) {
     val rawMessage: RawMessage = RawMessage.parseFrom(storedMessage.content)
     @Volatile
@@ -173,27 +31,6 @@ abstract class RequestedMessageDetails(
     var parsedMessage: List<Message>? = null
 
     fun responseMessage() {
-        try {
-            responseMessageInternal()
-        } finally {
-            onResponse()
-        }
-    }
-
-    abstract fun responseMessageInternal();
-
-    fun notifyMessage() {
-        context.apply {
-            requestedMessages.remove(id)
-            scannedObjectInfo.update(id, Instant.now(), counter.get())
-            if (requestedMessages.isEmpty() && allMessagesRequested.get()) {
-                addStreamInfo()
-                finishStream()
-            }
-        }
-    }
-
-    fun readyToSend() {
-        context.registerMessage(this)
+        onResponse(this)
     }
 }

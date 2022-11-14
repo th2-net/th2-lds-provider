@@ -16,25 +16,18 @@
 
 package com.exactpro.th2.lwdataprovider.http
 
-import com.exactpro.th2.lwdataprovider.EventType
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
-import com.exactpro.th2.lwdataprovider.SseResponseHandler
-import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.google.gson.Gson
 import mu.KotlinLogging
-import java.util.*
 import java.util.concurrent.ArrayBlockingQueue
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
 
 class GetOneEvent(
-    private val configuration: Configuration,
-    private val jacksonMapper: ObjectMapper,
+    private val sseResponseBuilder: SseResponseBuilder,
     private val keepAliveHandler: KeepAliveHandler,
     private val searchEventsHandler: SearchEventsHandler
 ) : NoSseServlet() {
@@ -56,23 +49,25 @@ class GetOneEvent(
         val queryParametersMap = getParameters(req)
         logger.info { "Received get message request (${req.pathInfo}) with parameters: $queryParametersMap" }
 
-        val toEventIds = toEventIds(eventId, queue)
-        var reqContext: SseEventRequestContext? = null
-        if (toEventIds != null) {
-            val request = GetEventRequest(toEventIds.first, toEventIds.second, queryParametersMap)
+        val reqContext = HttpEventResponseHandler(queue, sseResponseBuilder)
+        keepAliveHandler.addKeepAliveData(reqContext).use {
+            try {
+                val toEventIds = toEventIds(eventId)
+                val request = GetEventRequest(toEventIds.first, toEventIds.second)
 
-            val sseResponseBuilder = SseResponseHandler(queue, SseResponseBuilder(jacksonMapper))
-            reqContext = SseEventRequestContext(sseResponseBuilder)
-            keepAliveHandler.addKeepAliveData(reqContext)
-            searchEventsHandler.loadOneEvent(request, reqContext)
+                searchEventsHandler.loadOneEvent(request, reqContext)
+            } catch (ex: Exception) {
+                logger.error(ex) { "error getting event $eventId" }
+                reqContext.writeErrorMessage(ex.message ?: ex.toString())
+                reqContext.complete()
+            }
+
+            this.waitAndWrite(queue, resp)
         }
-
-        this.waitAndWrite(queue, resp)
-        reqContext?.let { keepAliveHandler.removeKeepAliveData(it) }
         logger.info { "Processing search sse events request finished" }
     }
 
-    private fun toEventIds(evId: String, out: ArrayBlockingQueue<SseEvent>): Pair<String?, String>? {
+    private fun toEventIds(evId: String): Pair<String?, String> {
         if (!evId.contains('/') && !evId.contains('?')) {
             val split = evId.split(':')
             if (split.size == 2) {
@@ -81,16 +76,7 @@ class GetOneEvent(
                 return null to split[0]
             }
         }
-
-        logger.error("Invalid event id: $evId")
-        out.put(
-            SseEvent(
-                Gson().toJson(Collections.singletonMap("message", "Invalid event id: $evId")),
-                EventType.ERROR
-            )
-        )
-        out.put(SseEvent(event = EventType.CLOSE))
-        return null
+        throw IllegalArgumentException("Invalid event id: $evId")
     }
 
 }

@@ -17,129 +17,52 @@
 package com.exactpro.th2.lwdataprovider.db
 
 import com.exactpro.cradle.CradleManager
+import com.exactpro.cradle.CradleStorage
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageFilter
 import com.exactpro.cradle.messages.StoredMessageId
-import com.exactpro.th2.common.grpc.MessageGroupBatch
-import com.exactpro.th2.lwdataprovider.MessageRequestContext
-import com.exactpro.th2.lwdataprovider.RabbitMqDecoder
-import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
-import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import mu.KotlinLogging
 import kotlin.system.measureTimeMillis
 
-class CradleMessageExtractor(configuration: Configuration, private val cradleManager: CradleManager,
-                             private val decoder: RabbitMqDecoder) {
+class CradleMessageExtractor(
+    cradleManager: CradleManager
+) {
 
-    private val storage = cradleManager.storage
-    private val batchSize = configuration.batchSize
-    
+    private val storage: CradleStorage = cradleManager.storage
+
     companion object {
         private val logger = KotlinLogging.logger { }
     }
 
     fun getStreams(): Collection<String> = storage.streams
-    
-    fun getMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext) {
 
-        var msgCount = 0
-        val time = measureTimeMillis {
-            logger.info { "Executing query $filter" }
-            val iterable = getMessagesFromCradle(filter, requestContext);
-            val sessionName = filter.streamName.value
+    fun getMessages(filter: StoredMessageFilter, sink: DataSink<StoredMessage>, measurement: DataMeasurement) {
 
-            val builder = MessageGroupBatch.newBuilder()
-            var msgBufferCount = 0
-            val messageBuffer = ArrayList<RequestedMessageDetails>()
+        logger.info { "Executing query $filter" }
+        val iterable = getMessagesFromCradle(filter, measurement);
+        for (storedMessage: StoredMessage in iterable) {
 
-            var msgId: StoredMessageId? = null
-            for (storedMessage in iterable) {
-
-                if (!requestContext.contextAlive) {
-                    return;
-                }
-
-                msgId = storedMessage.id
-                val tmp = requestContext.createRequest(storedMessage)
-                messageBuffer.add(tmp)
-                ++msgBufferCount
-
-                if (msgBufferCount >= batchSize) {
-                    requestContext.sendBatch(sessionName, builder, messageBuffer)
-                    msgCount += msgBufferCount
-                    logger.debug { "Message batch sent ($msgBufferCount). Total messages $msgCount" }
-                    msgBufferCount = 0
-                }
-            }
-            
-            if (msgBufferCount > 0) {
-                requestContext.sendBatch(sessionName, builder, messageBuffer)
-                msgCount += msgBufferCount
-            }
-
-            requestContext.streamInfo.registerMessage(msgId)
-            requestContext.loadedMessages += msgCount
-        }
-
-        logger.info { "Loaded $msgCount messages from DB $time ms"}
-
-    }
-
-    private fun MessageRequestContext.createRequest(
-        storedMessage: StoredMessage
-    ): RequestedMessageDetails {
-        val id = storedMessage.id.toString()
-        val decodingStep = startStep("decoding")
-        return createMessageDetails(id, storedMessage) { decodingStep.finish() }
-    }
-
-    fun getRawMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext) {
-
-        var msgCount = 0
-        val time = measureTimeMillis {
-            logger.info { "Executing query $filter" }
-            val iterable = getMessagesFromCradle(filter, requestContext);
-
-            var msgId: StoredMessageId? = null
-            for (storedMessageBatch in iterable) {
-                if (!requestContext.contextAlive) {
-                    return;
-                }
-                msgId = storedMessageBatch.id
-                val id = storedMessageBatch.id.toString()
-                val tmp = requestContext.createMessageDetails(id, storedMessageBatch)
-                tmp.responseMessage()
-                msgCount++
-            }
-            requestContext.streamInfo.registerMessage(msgId)
-            requestContext.loadedMessages += msgCount
-        }
-
-        logger.info { "Loaded $msgCount messages from DB $time ms"}
-
-    }
-
-    fun getMessage(msgId: StoredMessageId, onlyRaw: Boolean, requestContext: MessageRequestContext) {
-
-        val time = measureTimeMillis {
-            logger.info { "Extracting message: $msgId" }
-            val message = storage.getMessage(msgId);
-
-            if (message == null) {
-                requestContext.writeErrorMessage("Message with id $msgId not found")
-                requestContext.finishStream()
+            sink.canceled?.apply {
+                logger.info { "canceled because: $message" }
                 return
             }
 
-            val decodingStep = if (onlyRaw) null else requestContext.startStep("decoding")
-            val tmp = requestContext.createMessageDetails(message.id.toString(), message) { decodingStep?.finish() }
-            requestContext.loadedMessages += 1
+            sink.onNext(storedMessage)
+        }
+    }
 
-            if (onlyRaw) {
-                tmp.responseMessage()
-            } else {
-                decoder.sendMessage(tmp, message.streamName)
+    fun getMessage(msgId: StoredMessageId, sink: DataSink<StoredMessage>, measurement: DataMeasurement) {
+
+        val time = measureTimeMillis {
+            logger.info { "Extracting message: $msgId" }
+            val message = measurement.start("cradle_message").use { storage.getMessage(msgId) }
+
+            if (message == null) {
+                sink.onError("Message with id $msgId not found")
+                return
             }
+
+            sink.onNext(message)
 
         }
 
@@ -147,17 +70,20 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
     }
 
-    private fun MessageRequestContext.sendBatch(alias: String, builder: MessageGroupBatch.Builder, detailsBuf: MutableList<RequestedMessageDetails>) {
-        if (detailsBuf.isEmpty()) {
-            return
+    private fun getMessagesFromCradle(filter: StoredMessageFilter, dataMeasurement: DataMeasurement): Iterable<StoredMessage> {
+        val messages = dataMeasurement.start("cradle_messages_init").use { storage.getMessages(filter) }
+        return object : Iterable<StoredMessage> {
+            override fun iterator(): Iterator<StoredMessage> {
+                return StoredMessageIterator(messages.iterator(), dataMeasurement)
+            }
         }
-        val messageCount = detailsBuf.size
-        checkAndWaitForRequestLimit(messageCount)
-        decoder.sendBatchMessage(builder, detailsBuf, alias)
-        builder.clear()
-        detailsBuf.clear()
     }
 
-    private fun getMessagesFromCradle(filter: StoredMessageFilter, requestContext: MessageRequestContext): Iterable<StoredMessage> =
-        requestContext.startStep("cradle").use { storage.getMessages(filter) }
+}
+
+private class StoredMessageIterator(
+    private val iterator: MutableIterator<StoredMessage>,
+    private val dataMeasurement: DataMeasurement
+) : Iterator<StoredMessage> by iterator {
+    override fun hasNext(): Boolean = dataMeasurement.start("cradle_messages").use { iterator.hasNext() }
 }

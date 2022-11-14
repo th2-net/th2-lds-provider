@@ -16,43 +16,39 @@
 
 package com.exactpro.th2.lwdataprovider.grpc
 
-import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.th2.dataprovider.grpc.MessageSearchResponse
 import com.exactpro.th2.dataprovider.grpc.MessageStreamPointers
-import com.exactpro.th2.lwdataprovider.GrpcResponseHandler
-import com.exactpro.th2.lwdataprovider.MessageRequestContext
+import com.exactpro.th2.lwdataprovider.GrpcEvent
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
+import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.entities.exceptions.HandleDataException
+import com.exactpro.th2.lwdataprovider.handlers.MessageResponseHandler
 import com.exactpro.th2.lwdataprovider.producers.GrpcMessageProducer
-import mu.KotlinLogging
+import java.util.concurrent.BlockingQueue
 
-
-class GrpcMessageRequestContext(
-    override val channelMessages: GrpcResponseHandler,
-    maxMessagesPerRequest: Int = 0
-) : MessageRequestContext(channelMessages, maxMessagesPerRequest) {
-
-
-    override fun createMessageDetails(id: String, storedMessage: StoredMessage, onResponse: () -> Unit): GrpcRequestedMessageDetails {
-        return GrpcRequestedMessageDetails(id, storedMessage, this, onResponse)
+class GrpcMessageResponseHandler(
+    private val buffer: BlockingQueue<GrpcEvent>,
+    dataMeasurement: DataMeasurement,
+    maxMessagesPerRequest: Int = 0,
+) : MessageResponseHandler(dataMeasurement, maxMessagesPerRequest) {
+    override fun handleNextInternal(data: RequestedMessageDetails) {
+        val msg = GrpcMessageProducer.createMessage(data)
+        buffer.put(GrpcEvent(message = MessageSearchResponse.newBuilder().setMessage(msg).build()))
     }
 
-    override fun addStreamInfo() {
-        val grpcPointers = MessageStreamPointers.newBuilder().addAllMessageStreamPointer(this.streamInfo.toGrpc());
-        return channelMessages.addMessage(MessageSearchResponse.newBuilder().setMessageStreamPointers(grpcPointers).build())
+    override fun complete() {
+        if (!isAlive) return
+        val grpcPointers = MessageStreamPointers.newBuilder().addAllMessageStreamPointer(streamInfo.toGrpc());
+        buffer.put(GrpcEvent(message = MessageSearchResponse.newBuilder().setMessageStreamPointers(grpcPointers).build()))
+        buffer.put(GrpcEvent(close = true))
     }
 
-}
+    override fun writeErrorMessage(text: String) {
+        writeErrorMessage(HandleDataException(text))
+    }
 
-class GrpcRequestedMessageDetails(
-    id: String,
-    storedMessage: StoredMessage,
-    override val context: GrpcMessageRequestContext,
-    onResponse: () -> Unit
-) : RequestedMessageDetails(id, storedMessage, context, onResponse) {
-
-    override fun responseMessageInternal() {
-        val msg = GrpcMessageProducer.createMessage(this)
-        context.channelMessages.addMessage(MessageSearchResponse.newBuilder().setMessage(msg).build())
+    override fun writeErrorMessage(error: Throwable) {
+        buffer.put(GrpcEvent(error = error))
     }
 
 }

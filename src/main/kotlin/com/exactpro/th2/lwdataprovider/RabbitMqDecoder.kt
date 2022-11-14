@@ -30,12 +30,12 @@ class RabbitMqDecoder(
     configuration: Configuration,
     messageRouterParsedBatch: MessageRouter<MessageGroupBatch>,
     private val messageRouterRawBatch: MessageRouter<MessageGroupBatch>
-) : TimeoutChecker, AutoCloseable {
+) : TimeoutChecker, Decoder, AutoCloseable {
     
     private val decodeBuffer = DecodeQueueBuffer(configuration.maxBufferDecodeQueue)
     private val parsedMonitor = messageRouterParsedBatch.subscribeAll(CodecMessageListener(decodeBuffer), QueueAttribute.PARSED.value, FROM_CODEC_ATTR)
 
-    fun sendBatchMessage(batchBuilder: MessageGroupBatch.Builder, requests: Collection<RequestedMessageDetails>, session: String) {
+    override fun sendBatchMessage(batchBuilder: MessageGroupBatch.Builder, requests: Collection<RequestedMessageDetails>, session: String) {
         checkAndWaitFreeBuffer(requests.size)
         LOGGER.trace { "Sending batch with messages to codec. IDs: ${requests.joinToString { it.id }}" }
         val currentTimeMillis = System.currentTimeMillis()
@@ -45,7 +45,7 @@ class RabbitMqDecoder(
         send(batchBuilder, session)
     }
 
-    fun sendMessage(message: RequestedMessageDetails, session: String) {
+    override fun sendMessage(message: RequestedMessageDetails, session: String) {
         checkAndWaitFreeBuffer(1)
         LOGGER.trace { "Sending message to codec. ID: ${message.id}" }
         val builder = MessageGroupBatch.newBuilder()
@@ -74,7 +74,6 @@ class RabbitMqDecoder(
     ) {
         details.time = currentTimeMillis
         registerMessage(details)
-        details.readyToSend()
         batchBuilder.addGroupsBuilder() += details.rawMessage
     }
 

@@ -17,17 +17,12 @@
 package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.cradle.Direction
-import com.exactpro.th2.lwdataprovider.EventType
-import com.exactpro.th2.lwdataprovider.MessageRequestContext
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
-import com.exactpro.th2.lwdataprovider.SseResponseHandler
-import com.exactpro.th2.lwdataprovider.configuration.Configuration
+import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.google.gson.Gson
 import mu.KotlinLogging
 import java.util.*
 import java.util.concurrent.ArrayBlockingQueue
@@ -35,10 +30,10 @@ import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
 
 class GetMessageById(
-    private val configuration: Configuration,
-    private val jacksonMapper: ObjectMapper,
+    private val sseResponseBuilder: SseResponseBuilder,
     private val keepAliveHandler: KeepAliveHandler,
-    private val searchMessagesHandler: SearchMessagesHandler
+    private val searchMessagesHandler: SearchMessagesHandler,
+    private val dataMeasurement: DataMeasurement,
 ) : NoSseServlet() {
 
     companion object {
@@ -52,27 +47,29 @@ class GetMessageById(
         if (msgId.startsWith('/'))
             msgId = msgId.substring(1)
 
-        var reqContext: MessageRequestContext? = null
-        val newMsgId = checkId(msgId, queue)
-        if (newMsgId != null) {
-            val queryParametersMap = getParameters(req)
-            logger.info { "Received search sse event request with parameters: $queryParametersMap" }
 
-            val request = GetMessageRequest(newMsgId, queryParametersMap)
+        val handler = HttpMessagesRequestHandler(queue, sseResponseBuilder, dataMeasurement)
+        keepAliveHandler.addKeepAliveData(handler).use {
+            try {
+                val newMsgId = checkId(msgId)
+                val queryParametersMap = getParameters(req)
+                logger.info { "Received search sse event request with parameters: $queryParametersMap" }
 
-            val sseResponseBuilder = SseResponseBuilder(jacksonMapper)
-            val sseResponse = SseResponseHandler(queue, sseResponseBuilder)
-            reqContext = MessageSseRequestContext(sseResponse)
-            keepAliveHandler.addKeepAliveData(reqContext)
-            searchMessagesHandler.loadOneMessage(request, reqContext)
+                val request = GetMessageRequest(newMsgId, queryParametersMap)
+
+                searchMessagesHandler.loadOneMessage(request, handler, dataMeasurement)
+            } catch (ex: Exception) {
+                logger.error(ex) { "cannot load message $msgId" }
+                handler.writeErrorMessage(ex.message ?: ex.toString())
+                handler.complete()
+            }
+
+            this.waitAndWrite(queue, resp)
+            logger.info { "Processing search sse messages request finished" }
         }
-
-        this.waitAndWrite(queue, resp)
-        reqContext?.let { keepAliveHandler.removeKeepAliveData(it) }
-        logger.info { "Processing search sse messages request finished" }
     }
 
-    private fun checkId(msgId: String, out: ArrayBlockingQueue<SseEvent>): String? {
+    private fun checkId(msgId: String): String {
 
         if (!msgId.contains('/') && !msgId.contains('?')) {
             val split = msgId.split(':')
@@ -84,19 +81,7 @@ class GetMessageById(
             }
         }
 
-        logger.error("Invalid message id: $msgId")
-        out.put(
-            SseEvent(
-                Gson().toJson(
-                    Collections.singletonMap(
-                        "message",
-                        "Invalid message id: $msgId"
-                    )
-                ), EventType.ERROR
-            )
-        )
-        out.put(SseEvent(event = EventType.CLOSE))
-        return null
+        throw IllegalArgumentException("Invalid message id: $msgId")
     }
 
 

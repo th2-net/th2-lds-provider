@@ -32,10 +32,10 @@ class GrpcServer (server: Server) {
         fun createGrpc(context: Context, grpcRouter: GrpcRouter): GrpcServer {
             val bindableService: BindableService = if (context.configuration.grpcBackPressure) {
                 logger.info { "Creating grpc provider with back pressure" }
-                GrpcDataProviderBackPressure(context.configuration, context.searchMessagesHandler, context.searchEventsHandler)
+                GrpcDataProviderBackPressure(context.configuration, context.searchMessagesHandler, context.searchEventsHandler, context.dataMeasurement)
             } else {
                 logger.info { "Creating grpc provider" }
-                GrpcDataProviderImpl(context.configuration, context.searchMessagesHandler, context.searchEventsHandler)
+                GrpcDataProviderImpl(context.configuration, context.searchMessagesHandler, context.searchEventsHandler, context.dataMeasurement)
             }
             val server = grpcRouter.startServer(bindableService)
             logger.info { "grpc server started" }

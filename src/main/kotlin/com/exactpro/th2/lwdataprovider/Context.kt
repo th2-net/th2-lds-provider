@@ -23,6 +23,7 @@ import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.CradleEventExtractor
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
+import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
@@ -33,7 +34,6 @@ import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import java.util.concurrent.ThreadPoolExecutor
 
 @Suppress("MemberVisibilityCanBePrivate")
 class Context(
@@ -49,16 +49,19 @@ class Context(
     val messageRouterParsedBatch: MessageRouter<MessageGroupBatch>,
     val grpcConfig: GrpcConfiguration,
     val keepAliveHandler: KeepAliveHandler = KeepAliveHandler(configuration),
-    
+
     val mqDecoder: RabbitMqDecoder = RabbitMqDecoder(configuration, messageRouterParsedBatch, messageRouterRawBatch),
     val timeoutHandler: TimerWatcher = TimerWatcher(mqDecoder, configuration),
     val cradleEventExtractor: CradleEventExtractor = CradleEventExtractor(cradleManager),
-    val cradleMsgExtractor: CradleMessageExtractor = CradleMessageExtractor(configuration, cradleManager, mqDecoder),
-    
+    val cradleMsgExtractor: CradleMessageExtractor = CradleMessageExtractor(cradleManager),
+
     val pool: ExecutorService = Executors.newFixedThreadPool(configuration.execThreadPoolSize),
     val searchMessagesHandler: SearchMessagesHandler = SearchMessagesHandler(
         cradleMsgExtractor,
-        pool
+        mqDecoder,
+        pool,
+        configuration,
     ),
-    val searchEventsHandler: SearchEventsHandler = SearchEventsHandler(cradleEventExtractor, pool)
+    val searchEventsHandler: SearchEventsHandler = SearchEventsHandler(cradleEventExtractor, pool),
+    val dataMeasurement: DataMeasurement = DataMeasurementImpl
 )

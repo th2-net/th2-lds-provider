@@ -58,7 +58,7 @@ class Context(
     val grpcConfig: GrpcConfiguration,
     val keepAliveHandler: KeepAliveHandler = KeepAliveHandler(configuration),
 
-    val mqDecoder: RabbitMqDecoder = RabbitMqDecoder(messageRouterRawBatch, configuration.maxBufferDecodeQueue),
+    val mqDecoder: RabbitMqDecoder = RabbitMqDecoder(messageRouterRawBatch, configuration.maxBufferDecodeQueue, configuration.usePinAttributes),
     val timeoutHandler: TimerWatcher = TimerWatcher(mqDecoder, configuration),
     val cradleEventExtractor: CradleEventExtractor = CradleEventExtractor(cradleManager),
     val cradleMsgExtractor: CradleMessageExtractor = CradleMessageExtractor(cradleManager),

@@ -27,7 +27,8 @@ import mu.KotlinLogging
 
 class RabbitMqDecoder(
     private val messageRouterRawBatch: MessageRouter<MessageGroupBatch>,
-    maxDecodeQueue: Int
+    maxDecodeQueue: Int,
+    private val usePinAttributes: Boolean
 ) : TimeoutChecker, Decoder, AutoCloseable {
     
     private val decodeBuffer = DecodeQueueBuffer(maxDecodeQueue)
@@ -77,7 +78,12 @@ class RabbitMqDecoder(
     }
 
     private fun send(batchBuilder: MessageGroupBatch.Builder, session: String) {
-        this.messageRouterRawBatch.send(batchBuilder.build(), session, QueueAttribute.RAW.value)
+        val batch = batchBuilder.build()
+        if (usePinAttributes) {
+            this.messageRouterRawBatch.send(batch, session, QueueAttribute.RAW.value)
+        } else {
+            this.messageRouterRawBatch.sendAll(batch, QueueAttribute.RAW.value)
+        }
     }
 
     private fun registerMessage(message: RequestedMessageDetails) {

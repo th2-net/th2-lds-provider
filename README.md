@@ -61,6 +61,7 @@ spec:
 #   decodingTimeout: 60000 # timeout expecting answers from codec. 
 #   batchSize: 100 # batch size from codecs 
 #   responseFormats: string list # resolve data for selected formats only. (allowed values: BASE_64, PARSED)
+#   usePinAttributes: true # enables adding session alias into required attributes for pin
     
 
   pins: # pins are used to communicate with codec components to parse message data

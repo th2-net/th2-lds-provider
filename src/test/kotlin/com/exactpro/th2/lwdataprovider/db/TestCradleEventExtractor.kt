@@ -27,6 +27,7 @@ import com.exactpro.cradle.testevents.TestEventToStore
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
+import com.exactpro.th2.lwdataprovider.util.createEventToStore
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.doReturn
@@ -54,7 +55,7 @@ internal class TestCradleEventExtractor {
     fun `returns events for single day`() {
         val start = Instant.parse("2022-11-14T00:00:00Z")
         val end = Instant.parse("2022-11-14T23:59:59.999999999Z")
-        val toStore = createEventToStore(start, end, eventId = "test")
+        val toStore = createEventToStore(eventId = "test", start, end)
         doReturn(
             listOf(
                 StoredTestEventWrapper(
@@ -74,7 +75,7 @@ internal class TestCradleEventExtractor {
     fun `returns batched events for single day`() {
         val start = Instant.parse("2022-11-14T00:00:00Z")
         val end = Instant.parse("2022-11-14T23:59:59.999999999Z")
-        val toStore = createEventToStore(start, end, "test", parentEventId = StoredTestEventId("batchParent"))
+        val toStore = createEventToStore("test", start, end, parentEventId = StoredTestEventId("batchParent"))
         doReturn(
             listOf(
                 StoredTestEventWrapper(
@@ -99,7 +100,7 @@ internal class TestCradleEventExtractor {
         val start = Instant.parse("2022-11-14T00:00:00Z")
         val end = Instant.parse("2022-11-15T23:59:59.999999999Z")
         val middle = end.minus(1, ChronoUnit.DAYS)
-        val firstToStore = createEventToStore(start, middle, eventId = "first")
+        val firstToStore = createEventToStore(eventId = "first", start, middle)
         doReturn(
             listOf(
                 StoredTestEventWrapper(
@@ -107,7 +108,7 @@ internal class TestCradleEventExtractor {
                 )
             )
         ).whenever(storage).getTestEvents(eq(start), eq(middle))
-        val secondToStore = createEventToStore(middle, end, eventId = "second")
+        val secondToStore = createEventToStore(eventId = "second", middle, end)
         doReturn(
             listOf(
                 StoredTestEventWrapper(
@@ -130,7 +131,7 @@ internal class TestCradleEventExtractor {
     fun `returns single event`() {
         val start = Instant.parse("2022-11-14T00:00:00Z")
         val end = Instant.parse("2022-11-14T23:59:59.999999999Z")
-        val toStore = createEventToStore(start, end, eventId = "test")
+        val toStore = createEventToStore(eventId = "test", start, end)
         doReturn(
             StoredTestEventWrapper(
                 StoredTestEvent.newStoredTestEventSingle(toStore)
@@ -148,7 +149,7 @@ internal class TestCradleEventExtractor {
     fun `returns single event from batch`() {
         val start = Instant.parse("2022-11-14T00:00:00Z")
         val end = Instant.parse("2022-11-14T23:59:59.999999999Z")
-        val toStore = createEventToStore(start, end, eventId = "test", parentEventId = StoredTestEventId("batchParent"))
+        val toStore = createEventToStore(eventId = "test", start, end, parentEventId = StoredTestEventId("batchParent"))
         doReturn(
             StoredTestEventWrapper(
                 StoredTestEvent.newStoredTestEventBatch(TestEventBatchToStore.builder()
@@ -182,17 +183,6 @@ internal class TestCradleEventExtractor {
         get { eventType } isEqualTo toStore.type
         get { successful } isEqualTo toStore.isSuccess
         get { body } isEqualTo (toStore.content.takeIf { it.isNotEmpty() }?.toString(Charsets.UTF_8) ?: "{}")
-    }
-
-    private fun createEventToStore(start: Instant, end: Instant, eventId: String, parentEventId: StoredTestEventId? = null): TestEventToStore = TestEventToStore().apply {
-        id = StoredTestEventId(eventId)
-        name = "test_event"
-        type = "test"
-        parentId = parentEventId
-        content = ByteArray(0)
-        isSuccess = true
-        startTimestamp = start.plusSeconds(1)
-        endTimestamp = end.minusSeconds(1)
     }
 
     private fun createRequest(start: Instant?, end: Instant?): SseEventSearchRequest = SseEventSearchRequest(

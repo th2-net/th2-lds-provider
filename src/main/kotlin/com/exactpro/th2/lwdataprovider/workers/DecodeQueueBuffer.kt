@@ -29,7 +29,7 @@ import kotlin.concurrent.write
 
 class DecodeQueueBuffer(
     private val maxDecodeQueueSize: Int = -1
-) : RequestsBuffer {
+) : RequestsBuffer, AutoCloseable {
 
     private val lock = ReentrantReadWriteLock()
     @GuardedBy("lock")
@@ -105,6 +105,16 @@ class DecodeQueueBuffer(
         }
     }
 
+    override fun close() {
+        lock.write {
+            LOGGER.info { "Closing ${decodeQueue.size} request(s) without response" }
+            decodeQueue.forEach { (id, details) ->
+                LOGGER.info { "Canceling request for id $id" }
+                details.forEach(RequestedMessageDetails::timeout)
+            }
+        }
+    }
+
     private inline fun <T> withQueueLockAndRelease(block: () -> T): T {
         return lock.write {
             try {
@@ -140,14 +150,14 @@ class DecodeQueueBuffer(
         }
     }
 
-    private fun RequestedMessageDetails.timeout(): Unit = responseFinished(null)
-
-    private fun RequestedMessageDetails.responseFinished(response: List<Message>?) {
-        parsedMessage = response
-        responseMessage()
-    }
-
     companion object {
         private val LOGGER = KotlinLogging.logger { }
     }
+}
+
+private fun RequestedMessageDetails.timeout(): Unit = responseFinished(null)
+
+private fun RequestedMessageDetails.responseFinished(response: List<Message>?) {
+    parsedMessage = response
+    responseMessage()
 }

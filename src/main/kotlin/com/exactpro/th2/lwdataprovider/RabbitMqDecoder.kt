@@ -20,20 +20,18 @@ import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.plusAssign
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.QueueAttribute
-import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.workers.CodecMessageListener
 import com.exactpro.th2.lwdataprovider.workers.DecodeQueueBuffer
 import com.exactpro.th2.lwdataprovider.workers.TimeoutChecker
 import mu.KotlinLogging
 
 class RabbitMqDecoder(
-    configuration: Configuration,
-    messageRouterParsedBatch: MessageRouter<MessageGroupBatch>,
-    private val messageRouterRawBatch: MessageRouter<MessageGroupBatch>
+    private val messageRouterRawBatch: MessageRouter<MessageGroupBatch>,
+    maxDecodeQueue: Int
 ) : TimeoutChecker, Decoder, AutoCloseable {
     
-    private val decodeBuffer = DecodeQueueBuffer(configuration.maxBufferDecodeQueue)
-    private val parsedMonitor = messageRouterParsedBatch.subscribeAll(CodecMessageListener(decodeBuffer), QueueAttribute.PARSED.value, FROM_CODEC_ATTR)
+    private val decodeBuffer = DecodeQueueBuffer(maxDecodeQueue)
+    private val parsedMonitor = messageRouterRawBatch.subscribeAll(CodecMessageListener(decodeBuffer), QueueAttribute.PARSED.value, FROM_CODEC_ATTR)
 
     override fun sendBatchMessage(batchBuilder: MessageGroupBatch.Builder, requests: Collection<RequestedMessageDetails>, session: String) {
         checkAndWaitFreeBuffer(requests.size)
@@ -60,6 +58,7 @@ class RabbitMqDecoder(
     override fun close() {
         runCatching { parsedMonitor.unsubscribe() }
             .onFailure { LOGGER.error(it) { "Cannot unsubscribe from queue" } }
+        decodeBuffer.close()
     }
 
     private fun checkAndWaitFreeBuffer(size: Int) {

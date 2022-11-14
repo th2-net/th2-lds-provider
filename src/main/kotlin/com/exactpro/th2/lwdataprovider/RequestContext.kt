@@ -21,10 +21,10 @@ import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.RawMessage
 
 class RequestedMessageDetails(
-    val id: String,
     val storedMessage: StoredMessage,
     private val onResponse: (RequestedMessageDetails) -> Unit = {}
 ) {
+    val id: String = storedMessage.id.toString()
     val rawMessage: RawMessage = RawMessage.parseFrom(storedMessage.content)
     @Volatile
     var time: Long = 0

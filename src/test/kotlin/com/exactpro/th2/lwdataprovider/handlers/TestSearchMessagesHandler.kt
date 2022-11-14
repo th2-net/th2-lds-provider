@@ -20,8 +20,6 @@ import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
 import com.exactpro.cradle.Direction
 import com.exactpro.cradle.TimeRelation
-import com.exactpro.cradle.messages.MessageToStoreBuilder
-import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.message
@@ -35,7 +33,7 @@ import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
-import org.junit.jupiter.api.Assertions
+import com.exactpro.th2.lwdataprovider.util.createCradleStoredMessage
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argThat
@@ -94,11 +92,11 @@ internal class TestSearchMessagesHandler {
         val taskExecutor = Executors.newSingleThreadExecutor()
         doReturn(
             listOf(
-                createStoreMessage("test-stream", Direction.FIRST, index = 1),
-                createStoreMessage("test-stream", Direction.FIRST, index = 2),
-                createStoreMessage("test-stream", Direction.FIRST, index = 3),
-                createStoreMessage("test-stream", Direction.FIRST, index = 4),
-                createStoreMessage("test-stream", Direction.FIRST, index = 5),
+                createCradleStoredMessage("test-stream", Direction.FIRST, index = 1),
+                createCradleStoredMessage("test-stream", Direction.FIRST, index = 2),
+                createCradleStoredMessage("test-stream", Direction.FIRST, index = 3),
+                createCradleStoredMessage("test-stream", Direction.FIRST, index = 4),
+                createCradleStoredMessage("test-stream", Direction.FIRST, index = 5),
             )
         ).whenever(storage).getMessages(argThat {
             streamName.check("test-stream") && direction.check(Direction.FIRST)
@@ -176,10 +174,10 @@ internal class TestSearchMessagesHandler {
     fun `splits messages by batch size`() {
         doReturn(
             listOf(
-                createStoreMessage("test-stream", Direction.FIRST, index = 1),
-                createStoreMessage("test-stream", Direction.FIRST, index = 2),
-                createStoreMessage("test-stream", Direction.FIRST, index = 3),
-                createStoreMessage("test-stream", Direction.FIRST, index = 4),
+                createCradleStoredMessage("test-stream", Direction.FIRST, index = 1),
+                createCradleStoredMessage("test-stream", Direction.FIRST, index = 2),
+                createCradleStoredMessage("test-stream", Direction.FIRST, index = 3),
+                createCradleStoredMessage("test-stream", Direction.FIRST, index = 4),
             )
         ).whenever(storage).getMessages(argThat {
             streamName.check("test-stream") && direction.check(Direction.FIRST)
@@ -239,8 +237,8 @@ internal class TestSearchMessagesHandler {
     fun `returns raw messages`() {
         doReturn(
             listOf(
-                createStoreMessage("test-stream", Direction.FIRST, index = 1),
-                createStoreMessage("test-stream", Direction.FIRST, index = 2),
+                createCradleStoredMessage("test-stream", Direction.FIRST, index = 1),
+                createCradleStoredMessage("test-stream", Direction.FIRST, index = 2),
             )
         ).whenever(storage).getMessages(argThat {
             streamName.check("test-stream") && direction.check(Direction.FIRST)
@@ -274,8 +272,8 @@ internal class TestSearchMessagesHandler {
     fun `returns parsed messages`() {
         doReturn(
             listOf(
-                createStoreMessage("test-stream", Direction.FIRST, index = 1),
-                createStoreMessage("test-stream", Direction.FIRST, index = 2),
+                createCradleStoredMessage("test-stream", Direction.FIRST, index = 1),
+                createCradleStoredMessage("test-stream", Direction.FIRST, index = 2),
             )
         ).whenever(storage).getMessages(argThat {
             streamName.check("test-stream") && direction.check(Direction.FIRST)
@@ -322,7 +320,7 @@ internal class TestSearchMessagesHandler {
     @Test
     fun `returns single parsed message`() {
         doReturn(
-            createStoreMessage("test-stream", Direction.FIRST, index = 1)
+            createCradleStoredMessage("test-stream", Direction.FIRST, index = 1)
         ).whenever(storage).getMessage(
             eq(
                 StoredMessageId("test-stream", Direction.FIRST, 1)
@@ -364,7 +362,7 @@ internal class TestSearchMessagesHandler {
     @Test
     fun `returns single raw message`() {
         doReturn(
-            createStoreMessage("test-stream", Direction.FIRST, index = 1),
+            createCradleStoredMessage("test-stream", Direction.FIRST, index = 1),
         ).whenever(storage).getMessage(eq(StoredMessageId("test-stream", Direction.FIRST, 1)))
 
         val handler = spy(MessageResponseHandlerTestImpl(measurement))
@@ -397,15 +395,6 @@ internal class TestSearchMessagesHandler {
         onlyRaw = isRawOnly,
         resumeFromIdsList = null,
     )
-
-    private fun createStoreMessage(streamName: String, direction: Direction, index: Long, content: String? = null): StoredMessage {
-        return StoredMessage(
-            MessageToStoreBuilder()
-                .content(content?.toByteArray() ?: ByteArray(0))
-                .build(),
-            StoredMessageId(streamName, direction, index)
-        )
-    }
 }
 
 private open class TestDecoder : Decoder {

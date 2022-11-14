@@ -223,7 +223,7 @@ private class ParsedStoredMessageHandler(
 
     override fun handleNext(data: StoredMessage) {
         val step = measurement.start("decoding")
-        val detail = RequestedMessageDetails(data.id.toString(), data) {
+        val detail = RequestedMessageDetails(data) {
             step.stop()
             handler.handleNext(it)
         }
@@ -262,7 +262,7 @@ private class RawStoredMessageHandler(
     }
 
     override fun handleNext(data: StoredMessage) {
-        handler.handleNext(RequestedMessageDetails(data.id.toString(), data))
+        handler.handleNext(RequestedMessageDetails(data))
     }
 
 }

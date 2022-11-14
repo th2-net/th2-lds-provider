@@ -22,19 +22,19 @@ import kotlin.math.max
 
 private val LOGGER = KotlinLogging.logger { }
 
-class CustomConfigurationClass {
-    var hostname: String? = null
-    var port: Int? = null
-    val keepAliveTimeout: Long? = null
-    val maxBufferDecodeQueue: Int? = null
-    val decodingTimeout: Long? = null
-    val responseQueueSize: Int? = null
-    val execThreadPoolSize: Int? = null
-    val batchSize: Int? = null
-    val mode: String? = null
-    val grpcBackPressure : Boolean? = null
-    val bufferPerQuery: Int? = null
-}
+class CustomConfigurationClass(
+    val hostname: String? = null,
+    val port: Int? = null,
+    val keepAliveTimeout: Long? = null,
+    val maxBufferDecodeQueue: Int? = null,
+    val decodingTimeout: Long? = null,
+    val responseQueueSize: Int? = null,
+    val execThreadPoolSize: Int? = null,
+    val batchSize: Int? = null,
+    val mode: String? = null,
+    val grpcBackPressure : Boolean? = null,
+    val bufferPerQuery: Int? = null,
+)
 
 class Configuration(customConfiguration: CustomConfigurationClass) {
 

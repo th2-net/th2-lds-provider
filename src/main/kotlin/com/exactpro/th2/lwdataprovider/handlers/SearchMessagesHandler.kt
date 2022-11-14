@@ -118,7 +118,7 @@ class SearchMessagesHandler(
                                 val time = measureTimeMillis {
                                     cradleMsgExtractor.getMessages(filter, subSink, dataMeasurement)
                                 }
-                                logger.info { "Loaded ${sink.loadedData} messages from DB $time ms" }
+                                logger.info { "Loaded ${subSink.loadedData} messages from DB $time ms" }
                             }
                         }
                     }

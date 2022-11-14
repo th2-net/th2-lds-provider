@@ -39,13 +39,13 @@ class SseMessageSearchRequest(
     val resumeFromIdsList: List<StoredMessageId>?,
     val onlyRaw: Boolean,
 
-    passedEndTimestamp: Instant?
+    endTimestamp: Instant?
 ) {
 
     val endTimestamp : Instant
 
     init {
-        endTimestamp = getInitEndTimestamp(passedEndTimestamp, resultCountLimit, searchDirection)
+        this.endTimestamp = getInitEndTimestamp(endTimestamp, resultCountLimit, searchDirection)
         checkRequest()
     }
 
@@ -87,7 +87,7 @@ class SseMessageSearchRequest(
         searchDirection = parameters["searchDirection"]?.firstOrNull()?.let {
             asCradleTimeRelation(it)
         } ?: TimeRelation.AFTER,
-        passedEndTimestamp = parameters["endTimestamp"]?.firstOrNull()?.let { Instant.ofEpochMilli(it.toLong()) },
+        endTimestamp = parameters["endTimestamp"]?.firstOrNull()?.let { Instant.ofEpochMilli(it.toLong()) },
         resumeFromIdsList = parameters["messageId"]?.map { StoredMessageId.fromString(it) },
         resultCountLimit = parameters["resultCountLimit"]?.firstOrNull()?.toInt(),
         keepOpen = parameters["keepOpen"]?.firstOrNull()?.toBoolean() ?: false,
@@ -103,7 +103,7 @@ class SseMessageSearchRequest(
         } else null,
         stream = grpcRequest.streamList.map { it.toProviderMessageStreams() },
         searchDirection = grpcRequest.searchDirection.toProviderRelation(),
-        passedEndTimestamp = if (grpcRequest.hasEndTimestamp()){
+        endTimestamp = if (grpcRequest.hasEndTimestamp()){
             grpcRequest.endTimestamp.toInstant()
         } else null,
         resumeFromIdsList = if (grpcRequest.streamPointerList.isNotEmpty()){

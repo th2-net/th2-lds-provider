@@ -50,7 +50,7 @@ abstract class MessageResponseHandler(
                 lock.withLock {
                     val expectedSize = messagesInProcess + msgBufferCount
                     @Suppress("ConvertTwoComparisonsToRangeCheck")
-                    if (maxMessagesPerRequest > 0 && maxMessagesPerRequest <= expectedSize) {
+                    if (maxMessagesPerRequest > 0 && maxMessagesPerRequest < expectedSize) {
                         condition.await()
                     } else {
                         messagesInProcess = expectedSize
@@ -84,7 +84,7 @@ abstract class MessageResponseHandler(
         }
     }
 
-    abstract fun handleNextInternal(data: RequestedMessageDetails)
+    protected abstract fun handleNextInternal(data: RequestedMessageDetails)
 
     private fun onMessageReceived() {
         lock.withLock {
@@ -95,7 +95,7 @@ abstract class MessageResponseHandler(
             if (messagesInProcess >= maxMessagesPerRequest) {
                 return
             }
-            if (curCount >= maxMessagesPerRequest) {
+            if (curCount < maxMessagesPerRequest) {
                 condition.signal()
             }
         }

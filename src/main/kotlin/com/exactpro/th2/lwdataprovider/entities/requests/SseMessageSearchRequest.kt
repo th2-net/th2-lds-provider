@@ -122,7 +122,7 @@ class SseMessageSearchRequest(
         attachedEvents = false, // disabled
         lookupLimitDays = null,
         onlyRaw = false, // NOT SUPPORTED in GRPC
-        responseFormats = grpcRequest.responseFormatsList.toSet(),
+        responseFormats = grpcRequest.responseFormatsList.takeIf { it.isNotEmpty() }?.toSet(),
     )
 
     private fun checkEndTimestamp() {
@@ -148,10 +148,19 @@ class SseMessageSearchRequest(
     }
 
     override fun toString(): String {
-        return "SseMessageSearchRequest(startTimestamp=$startTimestamp, endTimestamp=$endTimestamp, stream=$stream," +
-                " searchDirection=$searchDirection, resultCountLimit=$resultCountLimit, " +
-                "keepOpen=$keepOpen, attachedEvents=$attachedEvents, lookupLimitDays=$lookupLimitDays, " +
-                "resumeFromIdsList=$resumeFromIdsList, onlyRaw=$onlyRaw)"
+        return "SseMessageSearchRequest(" +
+                "startTimestamp=$startTimestamp, " +
+                "endTimestamp=$endTimestamp" +
+                "stream=$stream, " +
+                "searchDirection=$searchDirection, " +
+                "resultCountLimit=$resultCountLimit, " +
+                "keepOpen=$keepOpen, " +
+                "attachedEvents=$attachedEvents, " +
+                "lookupLimitDays=$lookupLimitDays, " +
+                "resumeFromIdsList=$resumeFromIdsList, " +
+                "onlyRaw=$onlyRaw, " +
+                "responseFormats=$responseFormats, " +
+                ")"
     }
 }
 

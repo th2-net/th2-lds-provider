@@ -405,12 +405,28 @@ private abstract class MessagesDataSink(
 
     protected abstract fun onNextData(marker: String, data: StoredMessage)
 
-    override fun onNext(marker: String, data: StoredMessage) {
-        if (limit == null || loadedData < limit) {
-            loadedData++
-            onNextData(marker, data)
-            handler.handleNext(data)
+    override fun onNext(marker: String, listData: Collection<StoredMessage>) {
+        var last: StoredMessage? = null
+        for (data in listData) {
+            val processed = process(marker, data)
+            if (!processed) {
+                break
+            }
+            last = data
         }
+        last?.also { onNextData(marker, it) }
+    }
+
+    override fun onNext(marker: String, data: StoredMessage) {
+        process(marker, data)
+    }
+
+    private fun process(marker: String, data: StoredMessage): Boolean {
+        if (limit != null && loadedData >= limit) return false
+        loadedData++
+        onNextData(marker, data)
+        handler.handleNext(data)
+        return true
     }
 }
 

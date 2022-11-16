@@ -22,6 +22,7 @@ import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.grpc.MessageGroupBatchMetadata
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.metrics.DEFAULT_BUCKETS
@@ -269,7 +270,9 @@ open class GrpcDataProviderImpl(
                     }
                 }
 
-            var builder = MessageGroupBatch.newBuilder()
+            val batchMetadata = MessageGroupBatchMetadata.newBuilder()
+                .setExternalUserQueue(request.externalUserQueue).build()
+            var builder = MessageGroupBatch.newBuilder().setMetadata(batchMetadata)
             var size = 0L
             var previousTime = System.nanoTime()
             groups.asSequence()
@@ -304,7 +307,7 @@ open class GrpcDataProviderImpl(
                         if (size >= configuration.batchSize) {
                             val batch = BUILD_GROUP_HISTOGRAM.measure { builder.build() }
                             SEND_BATCH_HISTOGRAM.measure { messageRouter.send(batch, "to_codec") }
-                            builder = MessageGroupBatch.newBuilder()
+                            builder = MessageGroupBatch.newBuilder().setMetadata(batchMetadata)
                             size = 0L
                         }
 

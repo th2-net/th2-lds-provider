@@ -53,9 +53,10 @@ class DecodeQueueBuffer(
         check(size in 0..maxDecodeQueueSize) { "size of the single request must be less than the max queue size" }
         var submitted = false
         do {
+            LOGGER.trace { "Checking decode queue for available space for $size request(s)" }
             // We need to make sure that there are exactly 'maxDecodeQueueSize' requests or less in the result queue
             fullDecodeQueryLock.withLock {
-                val newRequests = requests + size
+                val newRequests = lock.read { decodeQueue.size } + size
                 if (maxDecodeQueueSize < newRequests) {
                     LOGGER.debug { "Cannot fit $size messages. " +
                             "Expected queue size is more than buffer size ($maxDecodeQueueSize < $newRequests) buf and thread will be locked" }
@@ -64,7 +65,7 @@ class DecodeQueueBuffer(
                     fullDecodeQueryCond.await()
                 } else {
                     submitted = true
-                    requests += size
+                    requests = newRequests
                 }
             }
         } while (!submitted)
@@ -115,14 +116,13 @@ class DecodeQueueBuffer(
         }
     }
 
-    private inline fun <T> withQueueLockAndRelease(block: () -> T): T {
-        return lock.write {
-            try {
-                block()
-            } finally {
-                checkAndUnlock()
-            }
+    private inline fun <T> withQueueLockAndRelease(block: () -> T): T = try {
+        lock.write {
+            block()
         }
+    } finally {
+        // we must not hold the `lock.write` before taking `fullDecodeQueryLock` lock
+        checkAndUnlock()
     }
 
     private fun checkAndUnlock() {
@@ -132,9 +132,10 @@ class DecodeQueueBuffer(
             requests = lock.read { decodeQueue.size }
             if (requests < maxDecodeQueueSize) {
                 fullDecodeQueryCond.signalAll()
+                LOGGER.debug { "Buffer is unlocked with size $requests" }
                 locked = false
             }
-            LOGGER.debug { "Awaiting buffer space is unlocked" }
+            LOGGER.trace { "Buffers size is $requests" }
         }
     }
 

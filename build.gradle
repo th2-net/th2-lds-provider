@@ -57,6 +57,7 @@ dependencies {
     implementation 'org.slf4j:slf4j-api'
 
     implementation "io.grpc:grpc-services:1.32.1"
+    implementation 'com.exactpro.th2:grpc-common:3.12.0-TH2-4262-reduce-load-on-a-separate-boxes-in-crawler-schema-3480850604-SNAPSHOT'
 
     implementation('com.exactpro.th2:common:3.42.0-TH2-4262-reduce-load-on-a-separate-boxes-in-crawler-schema-3329858019-SNAPSHOT') {
         exclude group: 'com.exactpro.th2', module: 'cradle-core'

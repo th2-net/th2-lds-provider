@@ -18,21 +18,28 @@ package com.exactpro.th2.lwdataprovider.db
 
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
+import com.exactpro.cradle.Direction
 import com.exactpro.cradle.messages.StoredGroupMessageBatch
 import com.exactpro.cradle.messages.StoredMessage
+import com.exactpro.cradle.messages.StoredMessageFilterBuilder
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.lwdataprovider.util.createBatches
+import com.exactpro.th2.lwdataprovider.util.createCradleStoredMessage
 import com.exactpro.th2.lwdataprovider.util.validateOrder
 import mu.KotlinLogging
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.MethodOrderer
+import org.junit.jupiter.api.Order
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.api.TestMethodOrder
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import org.mockito.Mockito.spy
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argThat
 import org.mockito.kotlin.atMost
 import org.mockito.kotlin.clearInvocations
 import org.mockito.kotlin.doReturn
@@ -41,6 +48,10 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import strikt.api.expectThat
+import strikt.assertions.containsExactly
+import strikt.assertions.hasSize
+import java.time.Duration
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
@@ -67,6 +78,147 @@ internal class TestCradleMessageExtractor {
         manager = mock { on { this.storage }.thenReturn(storage) }
         extractor = CradleMessageExtractor(groupRequestBuffer, manager)
         clearInvocations(storage, messageRouter, manager)
+    }
+
+    @Test
+    fun `get partially overlapped messages with sink interval`() {
+        fun generateMessage(alias: String, start: Instant): List<StoredMessage> {
+            var time = start
+            return arrayListOf<StoredMessage>().apply {
+                repeat(5) {
+                    add(createCradleStoredMessage(alias, Direction.FIRST, (it + 1).toLong(), timestamp = time))
+                    time = time.plus(10, ChronoUnit.MINUTES)
+                }
+            }
+        }
+        var start = Instant.now()
+        // -- 10 minutes
+        // a 1-2-|3-4|-5
+        // b --1-|2-3|-4-5|
+        // c ----|--1|-2-3|-4-5
+        val messagesByAlias: Map<String, List<StoredMessage>> = listOf("a", "b", "c").associateWith {
+            generateMessage(it, start).also {
+                start = start.plus(15, ChronoUnit.MINUTES)
+            }
+        }
+        messagesByAlias.forEach { (alias, messages) ->
+            doReturn(messages).whenever(storage).getMessages(argThat {
+                streamName.check(alias)
+            })
+        }
+        val sink = StoredMessageDataSink()
+        extractor.getMessagesWithSyncInterval(
+            messagesByAlias.keys.map { StoredMessageFilterBuilder().streamName().isEqualTo(it).build() },
+            Duration.ofMinutes(20),
+            sink,
+            measurement,
+        )
+        expectThat(sink.messages)
+            .hasSize(messagesByAlias.values.sumOf { it.size })
+            .containsExactly(
+                messagesByAlias.getValue("a")[0],
+                messagesByAlias.getValue("a")[1],
+                messagesByAlias.getValue("b")[0],
+                messagesByAlias.getValue("a")[2],
+                messagesByAlias.getValue("a")[3],
+                messagesByAlias.getValue("b")[1],
+                messagesByAlias.getValue("b")[2],
+                messagesByAlias.getValue("c")[0],
+                messagesByAlias.getValue("a")[4], // last A
+                messagesByAlias.getValue("b")[3],
+                messagesByAlias.getValue("b")[4], // last B
+                messagesByAlias.getValue("c")[1],
+                messagesByAlias.getValue("c")[2],
+                messagesByAlias.getValue("c")[3],
+                messagesByAlias.getValue("c")[4], // last C
+            )
+    }
+
+    @Test
+    fun `get not overlapped messages with sink interval`() {
+        fun generateMessage(alias: String, start: Instant): List<StoredMessage> {
+            var time = start
+            return arrayListOf<StoredMessage>().apply {
+                repeat(5) {
+                    add(createCradleStoredMessage(alias, Direction.FIRST, (it + 1).toLong(), timestamp = time))
+                    time = time.plus(10, ChronoUnit.MINUTES)
+                }
+            }
+        }
+        var start = Instant.now()
+        // -- 10 minutes
+        // a 1-2-3-4-5
+        // b ----------1-2-3-4-5
+        // c --------------------1-2-3-4-5
+        val messagesByAlias: Map<String, List<StoredMessage>> = listOf("a", "b", "c").associateWith {
+            generateMessage(it, start).also {
+                start = start.plus(50, ChronoUnit.MINUTES)
+            }
+        }
+        messagesByAlias.forEach { (alias, messages) ->
+            doReturn(messages).whenever(storage).getMessages(argThat {
+                streamName.check(alias)
+            })
+        }
+        val sink = StoredMessageDataSink()
+        extractor.getMessagesWithSyncInterval(
+            messagesByAlias.keys.map { StoredMessageFilterBuilder().streamName().isEqualTo(it).build() },
+            Duration.ofMinutes(20),
+            sink,
+            measurement,
+        )
+        expectThat(sink.messages)
+            .hasSize(messagesByAlias.values.sumOf { it.size })
+            .containsExactly(
+                messagesByAlias.getValue("a") + messagesByAlias.getValue("b") + messagesByAlias.getValue("c"),
+            )
+    }
+
+    @Test
+    fun `get fully overlapped messages with sink interval`() {
+        fun generateMessage(alias: String, start: Instant): List<StoredMessage> {
+            var time = start
+            return arrayListOf<StoredMessage>().apply {
+                repeat(5) {
+                    add(createCradleStoredMessage(alias, Direction.FIRST, (it + 1).toLong(), timestamp = time))
+                    time = time.plus(10, ChronoUnit.MINUTES)
+                }
+            }
+        }
+        val start = Instant.now()
+        // -- 10 minutes
+        // a 1-2-|3-4-|5
+        // b 1-2-|3-4-|5
+        // c 1-2-|3-4-|5
+        val messagesByAlias: Map<String, List<StoredMessage>> = listOf("a", "b", "c").associateWith {
+            generateMessage(it, start)
+        }
+        messagesByAlias.forEach { (alias, messages) ->
+            doReturn(messages).whenever(storage).getMessages(argThat {
+                streamName.check(alias)
+            })
+        }
+        val sink = StoredMessageDataSink()
+        extractor.getMessagesWithSyncInterval(
+            messagesByAlias.keys.map { StoredMessageFilterBuilder().streamName().isEqualTo(it).build() },
+            Duration.ofMinutes(20),
+            sink,
+            measurement,
+        )
+        val messageInInterval = 2
+        expectThat(sink.messages)
+            .hasSize(messagesByAlias.values.sumOf { it.size })
+            .containsExactly(
+                messagesByAlias.getValue("a").take(messageInInterval) +
+                        messagesByAlias.getValue("b").take(messageInInterval) +
+                        messagesByAlias.getValue("c").take(messageInInterval) +
+                messagesByAlias.getValue("a").drop(messageInInterval).take(messageInInterval) +
+                        messagesByAlias.getValue("b").drop(messageInInterval).take(messageInInterval) +
+                        messagesByAlias.getValue("c").drop(messageInInterval).take(messageInInterval) +
+                messagesByAlias.getValue("a").takeLast(1) +
+                        messagesByAlias.getValue("b").takeLast(1) +
+                        messagesByAlias.getValue("c").takeLast(1)
+            )
     }
 
     @Test

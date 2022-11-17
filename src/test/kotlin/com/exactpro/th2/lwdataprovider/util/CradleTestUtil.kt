@@ -30,10 +30,11 @@ fun createCradleStoredMessage(
     streamName: String,
     direction: Direction,
     index: Long,
-    content: String? = null
+    content: String? = null,
+    timestamp: Instant? = Instant.now(),
 ): StoredMessage = StoredMessage(
     MessageToStoreBuilder()
-        .timestamp(Instant.now())
+        .timestamp(timestamp)
         .content(content?.toByteArray() ?: ByteArray(0))
         .build(),
     StoredMessageId(streamName, direction, index)

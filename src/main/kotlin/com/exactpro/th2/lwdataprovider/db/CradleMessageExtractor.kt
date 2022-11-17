@@ -24,6 +24,7 @@ import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageFilter
 import com.exactpro.cradle.messages.StoredMessageId
 import mu.KotlinLogging
+import java.time.Duration
 import java.time.Instant
 import java.util.LinkedList
 import kotlin.system.measureTimeMillis
@@ -54,6 +55,7 @@ class CradleMessageExtractor(
         return lastBatch != null && !lastBatch.isEmpty &&
                 lastBatch.run { firstTimestamp >= lastGroupTimestamp || lastTimestamp >= lastGroupTimestamp }
     }
+
     private fun hasMessages(id: StoredMessageId, lastTimestamp: Instant, order: TimeRelation): Boolean {
         return storage.getNearestMessageId(id.streamName, id.direction, lastTimestamp, order).let {
             it != null && it != id
@@ -94,6 +96,7 @@ class CradleMessageExtractor(
         fun StoredMessage.inRange(): Boolean = timestamp >= start && timestamp < end
         fun Collection<StoredMessage>.preFilter(): Collection<StoredMessage> =
             parameters.preFilter?.let { filter(it) } ?: this
+
         fun StoredGroupMessageBatch.filterIfRequired(): Collection<StoredMessage> = if (isNeedFiltration()) {
             messages.filter(StoredMessage::inRange and parameters.preFilter)
         } else {
@@ -206,6 +209,67 @@ class CradleMessageExtractor(
 
         logger.info { "Loaded 1 messages with id $msgId from DB $time ms" }
 
+    }
+
+    fun getMessagesWithSyncInterval(
+        filters: Collection<StoredMessageFilter>,
+        interval: Duration,
+        sink: MessageDataSink<String, StoredMessage>,
+        measurement: DataMeasurement,
+    ) {
+        require(!interval.isZero && !interval.isNegative) { "incorrect sync interval $interval" }
+
+        fun durationInRange(first: StoredMessage, second: StoredMessage): Boolean {
+            return Duration.between(first.timestamp, second.timestamp).abs() < interval
+        }
+        fun MutableList<StoredMessage?>.minMessage(): StoredMessage? = asSequence().filterNotNull().minByOrNull { it.timestamp }
+
+        val cradleIterators: List<Iterator<StoredMessage>> = filters.map {
+            getMessagesFromCradle(it, measurement).iterator()
+        }
+        val lastTimestamps: MutableList<StoredMessage?> = cradleIterators.mapTo(arrayListOf()) { if (it.hasNext()) it.next() else null }
+        var minTimestampMsg: StoredMessage? = lastTimestamps.minMessage() ?: run {
+            logger.debug { "all cradle iterators are empty" }
+            return
+        }
+
+        do {
+            var allDataLoaded = cradleIterators.none { it.hasNext() }
+            cradleIterators.forEachIndexed { index, cradleIterator ->
+                sink.canceled?.apply {
+                    logger.info { "canceled the request: $message" }
+                    return
+                }
+                var lastMessage: StoredMessage? = lastTimestamps[index]?.also { msg ->
+                    if (minTimestampMsg?.let { durationInRange(it, msg) } != false || allDataLoaded) {
+                        sink.onNext(msg.streamName, msg)
+                        lastTimestamps[index] = null
+                    } else {
+                        // messages is not in range for now
+                        return@forEachIndexed
+                    }
+                }
+                var stop = false
+                while (cradleIterator.hasNext() && !stop) {
+                    sink.canceled?.apply {
+                        logger.info { "canceled the request: $message" }
+                        return
+                    }
+                    val message: StoredMessage = cradleIterator.next()
+                    if (minTimestampMsg?.let { durationInRange(it, message) } != false) {
+                        sink.onNext(message.streamName, message)
+                    } else {
+                        stop = true
+                    }
+                    lastMessage = message
+                }
+                if (cradleIterator.hasNext() || stop) {
+                    lastTimestamps[index] = lastMessage
+                    allDataLoaded = false
+                }
+            }
+            minTimestampMsg = lastTimestamps.minMessage()
+        } while (!allDataLoaded)
     }
 
     private fun getMessagesFromCradle(filter: StoredMessageFilter, dataMeasurement: DataMeasurement): Iterable<StoredMessage> {

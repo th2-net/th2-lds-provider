@@ -23,11 +23,12 @@ plugins {
 
 ext {
     dockerImageVersion = release_version
-    cradleApiVersion = '4.0.0-TH2-2150-2515326049-SNAPSHOT'
+    cradleApiVersion = '5.0.0-dev-version-5-3436384591-6fcd0d8-SNAPSHOT'
 }
 
 dependencies {
     implementation('com.exactpro.th2:common:4.0.0-th2-2150-books-pages-2496284531-SNAPSHOT') {
+        exclude group: 'org.slf4j', module: 'slf4j-log4j12'
         exclude group: 'com.exactpro.th2', module: 'cradle-core'
         exclude group: 'com.exactpro.th2', module: 'cradle-cassandra'
     }
@@ -36,7 +37,9 @@ dependencies {
     implementation 'org.eclipse.jetty:jetty-servlet:9.4.44.v20210927'
 
 
-    implementation "com.exactpro.th2:cradle-cassandra:$cradleApiVersion"
+    implementation("com.exactpro.th2:cradle-cassandra:$cradleApiVersion") {
+        exclude group: 'org.slf4j', module: 'slf4j-log4j12'
+    }
     implementation('net.jpountz.lz4:lz4:1.3.0') {
         because('cassandra driver requires lz4 impl in classpath for compression')
     }

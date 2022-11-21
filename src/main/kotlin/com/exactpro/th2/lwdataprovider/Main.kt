@@ -63,7 +63,7 @@ class Main {
             },
             messageRouterRawBatch = configurationFactory.messageRouterMessageGroupBatch,
             messageRouterParsedBatch = configurationFactory.messageRouterMessageGroupBatch,
-            grpcConfig = configurationFactory.grpcConfiguration
+            grpcConfig = configurationFactory.grpcConfiguration,
         )
     }
 

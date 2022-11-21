@@ -24,6 +24,7 @@ import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.CradleEventExtractor
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.handlers.QueueMessagesHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
@@ -63,5 +64,12 @@ class Context(
         configuration,
     ),
     val searchEventsHandler: SearchEventsHandler = SearchEventsHandler(cradleEventExtractor, pool),
-    val dataMeasurement: DataMeasurement = DataMeasurementImpl
+    val dataMeasurement: DataMeasurement = DataMeasurementImpl,
+    val queueMessageHandler: QueueMessagesHandler = QueueMessagesHandler(
+        cradleMsgExtractor,
+        dataMeasurement,
+        messageRouterParsedBatch,
+        configuration.batchSize,
+        pool,
+    )
 )

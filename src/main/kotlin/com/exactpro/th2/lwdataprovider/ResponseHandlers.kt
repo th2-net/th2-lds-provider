@@ -18,6 +18,7 @@ package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.th2.dataprovider.grpc.EventResponse
 import com.exactpro.th2.dataprovider.grpc.MessageSearchResponse
+import org.apache.commons.lang3.exception.ExceptionUtils
 
 interface ResponseHandler<T> : BasicResponseHandler {
     fun handleNext(data: T)
@@ -27,7 +28,7 @@ interface BasicResponseHandler {
     val isAlive: Boolean
     fun complete()
     fun writeErrorMessage(text: String)
-    fun writeErrorMessage(error: Throwable)
+    fun writeErrorMessage(error: Throwable) = writeErrorMessage(ExceptionUtils.getMessage(error))
 }
 
 interface CancelableResponseHandler : BasicResponseHandler {

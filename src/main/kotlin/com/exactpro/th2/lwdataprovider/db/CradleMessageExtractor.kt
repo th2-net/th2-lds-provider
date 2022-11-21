@@ -229,18 +229,18 @@ class CradleMessageExtractor(
     }
 
     fun getGroupsWithSyncInterval(
-        filters: List<Pair<String, CradleGroupRequest>>,
+        filters: Map<String, CradleGroupRequest>,
         interval: Duration,
         sink: MessageDataSink<String, StoredMessage>,
         measurement: DataMeasurement,
     ) {
-        val filtersByGroup = filters.toMap()
+        val filtersList = filters.toList()
         getGenericWithSyncInterval(
-            filters,
+            filtersList,
             interval,
             BatchToMessageSinkAdapter(sink) { group, msg ->
-                val (start, end) = filtersByGroup[group] ?: return@BatchToMessageSinkAdapter true
-                msg.timestamp >= start && msg.timestamp < end
+                val (start, end, _, filter) = filters[group] ?: return@BatchToMessageSinkAdapter true
+                msg.timestamp >= start && msg.timestamp < end && filter?.invoke(msg) != false
             },
             { it.firstTimestamp },
             { it.sessionGroup },

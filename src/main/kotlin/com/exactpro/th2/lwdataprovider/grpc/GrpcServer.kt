@@ -24,31 +24,30 @@ import mu.KotlinLogging
 import java.util.concurrent.TimeUnit
 
 
-class GrpcServer (server: Server) {
+class GrpcServer private constructor(
+    private val server: Server
+) {
 
     companion object {
         private val logger = KotlinLogging.logger { }
 
         fun createGrpc(context: Context, grpcRouter: GrpcRouter): GrpcServer {
-            val bindableService: BindableService = if (context.configuration.grpcBackPressure) {
+            val mainServer: BindableService = if (context.configuration.grpcBackPressure) {
                 logger.info { "Creating grpc provider with back pressure" }
                 GrpcDataProviderBackPressure(context.configuration, context.searchMessagesHandler, context.searchEventsHandler, context.dataMeasurement)
             } else {
                 logger.info { "Creating grpc provider" }
                 GrpcDataProviderImpl(context.configuration, context.searchMessagesHandler, context.searchEventsHandler, context.dataMeasurement)
             }
-            val server = grpcRouter.startServer(bindableService)
+            logger.info { "Creating grpc queue provider" }
+            val queueServer = QueueGrpcProvider(context.queueMessageHandler)
+            val server = grpcRouter.startServer(mainServer, queueServer).apply {
+                start()
+                logger.info {"'${GrpcServer::class.java.simpleName}' started" }
+            }
             logger.info { "grpc server started" }
             return GrpcServer(server)
         }
-    }
-
-    private val server: Server
-
-    init {
-        this.server = server
-        this.server.start()
-        logger.info {"'${GrpcServer::class.java.simpleName}' started" }
     }
 
     @Throws(InterruptedException::class)

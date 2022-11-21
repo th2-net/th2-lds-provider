@@ -34,6 +34,7 @@ import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
+import com.exactpro.th2.lwdataprovider.handlers.util.computeNewParametersForGroupRequest
 import mu.KotlinLogging
 import java.time.Instant
 import java.util.concurrent.Executor
@@ -183,41 +184,20 @@ class SearchMessagesHandler(
         allLoaded: MutableSet<String>,
         dataMeasurement: DataMeasurement,
     ): Boolean {
-        var allDataLoaded = true
-        request.groups.forEach { group ->
-            if (group in allLoaded) {
-                logger.trace { "Skip pulling data for group $group because all data is already loaded" }
-                return@forEach
-            }
-            logger.info { "Pulling updates for group $group" }
-            val hasDataOutsideRange = cradleMsgExtractor.hasMessagesInGroupAfter(group, lastTimestamp)
-            if (hasDataOutsideRange) {
-                logger.info { "All data in requested range is loaded for group $group" }
-                allLoaded += group
-            }
-            logger.info { "Requesting additional data for group $group" }
-            val lastGroupTimestamp = sink.streamInfo.lastTimestampForGroup(group)
-                .coerceAtLeast(request.startTimestamp)
-            val newParameters = if (lastGroupTimestamp == request.startTimestamp) {
-                parameters
-            } else {
-                val lastIdByStream: Map<Pair<String, Direction>, StoredMessageId> = sink.streamInfo.lastIDsForGroup(group)
-                    .associateBy { it.streamName to it.direction }
-                parameters.copy(
-                    start = lastGroupTimestamp,
-                    preFilter = { msg ->
-                        val stream = msg.run { streamName to direction }
-                        lastIdByStream[stream]?.run {
-                            msg.index > index
-                        } ?: true
-                    }
-                )
-            }
-            cradleMsgExtractor.getMessagesGroup(group, newParameters, sink, dataMeasurement)
+        val parametersByGroup: Map<String, CradleGroupRequest> = computeNewParametersForGroupRequest(
+            request.groups,
+            request.startTimestamp,
+            lastTimestamp,
+            parameters,
+            allLoaded,
+            sink.streamInfo,
+            cradleMsgExtractor
+        )
+        parametersByGroup.forEach { (group, params) ->
+            cradleMsgExtractor.getMessagesGroup(group, params, sink, dataMeasurement)
             logger.info { "Data has been loaded for group $group" }
-            allDataLoaded = allDataLoaded and hasDataOutsideRange
         }
-        return !allDataLoaded
+        return allLoaded.size != request.groups.size
     }
 
     private data class Stream(val name: String, val direction: Direction)

@@ -27,14 +27,16 @@ import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 
 
-class GrpcServer(server: Server, private val onStop: () -> Unit) {
+class GrpcServer private constructor(
+    private val server: Server
+, private val onStop: () -> Unit) {
 
     companion object {
         private val logger = KotlinLogging.logger { }
 
         fun createGrpc(context: Context, grpcRouter: GrpcRouter): GrpcServer {
             var executor: ScheduledExecutorService? = null
-            val bindableService: BindableService = if (context.configuration.grpcBackPressure) {
+            val mainServer: BindableService = if (context.configuration.grpcBackPressure) {
                 logger.info { "Creating grpc provider with back pressure" }
                 executor = Executors.newSingleThreadScheduledExecutor(ThreadFactoryBuilder()
                     .setNameFormat("grpc-backpressure-readiness-checker-%d")
@@ -45,18 +47,15 @@ class GrpcServer(server: Server, private val onStop: () -> Unit) {
                 logger.info { "Creating grpc provider" }
                 GrpcDataProviderImpl(context.configuration, context.searchMessagesHandler, context.searchEventsHandler, context.dataMeasurement)
             }
-            val server = grpcRouter.startServer(bindableService)
+            logger.info { "Creating grpc queue provider" }
+            val queueServer = QueueGrpcProvider(context.queueMessageHandler)
+            val server = grpcRouter.startServer(mainServer, queueServer).apply {
+                start()
+                logger.info {"'${GrpcServer::class.java.simpleName}' started" }
+            }
             logger.info { "grpc server started" }
             return GrpcServer(server) { executor?.shutdown() }
         }
-    }
-
-    private val server: Server
-
-    init {
-        this.server = server
-        this.server.start()
-        logger.info {"'${GrpcServer::class.java.simpleName}' started" }
     }
 
     @Throws(InterruptedException::class)

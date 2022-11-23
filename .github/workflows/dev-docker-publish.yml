@@ -55,14 +55,14 @@ jobs:
         run: echo ${{ steps.python_grpc_ver.outputs.value }}
       - name: Write gRPC custom release version to file
         if: ${{ steps.filter.outputs.grpc }}
-        uses: christian-draeger/write-properties@1.1.0
+        uses: christian-draeger/write-properties@1.0.1
         with:
           path: grpc/gradle.properties
           property: release_version
           value: ${{ steps.grpc_release_ver.outputs.value }}
       - name: Write custom release version to prevent release publication
         if: ${{ steps.filter.outputs.grpc }}
-        uses: christian-draeger/write-properties@1.1.0
+        uses: christian-draeger/write-properties@1.0.1
         with:
           path: gradle.properties
           property: release_version

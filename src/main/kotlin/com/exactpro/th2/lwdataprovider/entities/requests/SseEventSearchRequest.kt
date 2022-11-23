@@ -17,8 +17,8 @@
 package com.exactpro.th2.lwdataprovider.entities.requests
 
 import com.exactpro.cradle.TimeRelation
-import com.exactpro.th2.dataprovider.grpc.EventSearchRequest
-import com.exactpro.th2.dataprovider.grpc.TimeRelation.PREVIOUS
+import com.exactpro.th2.dataprovider.lw.grpc.EventSearchRequest
+import com.exactpro.th2.dataprovider.lw.grpc.TimeRelation.PREVIOUS
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.converter.GrpcFilterConverter
@@ -32,13 +32,7 @@ class SseEventSearchRequest(
     val startTimestamp: Instant?,
     val parentEvent: ProviderEventId?,
     val searchDirection: TimeRelation,
-    val resumeFromId: String?,
     val resultCountLimit: Int?,
-    val keepOpen: Boolean,
-    val limitForParent: Long?,
-    val metadataOnly: Boolean,
-    val attachedMessages: Boolean,
-
     endTimestamp: Instant?,
     val filter: DataFilter<BaseEventEntity> = DataFilter.acceptAll(),
 ) {
@@ -68,12 +62,7 @@ class SseEventSearchRequest(
             asCradleTimeRelation(it)
         } ?: TimeRelation.AFTER,
         endTimestamp = parameters["endTimestamp"]?.firstOrNull()?.let { Instant.ofEpochMilli(it.toLong()) },
-        resumeFromId = parameters["resumeFromId"]?.firstOrNull(),
         resultCountLimit = parameters["resultCountLimit"]?.firstOrNull()?.toInt(),
-        keepOpen = parameters["keepOpen"]?.firstOrNull()?.toBoolean() ?: false,
-        limitForParent = parameters["limitForParent"]?.firstOrNull()?.toLong(),
-        metadataOnly = parameters["metadataOnly"]?.firstOrNull()?.toBoolean() ?: true,
-        attachedMessages = parameters["attachedMessages"]?.firstOrNull()?.toBoolean() ?: false,
         filter = EventsFilterFactory.create(httpConverter.convert(parameters)),
     )
 
@@ -95,24 +84,9 @@ class SseEventSearchRequest(
             request.endTimestamp.let {
                 Instant.ofEpochSecond(it.seconds, it.nanos.toLong())
             } else null,
-        resumeFromId = if (request.hasResumeFromId()) {
-            request.resumeFromId.id
-        } else null,
         resultCountLimit = if (request.hasResultCountLimit()) {
             request.resultCountLimit.value
         } else null,
-        keepOpen = if (request.hasKeepOpen()) {
-            request.keepOpen.value
-        } else false,
-        limitForParent = if (request.hasLimitForParent()) {
-            request.limitForParent.value
-        } else null,
-        metadataOnly = if (request.hasMetadataOnly()) {
-            request.metadataOnly.value
-        } else true,
-        attachedMessages = if (request.hasAttachedMessages()) {
-            request.attachedMessages.value
-        } else false,
         filter = EventsFilterFactory.create(grpcConverter.convert(request.filterList)),
     )
 
@@ -129,8 +103,8 @@ class SseEventSearchRequest(
     }
 
     private fun checkStartPoint() {
-        if (startTimestamp == null && resumeFromId == null)
-            throw InvalidRequestException("One of the 'startTimestamp' or 'resumeFromId' must not be null")
+        if (startTimestamp == null)
+            throw InvalidRequestException("'startTimestamp' must not be null")
     }
 
     private fun checkRequest() {
@@ -139,9 +113,15 @@ class SseEventSearchRequest(
     }
 
     override fun toString(): String {
-        return "SseEventSearchRequest(startTimestamp=$startTimestamp, endTimestamp=$endTimestamp, parentEvent=$parentEvent," +
-                " searchDirection=$searchDirection, resumeFromId=$resumeFromId, resultCountLimit=$resultCountLimit," +
-                " keepOpen=$keepOpen, limitForParent=$limitForParent, metadataOnly=$metadataOnly, " +
-                "attachedMessages=$attachedMessages)"
+        return "SseEventSearchRequest(" +
+                "startTimestamp=$startTimestamp, " +
+                "endTimestamp=$endTimestamp" +
+                "parentEvent=$parentEvent, " +
+                "searchDirection=$searchDirection, " +
+                "resultCountLimit=$resultCountLimit, " +
+                "filter=$filter, " +
+                ")"
     }
+
+
 }

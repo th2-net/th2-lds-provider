@@ -19,8 +19,8 @@ package com.exactpro.th2.lwdataprovider.entities.requests
 import com.exactpro.cradle.Direction
 import com.exactpro.cradle.TimeRelation
 import com.exactpro.cradle.messages.StoredMessageId
-import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest
-import com.exactpro.th2.dataprovider.grpc.MessageStreamPointer
+import com.exactpro.th2.dataprovider.lw.grpc.MessageSearchRequest
+import com.exactpro.th2.dataprovider.lw.grpc.MessageStreamPointer
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.grpc.toInstant
@@ -35,8 +35,6 @@ class SseMessageSearchRequest(
     val searchDirection: TimeRelation,
     val resultCountLimit: Int?,
     val keepOpen: Boolean,
-    val attachedEvents: Boolean,
-    val lookupLimitDays: Int?,
     val resumeFromIdsList: List<StoredMessageId>?,
 
     endTimestamp: Instant?,
@@ -109,8 +107,6 @@ class SseMessageSearchRequest(
         resumeFromIdsList = parameters["messageId"]?.map { StoredMessageId.fromString(it) },
         resultCountLimit = parameters["resultCountLimit"]?.firstOrNull()?.toInt(),
         keepOpen = parameters["keepOpen"]?.firstOrNull()?.toBoolean() ?: false,
-        attachedEvents = parameters["attachedEvents"]?.firstOrNull()?.toBoolean() ?: false,
-        lookupLimitDays = parameters["lookupLimitDays"]?.firstOrNull()?.toInt(),
         responseFormats = parameters["responseFormats"]?.mapTo(hashSetOf(), ResponseFormat.Companion::fromString),
     )
 
@@ -129,8 +125,6 @@ class SseMessageSearchRequest(
         } else null,
         resultCountLimit = if (grpcRequest.hasResultCountLimit()) grpcRequest.resultCountLimit.value else null,
         keepOpen = if (grpcRequest.hasKeepOpen()) grpcRequest.keepOpen.value else false,
-        attachedEvents = false, // disabled
-        lookupLimitDays = null,
         responseFormats = grpcRequest.responseFormatsList.takeIf { it.isNotEmpty() }?.mapTo(hashSetOf(), ResponseFormat.Companion::fromString),
     )
 

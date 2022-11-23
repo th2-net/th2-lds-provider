@@ -91,17 +91,6 @@ data class BaseEventEntity(
         successful = stored.isSuccess
     )
 
-    fun convertToEventTreeNode(): EventTreeNode {
-        return EventTreeNode(
-            eventName = eventName,
-            eventType = eventType,
-            successful = successful,
-            startTimestamp = startTimestamp,
-            parentEventId = parentEventId,
-            id = id
-        )
-    }
-
     fun convertToEvent(): Event {
         return Event(
             batchId = batchId?.toString(),

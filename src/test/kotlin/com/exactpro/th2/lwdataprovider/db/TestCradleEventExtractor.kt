@@ -189,12 +189,7 @@ internal class TestCradleEventExtractor {
         startTimestamp = start,
         endTimestamp = end,
         parentEvent = null,
-        attachedMessages = false,
-        keepOpen = false,
-        limitForParent = null,
-        metadataOnly = false,
         resultCountLimit = 0,
-        resumeFromId = null,
         searchDirection = TimeRelation.AFTER,
     )
 }

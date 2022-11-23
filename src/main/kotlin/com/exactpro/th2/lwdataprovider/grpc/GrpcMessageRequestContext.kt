@@ -16,8 +16,8 @@
 
 package com.exactpro.th2.lwdataprovider.grpc
 
-import com.exactpro.th2.dataprovider.grpc.MessageSearchResponse
-import com.exactpro.th2.dataprovider.grpc.MessageStreamPointers
+import com.exactpro.th2.dataprovider.lw.grpc.MessageSearchResponse
+import com.exactpro.th2.dataprovider.lw.grpc.MessageStreamPointers
 import com.exactpro.th2.lwdataprovider.GrpcEvent
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement

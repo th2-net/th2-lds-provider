@@ -500,8 +500,6 @@ internal class TestSearchMessagesHandler {
         searchDirection = TimeRelation.AFTER,
         resultCountLimit = null,
         keepOpen = false,
-        attachedEvents = false,
-        lookupLimitDays = null,
         responseFormats = if (isRawOnly) setOf(ResponseFormat.BASE_64) else null,
         resumeFromIdsList = null,
     )

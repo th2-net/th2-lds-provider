@@ -18,8 +18,8 @@ package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.cradle.Direction
 import com.exactpro.cradle.messages.StoredMessageId
-import com.exactpro.th2.dataprovider.grpc.MessageStream
-import com.exactpro.th2.dataprovider.grpc.MessageStreamPointer
+import com.exactpro.th2.dataprovider.lw.grpc.MessageStream
+import com.exactpro.th2.dataprovider.lw.grpc.MessageStreamPointer
 import com.exactpro.th2.lwdataprovider.grpc.toGrpcDirection
 import com.exactpro.th2.lwdataprovider.grpc.toGrpcMessageId
 import java.util.concurrent.ConcurrentHashMap

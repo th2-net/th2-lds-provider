@@ -18,7 +18,7 @@ package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.cradle.TimeRelation
 import com.exactpro.th2.common.grpc.EventID
-import com.exactpro.th2.dataprovider.grpc.EventSearchRequest
+import com.exactpro.th2.dataprovider.lw.grpc.EventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.google.protobuf.Int32Value
@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.time.Instant
-import com.exactpro.th2.dataprovider.grpc.TimeRelation as GrpcTimeRelation
+import com.exactpro.th2.dataprovider.lw.grpc.TimeRelation as GrpcTimeRelation
 
 class TestSseEventSearchRequest {
 
@@ -40,13 +40,6 @@ class TestSseEventSearchRequest {
             assertThrows<InvalidRequestException>("must throw invalidRequestException"){
                 SseEventSearchRequest(mapOf())
             }
-        }
-
-        // resumeFromId != null, startTimestamp == null and endTimestamp != null
-        @Test
-        fun testStartTimestampNullResumeIdNotNull(){
-            val eventSearchReq = SseEventSearchRequest(mapOf("resumeFromId" to listOf("1"), "endTimestamp" to listOf("2")))
-            Assertions.assertNull(eventSearchReq.startTimestamp, "start timestamp must be null")
         }
 
         // startTimestamp - 1, endTimestamp - 2, searchDirection - AFTER (default)
@@ -131,15 +124,6 @@ class TestSseEventSearchRequest {
             assertThrows<InvalidRequestException>("must throw invalidRequestException") {
                 SseEventSearchRequest(EventSearchRequest.newBuilder().build())
             }
-        }
-
-        // resumeFromId != null, startTimestamp == null and endTimestamp != null
-        @Test
-        fun testStartTimestampNullResumeIdNotNull(){
-            val endTimestamp = Timestamp.newBuilder().setNanos(2).build()
-            val grpcRequest = EventSearchRequest.newBuilder().setResumeFromId(EventID.newBuilder().setId("1")).setEndTimestamp(endTimestamp).build()
-            val eventSearchReq = SseEventSearchRequest(grpcRequest)
-            Assertions.assertNull(eventSearchReq.startTimestamp, "start timestamp must be null")
         }
 
         // startTimestamp - 1, endTimestamp - 2, searchDirection - AFTER (default)

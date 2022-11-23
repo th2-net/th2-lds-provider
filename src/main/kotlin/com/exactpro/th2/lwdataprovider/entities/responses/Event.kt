@@ -24,10 +24,11 @@ import com.exactpro.th2.common.grpc.EventStatus.FAILED
 import com.exactpro.th2.common.grpc.EventStatus.SUCCESS
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.message.toTimestamp
-import com.exactpro.th2.dataprovider.grpc.EventResponse
+import com.exactpro.th2.dataprovider.lw.grpc.EventResponse
 import com.exactpro.th2.lwdataprovider.cradleDirectionToGrpc
 import com.fasterxml.jackson.annotation.JsonRawValue
 import com.google.protobuf.ByteString
+import com.google.protobuf.UnsafeByteOperations
 import java.time.Instant
 
 data class Event(
@@ -68,7 +69,7 @@ data class Event(
             .setStartTimestamp(startTimestamp.toTimestamp())
             .setStatus(if (successful) SUCCESS else FAILED)
             .addAllAttachedMessageId(convertMessageIdToProto(attachedMessageIds))
-            .setBody(ByteString.copyFrom(body.toByteArray()))
+            .setBody(UnsafeByteOperations.unsafeWrap(body.toByteArray()))
             .also { builder ->
                 batchId?.let { builder.setBatchId(EventID.newBuilder().setId(it)) }
                 eventType?.let { builder.setEventType(it) }

@@ -23,8 +23,8 @@ import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.message.toTimestamp
-import com.exactpro.th2.dataprovider.grpc.MessageStream
-import com.exactpro.th2.dataprovider.grpc.TimeRelation
+import com.exactpro.th2.dataprovider.lw.grpc.MessageStream
+import com.exactpro.th2.dataprovider.lw.grpc.TimeRelation
 import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
 import com.google.protobuf.ByteString
 import com.google.protobuf.Timestamp

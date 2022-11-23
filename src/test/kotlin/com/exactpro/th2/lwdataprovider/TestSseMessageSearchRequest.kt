@@ -17,8 +17,8 @@
 package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.cradle.TimeRelation
-import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest
-import com.exactpro.th2.dataprovider.grpc.MessageStreamPointer
+import com.exactpro.th2.dataprovider.lw.grpc.MessageSearchRequest
+import com.exactpro.th2.dataprovider.lw.grpc.MessageStreamPointer
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 import com.google.protobuf.Int32Value
@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.time.Instant
-import com.exactpro.th2.dataprovider.grpc.TimeRelation as GrpcTimeRelation
+import com.exactpro.th2.dataprovider.lw.grpc.TimeRelation as GrpcTimeRelation
 
 class TestSseMessageSearchRequest {
 

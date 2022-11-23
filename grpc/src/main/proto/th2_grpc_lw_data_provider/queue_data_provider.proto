@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package th2.data_provider.lw;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "th2_grpc_lw_data_provider/lw_data_provider.proto";
+
+option java_multiple_files = true;
+option java_package = "com.exactpro.th2.dataprovider.lw.grpc";
+
+/**
+ Service is used to request messages from DB and sent them to specified Queue
+ */
+service QueueProviderService {
+  /*
+  The messages are return within group batches
+   */
+  rpc SearchMessageGroups(MessageGroupsQueueSearchRequest) returns (LoadedStatistic);
+}
+
+message MessageGroupsQueueSearchRequest {
+  google.protobuf.Timestamp start_timestamp = 1;
+  google.protobuf.Timestamp end_timestamp = 2;
+  repeated th2.data_provider.lw.MessageGroupsSearchRequest.Group message_group = 3;
+  google.protobuf.Duration sync_interval = 4;
+  string external_queue = 5;
+  bool keep_alive = 6;
+}
+
+message LoadedStatistic {
+  message GroupStat {
+    th2.data_provider.lw.MessageGroupsSearchRequest.Group group = 1;
+    uint64 count = 2;
+  }
+  repeated GroupStat stat = 1;
+}

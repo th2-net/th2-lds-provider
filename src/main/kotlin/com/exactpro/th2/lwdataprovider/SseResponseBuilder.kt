@@ -19,21 +19,15 @@ package com.exactpro.th2.lwdataprovider
 import com.exactpro.cradle.Direction
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
-import com.exactpro.th2.lwdataprovider.entities.responses.EventTreeNode
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.entities.responses.ResponseMessage
 import com.fasterxml.jackson.databind.ObjectMapper
-import java.util.concurrent.atomic.AtomicLong
 
 class SseResponseBuilder(
     private val jacksonMapper: ObjectMapper = ObjectMapper(),
 ) {
-
-    fun build(event: EventTreeNode, counter: Long): SseEvent {
-        return SseEvent.build(jacksonMapper, event, counter)
-    }
 
     fun build(message: ResponseMessage, counter: Long): SseEvent {
         return SseEvent.build(jacksonMapper, message, counter)

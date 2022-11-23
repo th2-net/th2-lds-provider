@@ -18,6 +18,7 @@ plugins {
     id 'com.exactpro.th2.common-convensions'
     id 'application'
     id 'com.palantir.docker' version '0.25.0'
+    id "io.github.gradle-nexus.publish-plugin" version "1.1.0"
 }
 
 ext {
@@ -76,3 +77,15 @@ configurations.all {
     resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
     resolutionStrategy.cacheDynamicVersionsFor 0, 'seconds'
 }
+
+// For GitHub only
+nexusPublishing {
+    repositories {
+        sonatype {
+            nexusUrl.set(uri("https://s01.oss.sonatype.org/service/local/"))
+            snapshotRepositoryUrl.set(uri("https://s01.oss.sonatype.org/content/repositories/snapshots/"))
+        }
+    }
+}
+
+tasks.withType(PublishToMavenRepository).configureEach { it.enabled = false }

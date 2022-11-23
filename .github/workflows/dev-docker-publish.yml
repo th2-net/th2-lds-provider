@@ -50,7 +50,7 @@ jobs:
         run: echo ${{ steps.grpc_release_ver.outputs.value }}
       - name: Build custom gRPC python package version
         id: python_grpc_ver
-        run: echo value="${{ steps.grpc_ver.outputs.value }}.dev${{ github.run_id }}" >> $GITHUB_OUTPUT
+        run: echo value="${{ steps.grpc_ver.outputs.release_version }}.dev${{ github.run_id }}" >> $GITHUB_OUTPUT
       - name: Show gRPC custom python release version
         run: echo ${{ steps.python_grpc_ver.outputs.value }}
       - name: Write gRPC custom release version to file

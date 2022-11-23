@@ -98,12 +98,14 @@ jobs:
           ORG_GRADLE_PROJECT_signingKey: ${{ secrets.SONATYPE_GPG_ARMORED_KEY }}
           ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.SONATYPE_SIGNING_PASSWORD }}
       - name: Build gRPC python package
+        if: ${{ steps.filter.outputs.grpc == 'true' }}
         working-directory: ./grpc
         run: |
           pip install -r requirements.txt
           python setup.py generate -s
           python setup.py sdist
       - name: Publish gRPC distribution to PyPI
+        if: ${{ steps.filter.outputs.grpc == 'true' }}
         uses: pypa/gh-action-pypi-publish@master
         with:
           user: __token__

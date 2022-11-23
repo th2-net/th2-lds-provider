@@ -73,7 +73,7 @@ jobs:
         with:
           filename: 'grpc/package_info.json'
           key: 'package_version'
-          value: ${{ steps.python_grpc_ver.outputs.release_version }}
+          value: ${{ steps.python_grpc_ver.outputs.value }}
       - name: Set up Python 3.7
         if: ${{ steps.filter.outputs.grpc }}
         uses: actions/setup-python@v4

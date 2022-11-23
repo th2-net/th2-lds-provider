@@ -16,7 +16,7 @@
 
 package com.exactpro.th2.lwdataprovider.entities.requests
 
-import com.exactpro.th2.dataprovider.grpc.MessageGroupsSearchRequest
+import com.exactpro.th2.dataprovider.lw.grpc.MessageGroupsSearchRequest
 import com.exactpro.th2.lwdataprovider.grpc.toInstant
 import java.time.Instant
 

@@ -16,7 +16,7 @@
 
 package com.exactpro.th2.lwdataprovider.entities.requests.converter
 
-import com.exactpro.th2.dataprovider.grpc.Filter
+import com.exactpro.th2.dataprovider.lw.grpc.Filter
 import com.exactpro.th2.lwdataprovider.filter.FilterRequest
 
 class GrpcFilterConverter {

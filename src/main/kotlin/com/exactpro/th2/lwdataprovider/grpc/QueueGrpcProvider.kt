@@ -18,10 +18,10 @@ package com.exactpro.th2.lwdataprovider.grpc
 
 import com.exactpro.th2.common.message.toJavaDuration
 import com.exactpro.th2.common.message.toJson
-import com.exactpro.th2.dataprovider.grpc.LoadedStatistic
-import com.exactpro.th2.dataprovider.grpc.MessageGroupsQueueSearchRequest
-import com.exactpro.th2.dataprovider.grpc.MessageGroupsSearchRequest
-import com.exactpro.th2.dataprovider.grpc.QueueProviderServiceGrpc
+import com.exactpro.th2.dataprovider.lw.grpc.LoadedStatistic
+import com.exactpro.th2.dataprovider.lw.grpc.MessageGroupsQueueSearchRequest
+import com.exactpro.th2.dataprovider.lw.grpc.MessageGroupsSearchRequest
+import com.exactpro.th2.dataprovider.lw.grpc.QueueProviderServiceGrpc
 import com.exactpro.th2.lwdataprovider.ResponseHandler
 import com.exactpro.th2.lwdataprovider.entities.requests.QueueMessageGroupsRequest
 import com.exactpro.th2.lwdataprovider.handlers.LoadStatistic

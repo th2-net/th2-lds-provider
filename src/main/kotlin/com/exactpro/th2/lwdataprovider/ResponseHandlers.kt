@@ -16,8 +16,8 @@
 
 package com.exactpro.th2.lwdataprovider
 
-import com.exactpro.th2.dataprovider.grpc.EventResponse
-import com.exactpro.th2.dataprovider.grpc.MessageSearchResponse
+import com.exactpro.th2.dataprovider.lw.grpc.EventResponse
+import com.exactpro.th2.dataprovider.lw.grpc.MessageSearchResponse
 import org.apache.commons.lang3.exception.ExceptionUtils
 
 interface ResponseHandler<T> : BasicResponseHandler {

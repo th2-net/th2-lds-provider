@@ -20,8 +20,8 @@ import com.exactpro.cradle.Direction
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.grpc.ConnectionID
 import com.exactpro.th2.common.grpc.MessageID
-import com.exactpro.th2.dataprovider.grpc.MessageGroupItem
-import com.exactpro.th2.dataprovider.grpc.MessageGroupResponse
+import com.exactpro.th2.dataprovider.lw.grpc.MessageGroupItem
+import com.exactpro.th2.dataprovider.lw.grpc.MessageGroupResponse
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.google.protobuf.Timestamp
 import java.time.Instant

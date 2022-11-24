@@ -29,6 +29,7 @@ import com.exactpro.cradle.messages.StoredGroupedMessageBatch
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.resultset.CradleResultSet
+import com.exactpro.th2.lwdataprovider.db.util.getGenericWithSyncInterval
 import com.exactpro.th2.lwdataprovider.handlers.util.BookGroup
 import mu.KotlinLogging
 import java.time.Duration
@@ -235,11 +236,12 @@ class CradleMessageExtractor(
         measurement: DataMeasurement,
     ) {
         getGenericWithSyncInterval(
+            logger,
             filters,
             interval,
             sink,
+            { sink.onNext(it.sessionAlias, it) },
             { it.timestamp },
-            { it.sessionAlias },
         ) {
             getMessagesFromCradle(measurement) { getMessages(it) }.iterator()
         }
@@ -253,78 +255,25 @@ class CradleMessageExtractor(
     ) {
         val filtersList = filters.toList()
         getGenericWithSyncInterval(
+            logger,
             filtersList,
             interval,
-            BatchToMessageSinkAdapter(sink) { group, msg ->
-                val (filter, param) = filters[BookGroup(group, msg.bookId)] ?: return@BatchToMessageSinkAdapter true
-                msg.timestamp >= filter.from.value && msg.timestamp < filter.to.value && param.preFilter?.invoke(msg) != false
+            sink,
+            {
+                val group = it.group
+                for (msg in it.messages) {
+                    val process = filters[BookGroup(group, msg.bookId)]?.let { (filter, param) ->
+                        msg.timestamp >= filter.from.value && msg.timestamp < filter.to.value && param.preFilter?.invoke(msg) != false
+                    } ?: true
+                    if (process) {
+                        sink.onNext(group, msg)
+                    }
+                }
             },
             { it.firstTimestamp },
-            { it.group },
         ) { (_, params) ->
             getMessagesFromCradle(measurement) { getGroupedMessageBatches(params.first) }.iterator()
         }
-    }
-
-    private fun <F, D> getGenericWithSyncInterval(
-        filters: List<F>,
-        interval: Duration,
-        sink: MessageDataSink<String, D>,
-        timeExtractor: (D) -> Instant,
-        markerExtractor: (D) -> String,
-        sourceSupplier: (F) -> Iterator<D>,
-    ) {
-        require(!interval.isZero && !interval.isNegative) { "incorrect sync interval $interval" }
-
-        fun durationInRange(first: D, second: D): Boolean {
-            return Duration.between(timeExtractor(first), timeExtractor(second)).abs() < interval
-        }
-        fun MutableList<D?>.minMessage(): D? = asSequence().filterNotNull().minByOrNull { timeExtractor(it) }
-
-        val cradleIterators: List<Iterator<D>> = filters.map { sourceSupplier(it) }
-        val lastTimestamps: MutableList<D?> = cradleIterators.mapTo(arrayListOf()) { if (it.hasNext()) it.next() else null }
-        var minTimestampMsg: D? = lastTimestamps.minMessage() ?: run {
-            logger.debug { "all cradle iterators are empty" }
-            return
-        }
-
-        do {
-            var allDataLoaded = cradleIterators.none { it.hasNext() }
-            cradleIterators.forEachIndexed { index, cradleIterator ->
-                sink.canceled?.apply {
-                    logger.info { "canceled the request: $message" }
-                    return
-                }
-                var lastMessage: D? = lastTimestamps[index]?.also { msg ->
-                    if (minTimestampMsg?.let { durationInRange(it, msg) } != false || allDataLoaded) {
-                        sink.onNext(markerExtractor(msg), msg)
-                        lastTimestamps[index] = null
-                    } else {
-                        // messages is not in range for now
-                        return@forEachIndexed
-                    }
-                }
-                var stop = false
-                while (cradleIterator.hasNext() && !stop) {
-                    sink.canceled?.apply {
-                        logger.info { "canceled the request: $message" }
-                        return
-                    }
-                    val message: D = cradleIterator.next()
-                    if (minTimestampMsg?.let { durationInRange(it, message) } != false) {
-                        sink.onNext(markerExtractor(message), message)
-                    } else {
-                        stop = true
-                    }
-                    lastMessage = message
-                }
-                if (cradleIterator.hasNext() || stop) {
-                    lastTimestamps[index] = lastMessage
-                    allDataLoaded = false
-                }
-            }
-            minTimestampMsg = lastTimestamps.minMessage()
-        } while (!allDataLoaded)
     }
 
     private fun <T> getMessagesFromCradle(dataMeasurement: DataMeasurement, supplier: CradleStorage.() -> Iterator<T>): Iterator<T> {

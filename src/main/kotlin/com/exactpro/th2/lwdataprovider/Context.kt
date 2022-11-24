@@ -17,13 +17,14 @@
 package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.cradle.CradleManager
+import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.CradleEventExtractor
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.handlers.QueueEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.QueueMessagesHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
@@ -46,17 +47,16 @@ class Context(
         .disable(SerializationFeature.INDENT_OUTPUT),
 
     val cradleManager: CradleManager,
-    val messageRouterRawBatch: MessageRouter<MessageGroupBatch>,
-    val messageRouterParsedBatch: MessageRouter<MessageGroupBatch>,
-    val grpcConfig: GrpcConfiguration,
+    val messageRouter: MessageRouter<MessageGroupBatch>,
+    val eventRouter: MessageRouter<EventBatch>,
     val keepAliveHandler: KeepAliveHandler = KeepAliveHandler(configuration),
+    val mqDecoder: RabbitMqDecoder = RabbitMqDecoder(messageRouter, configuration.maxBufferDecodeQueue, configuration.codecUsePinAttributes),
 
-    val mqDecoder: RabbitMqDecoder = RabbitMqDecoder(messageRouterRawBatch, configuration.maxBufferDecodeQueue, configuration.codecUsePinAttributes),
     val timeoutHandler: TimerWatcher = TimerWatcher(mqDecoder, configuration),
     val cradleEventExtractor: CradleEventExtractor = CradleEventExtractor(cradleManager),
     val cradleMsgExtractor: CradleMessageExtractor = CradleMessageExtractor(configuration.groupRequestBuffer, cradleManager),
-
     val pool: ExecutorService = Executors.newFixedThreadPool(configuration.execThreadPoolSize),
+
     val searchMessagesHandler: SearchMessagesHandler = SearchMessagesHandler(
         cradleMsgExtractor,
         mqDecoder,
@@ -68,8 +68,14 @@ class Context(
     val queueMessageHandler: QueueMessagesHandler = QueueMessagesHandler(
         cradleMsgExtractor,
         dataMeasurement,
-        messageRouterParsedBatch,
+        messageRouter,
         configuration.batchSize,
         pool,
-    )
+    ),
+    val queueEventsHandler: QueueEventsHandler = QueueEventsHandler(
+        cradleEventExtractor,
+        eventRouter,
+        configuration.batchSize,
+        pool,
+    ),
 )

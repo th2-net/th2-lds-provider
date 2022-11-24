@@ -23,6 +23,7 @@ import com.exactpro.cradle.TimeRelation
 import com.exactpro.cradle.testevents.StoredTestEventBatch
 import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.cradle.testevents.TestEventToStore
+import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
@@ -181,7 +182,7 @@ internal class TestCradleEventExtractor {
 
     private fun Assertion.Builder<Event>.isEqualTo(toStore: TestEventToStore, batchId: StoredTestEventId? = null) {
         get { eventId } isEqualTo (batchId?.let { "${it}>${toStore.id}" } ?: toStore.id.toString())
-        get { parentEventId } isEqualTo toStore.parentId?.toString()
+        get { parentEventId } isEqualTo toStore.parentId?.let { ProviderEventId(null, it) }
         get { eventName } isEqualTo toStore.name
         get { eventType } isEqualTo toStore.type
         get { successful } isEqualTo toStore.isSuccess

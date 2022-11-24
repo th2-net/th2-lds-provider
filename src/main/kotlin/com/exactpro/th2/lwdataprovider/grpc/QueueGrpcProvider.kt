@@ -19,13 +19,19 @@ package com.exactpro.th2.lwdataprovider.grpc
 import com.exactpro.cradle.BookId
 import com.exactpro.th2.common.message.toJavaDuration
 import com.exactpro.th2.common.message.toJson
+import com.exactpro.th2.dataprovider.lw.grpc.EventLoadedStatistic
+import com.exactpro.th2.dataprovider.lw.grpc.EventQueueSearchRequest
+import com.exactpro.th2.dataprovider.lw.grpc.EventScope
 import com.exactpro.th2.dataprovider.lw.grpc.MessageLoadedStatistic
 import com.exactpro.th2.dataprovider.lw.grpc.MessageGroupsQueueSearchRequest
 import com.exactpro.th2.dataprovider.lw.grpc.MessageGroupsSearchRequest
 import com.exactpro.th2.dataprovider.lw.grpc.QueueDataProviderGrpc
 import com.exactpro.th2.lwdataprovider.ResponseHandler
+import com.exactpro.th2.lwdataprovider.entities.requests.QueueEventsScopeRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.QueueMessageGroupsRequest
+import com.exactpro.th2.lwdataprovider.handlers.EventsLoadStatistic
 import com.exactpro.th2.lwdataprovider.handlers.LoadStatistic
+import com.exactpro.th2.lwdataprovider.handlers.QueueEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.QueueMessagesHandler
 import io.grpc.Context
 import io.grpc.Status
@@ -34,6 +40,7 @@ import mu.KotlinLogging
 
 class QueueGrpcProvider(
     private val messagesHandler: QueueMessagesHandler,
+    private val eventsHandler: QueueEventsHandler,
 ) : QueueDataProviderGrpc.QueueDataProviderImplBase() {
     override fun searchMessageGroups(
         request: MessageGroupsQueueSearchRequest,
@@ -54,7 +61,38 @@ class QueueGrpcProvider(
             }
             messagesHandler.requestMessageGroups(
                 internalRequest,
-                LoadStatisticResponseHandler(responseObserver),
+                GenericGrpcResponseHandler(responseObserver, LoadStatistic::toGrpcResponse),
+            )
+        } catch (ex: IllegalArgumentException) {
+            LOGGER.error(ex) { "invalid request ${request.toJson()}" }
+            responseObserver.onError(Status.INVALID_ARGUMENT.withDescription(ex.message).asRuntimeException())
+        } catch (ex: Exception) {
+            LOGGER.error(ex) { "cannot request groups for ${request.toJson()}" }
+            responseObserver.onError(Status.INTERNAL.withDescription(ex.message).asRuntimeException())
+        }
+    }
+
+    override fun searchEvents(
+        request: EventQueueSearchRequest,
+        responseObserver: StreamObserver<EventLoadedStatistic>,
+    ) {
+        try {
+            val internalRequest = request.run {
+                QueueEventsScopeRequest.create(
+                    eventScopesList.associate { eventScopes ->
+                        BookId(eventScopes.bookId.name) to eventScopes.scopeList.mapTo(hashSetOf()) { it.name }
+                    },
+                    if (hasStartTimestamp()) startTimestamp.toInstant() else null,
+                    if (hasEndTimestamp()) endTimestamp.toInstant() else null,
+                    if (hasSyncInterval()) syncInterval.toJavaDuration() else null,
+                    keepAlive,
+                    externalQueue,
+                )
+            }
+
+            eventsHandler.requestEvents(
+                internalRequest,
+                GenericGrpcResponseHandler(responseObserver, EventsLoadStatistic::toGrpcResponse),
             )
         } catch (ex: IllegalArgumentException) {
             LOGGER.error(ex) { "invalid request ${request.toJson()}" }
@@ -70,15 +108,16 @@ class QueueGrpcProvider(
     }
 }
 
-private class LoadStatisticResponseHandler(
-    private val responseObserver: StreamObserver<MessageLoadedStatistic>
-) : ResponseHandler<LoadStatistic> {
+private class GenericGrpcResponseHandler<IN, OUT>(
+    private val responseObserver: StreamObserver<OUT>,
+    private val toGrpcResponse: IN.() -> OUT,
+) : ResponseHandler<IN> {
     @Volatile
     private var hasError = false
     override val isAlive: Boolean
         get() = !Context.current().isCancelled
 
-    override fun handleNext(data: LoadStatistic) {
+    override fun handleNext(data: IN) {
         if (hasError) return
         responseObserver.onNext(data.toGrpcResponse())
     }
@@ -102,6 +141,19 @@ private fun LoadStatistic.toGrpcResponse(): MessageLoadedStatistic {
             MessageLoadedStatistic.GroupStat.newBuilder().setGroup(
                 MessageGroupsSearchRequest.Group.newBuilder().setName(group)
             ).setCount(count)
+        )
+    }
+    return builder.build()
+}
+
+private fun EventsLoadStatistic.toGrpcResponse(): EventLoadedStatistic {
+    val builder = EventLoadedStatistic.newBuilder()
+    countByScope.forEach { (scope, count) ->
+        builder.addStat(
+            EventLoadedStatistic.ScopeStat.newBuilder()
+                .setScope(
+                    EventScope.newBuilder().setName(scope)
+                ).setCount(count)
         )
     }
     return builder.build()

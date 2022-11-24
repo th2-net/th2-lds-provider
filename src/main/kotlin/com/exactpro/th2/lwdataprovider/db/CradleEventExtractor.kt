@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.lwdataprovider.db
 
+import com.exactpro.cradle.BookId
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
 import com.exactpro.cradle.Order
@@ -25,18 +26,22 @@ import com.exactpro.cradle.testevents.StoredTestEvent
 import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.cradle.testevents.TestEventFilter
 import com.exactpro.cradle.testevents.TestEventFilterBuilder
+import com.exactpro.th2.lwdataprovider.db.util.getGenericWithSyncInterval
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
+import com.exactpro.th2.lwdataprovider.entities.requests.QueueEventsScopeRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.BaseEventEntity
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.filter.DataFilter
 import com.exactpro.th2.lwdataprovider.producers.EventProducer
 import mu.KotlinLogging
+import java.time.Duration
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.temporal.ChronoUnit
 import java.util.Collections
+import kotlin.system.measureTimeMillis
 
 
 class CradleEventExtractor(
@@ -119,6 +124,46 @@ class CradleEventExtractor(
         }
     }
 
+    fun getEventsWithSyncInterval(
+        request: QueueEventsScopeRequest,
+        sink: EventDataSink<Event>,
+    ) {
+        val intervals: Collection<Pair<Instant, Instant>> = splitByDates(request.startTimestamp, request.endTimestamp)
+        logger.debug { "Original request split into ${intervals.size} intervals: $intervals" }
+        data class BookScope(val bookId: BookId, val scope: String)
+        val stat = ProcessingInfo()
+        val timeMillis = measureTimeMillis {
+            for ((start, end) in intervals) {
+                getGenericWithSyncInterval(
+                    logger,
+                    request.scopesByBook.asSequence().flatMap { (bookId, scopes) -> scopes.map { BookScope(bookId, it) } }.toList(),
+                    request.syncInterval,
+                    sink,
+                    { processTestEvent(it, stat, DataFilter.acceptAll(), sink) },
+                    { testEvent ->
+                        testEvent.run {
+                            if (isBatch) {
+                                asBatch().testEvents.minOf { it.startTimestamp }
+                            } else {
+                                asSingle().startTimestamp
+                            }
+                        }
+                    }
+                ) { (bookId, scope) ->
+                    storage.getTestEvents(
+                        TestEventFilter.builder()
+                            .bookId(bookId)
+                            .scope(scope)
+                            .startTimestampFrom().isGreaterThanOrEqualTo(start)
+                            .startTimestampTo().isLessThan(end)
+                            .build()
+                    )
+                }
+            }
+        }
+        logger.info { "Loaded events $stat in ${Duration.ofMillis(timeMillis)}" }
+    }
+
     private fun toLocal(timestamp: Instant?): LocalDateTime {
         return LocalDateTime.ofInstant(timestamp, CassandraCradleStorage.TIMEZONE_OFFSET)
     }
@@ -170,36 +215,45 @@ class CradleEventExtractor(
         filter: DataFilter<BaseEventEntity>,
     ) {
         for (testEvent in testEvents) {
-            if (testEvent.isSingle) {
-                val singleEv = testEvent.asSingle()
-                val event = EventProducer.fromSingleEvent(singleEv)
-                count.total++;
-                if (!filter.match(event)) {
-                    continue
-                }
-                count.singleEvents++
-                count.events++
-                count.totalContentSize += singleEv.content.size + event.attachedMessageIds.sumOf { it.length }
-                sink.onNext(event.convertToEvent())
-            } else if (testEvent.isBatch) {
-                count.batches++
-                val batch = testEvent.asBatch()
-                val eventsList = batch.testEvents
-                for (batchEvent in eventsList) {
-                    val batchEventBody = EventProducer.fromBatchEvent(batchEvent, batch)
-                    count.total++
-                    if (!filter.match(batchEventBody)) {
-                        continue
-                    }
-
-                    count.events++
-                    count.totalContentSize += batchEvent.content.size + batchEventBody.attachedMessageIds.sumOf { it.length }
-                    sink.onNext(batchEventBody.convertToEvent())
-                }
-            }
+            processTestEvent(testEvent, count, filter, sink)
             sink.canceled?.apply {
                 logger.info { "events processing canceled: $message" }
                 return
+            }
+        }
+    }
+
+    private fun processTestEvent(
+        testEvent: StoredTestEvent,
+        count: ProcessingInfo,
+        filter: DataFilter<BaseEventEntity>,
+        sink: EventDataSink<Event>
+    ) {
+        if (testEvent.isSingle) {
+            val singleEv = testEvent.asSingle()
+            val event = EventProducer.fromSingleEvent(singleEv)
+            count.total++;
+            if (!filter.match(event)) {
+                return
+            }
+            count.singleEvents++
+            count.events++
+            count.totalContentSize += singleEv.content.size + event.attachedMessageIds.sumOf { it.length }
+            sink.onNext(event.convertToEvent())
+        } else if (testEvent.isBatch) {
+            count.batches++
+            val batch = testEvent.asBatch()
+            val eventsList = batch.testEvents
+            for (batchEvent in eventsList) {
+                val batchEventBody = EventProducer.fromBatchEvent(batchEvent, batch)
+                count.total++
+                if (!filter.match(batchEventBody)) {
+                    continue
+                }
+
+                count.events++
+                count.totalContentSize += batchEvent.content.size + batchEventBody.attachedMessageIds.sumOf { it.length }
+                sink.onNext(batchEventBody.convertToEvent())
             }
         }
     }

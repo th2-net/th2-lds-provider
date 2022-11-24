@@ -41,6 +41,8 @@ class EventProducer() {
                 storedEvent.startTimestamp,
                 storedEvent.parentId?.let { ProviderEventId(null, storedEvent.parentId) },
                 storedEvent.isSuccess,
+                storedEvent.bookId.name,
+                storedEvent.scope,
                 loadAttachedMessages(storedEvent.messages),
                 storedEvent.content.toString(Charsets.UTF_8),
             )
@@ -66,6 +68,8 @@ class EventProducer() {
                     )
                 },
                 storedEvent.isSuccess,
+                storedEvent.bookId.name,
+                storedEvent.scope,
                 loadAttachedMessages(storedEvent.messages),
                 storedEvent.content.toString(Charsets.UTF_8),
             )

@@ -61,9 +61,8 @@ class Main {
             cradleManager = configurationFactory.cradleManager.also {
                 resources += AutoCloseable { it.close() }
             },
-            messageRouterRawBatch = configurationFactory.messageRouterMessageGroupBatch,
-            messageRouterParsedBatch = configurationFactory.messageRouterMessageGroupBatch,
-            grpcConfig = configurationFactory.grpcConfiguration,
+            messageRouter = configurationFactory.messageRouterMessageGroupBatch,
+            eventRouter = configurationFactory.eventBatchRouter,
         )
     }
 

@@ -34,6 +34,8 @@ data class BaseEventEntity(
 
     val parentEventId: ProviderEventId?,
     val successful: Boolean,
+    val bookId: String,
+    val scope: String,
     val attachedMessageIds: Set<String> = emptySet(),
     @JsonRawValue
     val body: String? = null,
@@ -63,8 +65,10 @@ data class BaseEventEntity(
             eventType = eventType,
             startTimestamp = startTimestamp,
             endTimestamp = endTimestamp,
-            parentEventId = parentEventId?.toString(),
+            parentEventId = parentEventId,
             successful = successful,
+            bookId = bookId,
+            scope = scope,
             attachedMessageIds = attachedMessageIds,
             body = checkAndConvertBody(body)
         )

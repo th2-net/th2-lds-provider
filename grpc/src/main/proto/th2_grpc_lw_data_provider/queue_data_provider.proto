@@ -17,6 +17,11 @@ service QueueDataProvider {
   The messages are return within group batches
    */
   rpc SearchMessageGroups(MessageGroupsQueueSearchRequest) returns (MessageLoadedStatistic);
+
+  /*
+  Requesting events with the specified interval and sends them to queue
+  */
+  rpc SearchEvents(EventQueueSearchRequest) returns (EventLoadedStatistic);
 }
 
 message MessageGroupsQueueSearchRequest {
@@ -39,4 +44,25 @@ message MessageLoadedStatistic {
     uint64 count = 2;
   }
   repeated GroupStat stat = 1;
+}
+
+message EventQueueSearchRequest {
+  message BookScopes {
+    th2.data_provider.lw.BookId book_id = 1;
+    repeated th2.data_provider.lw.EventScope scope = 2;
+  }
+  google.protobuf.Timestamp start_timestamp = 1;
+  google.protobuf.Timestamp end_timestamp = 2;
+  repeated BookScopes event_scopes = 7;
+  google.protobuf.Duration sync_interval = 4;
+  string external_queue = 5;
+  bool keep_alive = 6;
+}
+
+message EventLoadedStatistic {
+  message ScopeStat {
+    th2.data_provider.lw.EventScope scope = 1;
+    uint64 count = 2;
+  }
+  repeated ScopeStat stat = 1;
 }

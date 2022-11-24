@@ -40,7 +40,7 @@ class GrpcServer private constructor(
                 GrpcDataProviderImpl(context.configuration, context.searchMessagesHandler, context.searchEventsHandler, context.dataMeasurement)
             }
             logger.info { "Creating grpc queue provider" }
-            val queueServer = QueueGrpcProvider(context.queueMessageHandler)
+            val queueServer = QueueGrpcProvider(context.queueMessageHandler, context.queueEventsHandler)
             val server = grpcRouter.startServer(mainServer, queueServer).apply {
                 start()
                 logger.info {"'${GrpcServer::class.java.simpleName}' started" }

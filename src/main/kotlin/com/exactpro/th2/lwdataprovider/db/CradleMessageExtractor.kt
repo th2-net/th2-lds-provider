@@ -60,12 +60,6 @@ class CradleMessageExtractor(
     fun hasMessagesBefore(id: StoredMessageId): Boolean = hasMessages(id, TimeRelation.BEFORE)
 
     fun hasMessagesInGroupAfter(group: String, bookId: BookId, lastGroupTimestamp: Instant): Boolean {
-        GroupedMessageFilterBuilder()
-            .bookId(bookId)
-            .groupName(group)
-            .limit(1)
-            .timestampFrom().isGreaterThanOrEqualTo(lastGroupTimestamp)
-            .build()
         val lastBatch: CradleResultSet<StoredGroupedMessageBatch> = storage.getGroupedMessageBatches(GroupedMessageFilterBuilder()
             .bookId(bookId)
             .groupName(group)

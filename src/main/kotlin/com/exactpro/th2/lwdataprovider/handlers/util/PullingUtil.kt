@@ -44,7 +44,7 @@ fun computeNewParametersForGroupRequest(
         LOGGER.info { "Pulling updates for group $group" }
         val hasDataOutsideRange = extractor.hasMessagesInGroupAfter(group, bookId, lastTimestamp)
         if (hasDataOutsideRange) {
-            LOGGER.info { "All data in requested range is loaded for group $group" }
+            LOGGER.info { "Group '$group' in book '$bookId' has data outside the request range" }
             allLoaded += group
         }
         LOGGER.info { "Requesting additional data for group $group" }

@@ -12,7 +12,7 @@ option java_package = "com.exactpro.th2.dataprovider.lw.grpc";
 /**
  Service is used to request messages from DB and sent them to specified Queue
  */
-service QueueProviderService {
+service QueueDataProvider {
   /*
   The messages are return within group batches
    */

@@ -52,12 +52,12 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     val grpcBackPressure: Boolean = VariableBuilder.getVariable(customConfiguration::grpcBackPressure, false)
     val bufferPerQuery: Int = VariableBuilder.getVariable(customConfiguration::bufferPerQuery, max(maxBufferDecodeQueue / execThreadPoolSize, 1))
     init {
-        check(bufferPerQuery <= maxBufferDecodeQueue) {
+        require(bufferPerQuery <= maxBufferDecodeQueue) {
             "buffer per queue ($bufferPerQuery) must be less or equal to the total buffer size ($maxBufferDecodeQueue)"
         }
         val batchBoundary = bufferPerQuery.takeIf { it > 0 } ?: maxBufferDecodeQueue
-        check(batchSize <= batchBoundary) {
-            "bath size ($batchSize) must be less or equal to $batchBoundary"
+        require(batchSize <= batchBoundary) {
+            "bath size ($batchSize) must be less or equal to $batchBoundary (${if (batchBoundary == bufferPerQuery) "bufferPerQuery" else "maxBufferDecodeQueue"})"
         }
         if (mode == Mode.GRPC && grpcBackPressure) {
             LOGGER.warn { "gRPC backpressure works only with ${Mode.GRPC} mode but current mode is $mode" }

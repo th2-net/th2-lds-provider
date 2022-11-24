@@ -151,6 +151,7 @@ class SearchMessagesHandler(
         }
 
         threadPool.execute {
+            logger.info { "Executing group request $request" }
             RootMessagesDataSink(
                 requestContext,
                 if (request.rawOnly) {

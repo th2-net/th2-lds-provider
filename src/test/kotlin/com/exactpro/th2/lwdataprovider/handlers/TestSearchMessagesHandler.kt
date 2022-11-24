@@ -42,6 +42,7 @@ import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 import com.exactpro.th2.lwdataprovider.grpc.toCradleDirection
+import com.exactpro.th2.lwdataprovider.util.ImmutableListCradleResult
 import com.exactpro.th2.lwdataprovider.util.ListCradleResult
 import com.exactpro.th2.lwdataprovider.util.createBatches
 import com.exactpro.th2.lwdataprovider.util.createCradleStoredMessage
@@ -362,13 +363,13 @@ internal class TestSearchMessagesHandler {
 
         whenever(storage.getGroupedMessageBatches(argThat {
             groupName == group && from.value == startTimestamp && to.value == endTimestamp
-        })).thenReturn(ListCradleResult(firstBatches.toMutableList()))
+        })).thenReturn(ImmutableListCradleResult(firstBatches))
         whenever(storage.getGroupedMessageBatches(argThat {
             groupName == group && from.value == firstBatches.maxOf { it.lastTimestamp } && to.value == endTimestamp
-        })).thenReturn(ListCradleResult(lastBatches.toMutableList()))
+        })).thenReturn(ImmutableListCradleResult(lastBatches))
         whenever(storage.getGroupedMessageBatches(argThat {
             limit == 1 && groupName == group
-        })).thenReturn(ListCradleResult(firstBatches.toMutableList()), ListCradleResult(outsideBatches.toMutableList()))
+        })).thenReturn(ImmutableListCradleResult(outsideBatches))
 
         val handler = spy(MessageResponseHandlerTestImpl(measurement))
         val request = MessagesGroupRequest(
@@ -380,11 +381,12 @@ internal class TestSearchMessagesHandler {
             keepOpen = true,
             BookId("test"),
         )
-        LOGGER.info { "Request: $request" }
         searchHandler.loadMessageGroups(request, handler, measurement)
 
         val captor = argumentCaptor<RequestedMessageDetails>()
         verify(handler, atMost(messagesCount)).handleNext(captor.capture())
+        verify(handler, never()).writeErrorMessage(any<String>())
+        verify(handler, never()).writeErrorMessage(any<Throwable>())
         val messages: List<RequestedMessageDetails> = captor.allValues
         Assertions.assertEquals(messagesCount, messages.size) {
             val missing: List<StoredMessage> = (firstBatches.asSequence() + lastBatches.asSequence()).flatMap { it.messages }.filter { stored ->

@@ -21,7 +21,7 @@ import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.dataprovider.lw.grpc.LoadedStatistic
 import com.exactpro.th2.dataprovider.lw.grpc.MessageGroupsQueueSearchRequest
 import com.exactpro.th2.dataprovider.lw.grpc.MessageGroupsSearchRequest
-import com.exactpro.th2.dataprovider.lw.grpc.QueueProviderServiceGrpc
+import com.exactpro.th2.dataprovider.lw.grpc.QueueDataProviderGrpc
 import com.exactpro.th2.lwdataprovider.ResponseHandler
 import com.exactpro.th2.lwdataprovider.entities.requests.QueueMessageGroupsRequest
 import com.exactpro.th2.lwdataprovider.handlers.LoadStatistic
@@ -33,7 +33,7 @@ import mu.KotlinLogging
 
 class QueueGrpcProvider(
     private val messagesHandler: QueueMessagesHandler,
-) : QueueProviderServiceGrpc.QueueProviderServiceImplBase() {
+) : QueueDataProviderGrpc.QueueDataProviderImplBase() {
     override fun searchMessageGroups(
         request: MessageGroupsQueueSearchRequest,
         responseObserver: StreamObserver<LoadedStatistic>,

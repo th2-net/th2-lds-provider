@@ -138,5 +138,6 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           push: true
+          context: .
           tags: ghcr.io/${{ github.repository }}:${{ needs.metadata.outputs.release_ver }}
           labels: com.exactpro.th2.${{ steps.meta.outputs.REPOSITORY_NAME }}=${{ needs.metadata.outputs.release_ver }}

@@ -85,3 +85,9 @@ fun StoredMessage.toRawMessage(): RawMessage {
         body = UnsafeByteOperations.unsafeWrap(message.content)
     }.build()
 }
+
+fun BookId.toGrpc(): com.exactpro.th2.dataprovider.lw.grpc.BookId {
+    return com.exactpro.th2.dataprovider.lw.grpc.BookId.newBuilder()
+        .setName(name)
+        .build()
+}

@@ -136,11 +136,13 @@ private class GenericGrpcResponseHandler<IN, OUT>(
 
 private fun LoadStatistic.toGrpcResponse(): MessageLoadedStatistic {
     val builder = MessageLoadedStatistic.newBuilder()
-    messagesByGroup.forEach { (group, count) ->
+    messagesByGroup.forEach { (bookGroup, count) ->
         builder.addStat(
-            MessageLoadedStatistic.GroupStat.newBuilder().setGroup(
-                MessageGroupsSearchRequest.Group.newBuilder().setName(group)
-            ).setCount(count)
+            MessageLoadedStatistic.GroupStat.newBuilder()
+                .setGroup(
+                    MessageGroupsSearchRequest.Group.newBuilder().setName(bookGroup.group)
+                ).setCount(count)
+                .setBookId(bookGroup.bookId.toGrpc())
         )
     }
     return builder.build()
@@ -148,12 +150,13 @@ private fun LoadStatistic.toGrpcResponse(): MessageLoadedStatistic {
 
 private fun EventsLoadStatistic.toGrpcResponse(): EventLoadedStatistic {
     val builder = EventLoadedStatistic.newBuilder()
-    countByScope.forEach { (scope, count) ->
+    countByScope.forEach { (bookScope, count) ->
         builder.addStat(
             EventLoadedStatistic.ScopeStat.newBuilder()
                 .setScope(
-                    EventScope.newBuilder().setName(scope)
+                    EventScope.newBuilder().setName(bookScope.scope)
                 ).setCount(count)
+                .setBookId(bookScope.bookId.toGrpc())
         )
     }
     return builder.build()

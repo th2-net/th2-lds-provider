@@ -166,12 +166,12 @@ private class QueueMessageDataSink(
     private val batchMaxSize: Int,
     private val onBatch: (MessageGroupBatch, String) -> Unit,
 ) : MessageDataSink<String, StoredMessage> {
-    private val countByGroup = hashMapOf<String, Long>()
+    private val countByGroup = hashMapOf<BookGroup, Long>()
     private val batchBuilder = MessageGroupBatch.newBuilder()
     private var lastMarker: String? = null
 
     override fun onNext(marker: String, data: StoredMessage) {
-        countByGroup.merge(marker, 1, Long::plus)
+        countByGroup.merge(BookGroup(marker, data.bookId), 1, Long::plus)
         val curLastMarker = lastMarker
         if (curLastMarker?.equals(marker) == false) {
             processBatch(curLastMarker)
@@ -206,5 +206,5 @@ private class QueueMessageDataSink(
 }
 
 class LoadStatistic(
-    val messagesByGroup: Map<String, Long>,
+    val messagesByGroup: Map<BookGroup, Long>,
 )

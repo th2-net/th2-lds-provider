@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.lwdataprovider.handlers
 
+import com.exactpro.cradle.BookId
 import com.exactpro.th2.common.event.EventUtils
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventStatus
@@ -27,6 +28,7 @@ import com.exactpro.th2.lwdataprovider.db.CradleEventExtractor
 import com.exactpro.th2.lwdataprovider.db.EventDataSink
 import com.exactpro.th2.lwdataprovider.entities.requests.QueueEventsScopeRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
+import com.exactpro.th2.lwdataprovider.handlers.util.BookScope
 import com.google.protobuf.UnsafeByteOperations
 import mu.KotlinLogging
 import java.util.concurrent.Executor
@@ -68,14 +70,14 @@ class QueueEventsHandler(
     }
 }
 
-class EventsLoadStatistic(val countByScope: Map<String, Long>)
+class EventsLoadStatistic(val countByScope: Map<BookScope, Long>)
 
 private class EventQueueDataSink(
     private val handler: ResponseHandler<EventsLoadStatistic>,
     private val maxBatchSize: Int,
     private val onBatch: (EventBatch) -> Unit,
 ) : EventDataSink<Event> {
-    private val countByScope = HashMap<String, Long>()
+    private val countByScope = hashMapOf<BookScope, Long>()
     private val batchBuilder = EventBatch.newBuilder()
     override val canceled: CancellationReason?
         get() = when {
@@ -84,7 +86,7 @@ private class EventQueueDataSink(
         }
 
     override fun onNext(data: Event) {
-        countByScope.merge(data.scope, 1L, Long::plus)
+        countByScope.merge(BookScope(data.scope, BookId(data.bookId)), 1L, Long::plus)
         batchBuilder.addEvents(data.toGrpc())
         if (batchBuilder.eventsCount >= maxBatchSize) {
             processBatch(batchBuilder)

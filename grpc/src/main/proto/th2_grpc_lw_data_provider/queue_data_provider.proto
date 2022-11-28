@@ -16,7 +16,7 @@ service QueueDataProvider {
   /*
   The messages are return within group batches
    */
-  rpc SearchMessageGroups(MessageGroupsQueueSearchRequest) returns (LoadedStatistic);
+  rpc SearchMessageGroups(MessageGroupsQueueSearchRequest) returns (MessageLoadedStatistic);
 }
 
 message MessageGroupsQueueSearchRequest {
@@ -28,7 +28,7 @@ message MessageGroupsQueueSearchRequest {
   bool keep_alive = 6;
 }
 
-message LoadedStatistic {
+message MessageLoadedStatistic {
   message GroupStat {
     th2.data_provider.lw.MessageGroupsSearchRequest.Group group = 1;
     uint64 count = 2;

@@ -18,7 +18,7 @@ package com.exactpro.th2.lwdataprovider.grpc
 
 import com.exactpro.th2.common.message.toJavaDuration
 import com.exactpro.th2.common.message.toJson
-import com.exactpro.th2.dataprovider.lw.grpc.LoadedStatistic
+import com.exactpro.th2.dataprovider.lw.grpc.MessageLoadedStatistic
 import com.exactpro.th2.dataprovider.lw.grpc.MessageGroupsQueueSearchRequest
 import com.exactpro.th2.dataprovider.lw.grpc.MessageGroupsSearchRequest
 import com.exactpro.th2.dataprovider.lw.grpc.QueueDataProviderGrpc
@@ -36,7 +36,7 @@ class QueueGrpcProvider(
 ) : QueueDataProviderGrpc.QueueDataProviderImplBase() {
     override fun searchMessageGroups(
         request: MessageGroupsQueueSearchRequest,
-        responseObserver: StreamObserver<LoadedStatistic>,
+        responseObserver: StreamObserver<MessageLoadedStatistic>,
     ) {
         try {
             val internalRequest = request.run {
@@ -68,7 +68,7 @@ class QueueGrpcProvider(
 }
 
 private class LoadStatisticResponseHandler(
-    private val responseObserver: StreamObserver<LoadedStatistic>
+    private val responseObserver: StreamObserver<MessageLoadedStatistic>
 ) : ResponseHandler<LoadStatistic> {
     @Volatile
     private var hasError = false
@@ -92,11 +92,11 @@ private class LoadStatisticResponseHandler(
 
 }
 
-private fun LoadStatistic.toGrpcResponse(): LoadedStatistic {
-    val builder = LoadedStatistic.newBuilder()
+private fun LoadStatistic.toGrpcResponse(): MessageLoadedStatistic {
+    val builder = MessageLoadedStatistic.newBuilder()
     messagesByGroup.forEach { (group, count) ->
         builder.addStat(
-            LoadedStatistic.GroupStat.newBuilder().setGroup(
+            MessageLoadedStatistic.GroupStat.newBuilder().setGroup(
                 MessageGroupsSearchRequest.Group.newBuilder().setName(group)
             ).setCount(count)
         )

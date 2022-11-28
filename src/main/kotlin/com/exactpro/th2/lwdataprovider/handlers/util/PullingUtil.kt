@@ -77,3 +77,8 @@ data class BookGroup(
     val group: String,
     val bookId: BookId,
 )
+
+data class BookScope(
+    val scope: String,
+    val bookId: BookId,
+)

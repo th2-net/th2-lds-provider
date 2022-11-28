@@ -40,6 +40,7 @@ message MessageGroupsQueueSearchRequest {
 
 message MessageLoadedStatistic {
   message GroupStat {
+    th2.data_provider.lw.BookId book_id = 3;
     th2.data_provider.lw.MessageGroupsSearchRequest.Group group = 1;
     uint64 count = 2;
   }
@@ -61,6 +62,7 @@ message EventQueueSearchRequest {
 
 message EventLoadedStatistic {
   message ScopeStat {
+    th2.data_provider.lw.BookId book_id = 3;
     th2.data_provider.lw.EventScope scope = 1;
     uint64 count = 2;
   }

@@ -27,8 +27,8 @@ ext {
 }
 
 dependencies {
-    implementation('com.exactpro.th2:common:4.0.0-th2-2150-books-pages-2496284531-SNAPSHOT') {
-        exclude group: 'org.slf4j', module: 'slf4j-log4j12'
+    implementation('com.exactpro.th2:common:4.0.0-th2-2150-books-pages-2635632236-SNAPSHOT') {
+        exclude group: 'org.apache.logging.log4j', module: 'log4j-slf4j-impl'
         exclude group: 'com.exactpro.th2', module: 'cradle-core'
         exclude group: 'com.exactpro.th2', module: 'cradle-cassandra'
     }

@@ -1,4 +1,4 @@
-# Lightweight data provider (1.1.1)
+# Lightweight data provider (2.0.0)
 
 # Overview
 This component serves as a data provider for [th2-data-services](https://github.com/th2-net/th2-data-services). It will connect to the cassandra database via [cradle api](https://github.com/th2-net/cradleapi) and expose the data stored in there as REST resources.
@@ -8,9 +8,17 @@ This component is similar to [rpt-data-provider](https://github.com/th2-net/th2-
 
 ### REST
 
-`http://localhost:8080/event/{id}` - returns a single event with the specified id
+`http://localhost:8080/event/{id}` - returns a single event with the specified id.
+
+Example: `http://localhost:8080/event/book:scope:20221031130000000000000:eventId`
+
+Example with batch: `http://localhost:8080/event/book:scope:20221031130000000000000:batchId>book:scope:20221031130000000000000:eventId`
 
 `http://localhost:8080/message/{id}` - returns a single message with the specified id
+
+Example: `http://localhost:8080/message/book:session_alias:<direction>:20221031130000000000000:1`
+
+**direction** - `1` - first, `2` - second
 
 ##### SSE requests API
 
@@ -18,6 +26,22 @@ This component is similar to [rpt-data-provider](https://github.com/th2-net/th2-
 - `startTimestamp` - number, unix timestamp in milliseconds - Sets the search starting point. **Required**
 - `endTimestamp` - number, unix timestamp in milliseconds - Sets the timestamp to which the search will be performed, starting with `startTimestamp`. **Required**.
 - `parentEvent` - text - parent event id of expected child-events.
+- `searchDirection` - the direction for search (_next_,_previous_). Default, **next**
+- `resultCountLimit` - limit the result responses
+- `bookId` - book ID for requested events (*required)
+- `scope` - scope for requested events (*required)
+- `filters` - set of filters to apply. Example, `filters=name,type`
+
+
+Supported filters:
+- `type` - filter by events type
+- `name` - filter by events name
+
+Filter parameters:
+- `<filter_name>-value`|`<filter_name>-values` filter values to apply. Repeatable
+- `<filter_name>-negative` - inverts the filter. _<filter_name>-negative=true_
+- `<filter_name>-conjunct` - if `true` the actual value should match all expected values. _<filter_name>-conjunct=true_
+
 
 
 `http://localhost:8080/search/sse/messages` - create a sse channel of messages that matches the filter. Accepts following query parameters:
@@ -28,14 +52,17 @@ This component is similar to [rpt-data-provider](https://github.com/th2-net/th2-
   Example: `alias` - requests all direction for alias; `alias:<direction>` - requests specified direction for alias.
 - `searchDirection` - `next`/`previous` - Sets the lookup direction. Can be used for pagination. Defaults to `next`.
 - `resultCountLimit` - number - Sets the maximum amount of messages to return. Defaults to `null (unlimited)`.
-- `endTimestamp` - number, unix timestamp in milliseconds - Sets the timestamp to which the search will be performed, starting with `startTimestamp`. When `searchDirection` is `previous`, `endTimestamp` must be less then `startTimestamp`. Defaults to `null` (search can be stopped after reaching `resultCountLimit`).
-- `onlyRaw` - boolean - Disabling decoding messages. If it is true, message body will be empty in all messages. Default `false` 
+- `endTimestamp` - number, unix timestamp in milliseconds - Sets the timestamp to which the search will be performed, starting with `startTimestamp`. When `searchDirection` is `previous`, `endTimestamp` must be less then `startTimestamp`. Defaults to `null` (search can be stopped after reaching `resultCountLimit`). 
 - `responseFormats` - text, accepts multiple values - sets response formats. Possible values: BASE_64, PROTO_PARSED, JSON_PARSED. default value - BASE_64 & PROTO_PARSED.
+- `keepOpen` - keeps pulling for updates until have not found any message outside the requested interval. Disabled by default
+- `bookId` - book ID for requested messages (*required)
 
 `http://localhost:8080/search/sse/messages/group` - creates an SSE channel of messages that matches the requested group for the requested time period
 - `startTimestamp` - number, unix timestamp in milliseconds - Sets the search starting point. **Must not be null**
 - `endTimestamp` - number, unix timestamp in milliseconds - Sets the search ending point. **Must not be null**
 - `group` - the repeatable parameter with group names to request. **At least one must be specified**
+- `keepOpen` - keeps pulling for updates until have not found any message outside the requested interval. Disabled by default
+- `bookId` - book ID for requested messages (*required)
 Example: `http://localhost:8080/search/sse/messages/group?group=A&group=B&startTimestamp=15600000&endTimestamp=15700000`
 
 

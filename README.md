@@ -25,6 +25,7 @@ This component is similar to [rpt-data-provider](https://github.com/th2-net/th2-
 - `messageId` - text, accepts multiple values. List of message IDs to restore search. Defaults to `null`. **One of the 'startTimestamp' or 'messageId' must not be null**
 
 - `stream` - text, accepts multiple values - Sets the stream ids to search in. Case-sensitive. **Required**.
+  Example: `alias` - requests all direction for alias; `alias:<direction>` - requests specified direction for alias.
 - `searchDirection` - `next`/`previous` - Sets the lookup direction. Can be used for pagination. Defaults to `next`.
 - `resultCountLimit` - number - Sets the maximum amount of messages to return. Defaults to `null (unlimited)`.
 - `endTimestamp` - number, unix timestamp in milliseconds - Sets the timestamp to which the search will be performed, starting with `startTimestamp`. When `searchDirection` is `previous`, `endTimestamp` must be less then `startTimestamp`. Defaults to `null` (search can be stopped after reaching `resultCountLimit`).

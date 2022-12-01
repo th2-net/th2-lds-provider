@@ -70,12 +70,20 @@ class SseMessageSearchRequest(
         private fun toStreams(streams: List<String>?): List<ProviderMessageStream>? {
             if (streams == null)
                 return null;
-            val providerStreams = ArrayList<ProviderMessageStream>(streams.size * 2)
-            streams.forEach {
-                providerStreams.add(ProviderMessageStream(it, Direction.SECOND))
-                providerStreams.add(ProviderMessageStream(it, Direction.FIRST))
-            }
-            return providerStreams
+            return streams.asSequence().flatMap {
+                if (it.contains(':')) {
+                    val parts = it.split(':')
+                    when (parts.size) {
+                        2 -> {
+                            val (alias, direction) = parts
+                            sequenceOf(ProviderMessageStream(alias, requireNotNull(Direction.byLabel(direction)) { "incorrect direction $direction" }))
+                        }
+                        else -> error("incorrect stream '$it'")
+                    }
+                } else {
+                    sequenceOf(ProviderMessageStream(it, Direction.SECOND), ProviderMessageStream(it, Direction.FIRST))
+                }
+            }.toList()
         }
 
         private fun toMessageIds(streamsPointers: List<MessageStreamPointer>?): List<StoredMessageId>? {

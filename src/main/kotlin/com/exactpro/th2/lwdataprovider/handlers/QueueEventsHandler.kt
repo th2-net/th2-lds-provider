@@ -56,7 +56,17 @@ class QueueEventsHandler(
                 router.sendAll(it, request.externalQueue)
             }.use { sink ->
                 try {
-                    extractor.getEventsWithSyncInterval(request, sink)
+                    with(request) {
+                        extractor.getEventsWithSyncInterval(
+                            startTimestamp,
+                            endTimestamp,
+                            syncInterval,
+                            scopesByBook.mapValues { (bookId, scopes) ->
+                                scopes.ifEmpty { extractor.getEventsScopes(bookId) }
+                            },
+                            sink
+                        )
+                    }
                 } catch (ex: Exception) {
                     LOGGER.error(ex) { "cannot execute request $request" }
                     sink.onError(ex)

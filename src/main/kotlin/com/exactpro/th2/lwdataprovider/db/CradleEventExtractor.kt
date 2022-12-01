@@ -53,6 +53,10 @@ class CradleEventExtractor(
         private val logger = KotlinLogging.logger { }
     }
 
+    fun getEventsScopes(bookId: BookId): Set<String> {
+        return storage.getScopes(bookId).toSet()
+    }
+
     fun getEvents(filter: SseEventSearchRequest, sink: EventDataSink<Event>) {
         val dates = splitByDates(
             requireNotNull(filter.startTimestamp) { "start timestamp is not set" },
@@ -125,10 +129,13 @@ class CradleEventExtractor(
     }
 
     fun getEventsWithSyncInterval(
-        request: QueueEventsScopeRequest,
+        startTimestamp: Instant,
+        endTimestamp: Instant,
+        syncInterval: Duration,
+        scopesByBook: Map<BookId, Set<String>>,
         sink: EventDataSink<Event>,
     ) {
-        val intervals: Collection<Pair<Instant, Instant>> = splitByDates(request.startTimestamp, request.endTimestamp)
+        val intervals: Collection<Pair<Instant, Instant>> = splitByDates(startTimestamp, endTimestamp)
         logger.debug { "Original request split into ${intervals.size} intervals: $intervals" }
         data class BookScope(val bookId: BookId, val scope: String)
         val stat = ProcessingInfo()
@@ -136,8 +143,8 @@ class CradleEventExtractor(
             for ((start, end) in intervals) {
                 getGenericWithSyncInterval(
                     logger,
-                    request.scopesByBook.asSequence().flatMap { (bookId, scopes) -> scopes.map { BookScope(bookId, it) } }.toList(),
-                    request.syncInterval,
+                    scopesByBook.asSequence().flatMap { (bookId, scopes) -> scopes.map { BookScope(bookId, it) } }.toList(),
+                    syncInterval,
                     sink,
                     { processTestEvent(it, stat, DataFilter.acceptAll(), sink) },
                     { testEvent ->

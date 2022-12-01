@@ -26,8 +26,8 @@ data class GetMessageRequest(
     val onlyRaw: Boolean
 ) {
 
-    constructor(msgId: String, parameters: Map<String, List<String>>) : this(
-        msgId = StoredMessageId.fromString(msgId),
+    constructor(storedMessageId: StoredMessageId, parameters: Map<String, List<String>>) : this(
+        msgId = storedMessageId,
         onlyRaw = parameters["onlyRaw"]?.firstOrNull()?.toBoolean() ?: false
     )
 

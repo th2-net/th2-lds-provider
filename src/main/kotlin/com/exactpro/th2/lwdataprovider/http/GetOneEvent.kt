@@ -18,6 +18,7 @@ package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
+import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
@@ -67,7 +68,7 @@ class GetOneEvent(
 
     private fun toEventIds(evId: String): Pair<String?, String> {
         if (!evId.contains('/') && !evId.contains('?')) {
-            val split = evId.split(':')
+            val split = evId.split(ProviderEventId.DIVIDER)
             if (split.size == 2) {
                 return split[0] to split[1]
             } else if (split.size == 1) {

@@ -259,7 +259,7 @@ class CradleEventExtractor(
     }
 }
 
-class ProcessingInfo(
+data class ProcessingInfo(
     var total: Long = 0,
     var events: Long = 0,
     var singleEvents: Long = 0,

@@ -17,6 +17,8 @@
 package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.cradle.Direction
+import com.exactpro.cradle.messages.StoredMessageId
+import com.exactpro.cradle.messages.StoredMessageIdUtils
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
@@ -50,7 +52,7 @@ class GetMessageById(
 
         val handler = HttpMessagesRequestHandler(queue, sseResponseBuilder, dataMeasurement)
         try {
-            val newMsgId = checkId(msgId)
+            val newMsgId = parseMessageId(msgId)
             val queryParametersMap = getParameters(req)
             logger.info { "Received search sse event request with parameters: $queryParametersMap" }
 
@@ -67,19 +69,10 @@ class GetMessageById(
         logger.info { "Processing search sse messages request finished" }
     }
 
-    private fun checkId(msgId: String): String {
-
-        if (!msgId.contains('/') && !msgId.contains('?')) {
-            val split = msgId.split(':')
-            if (split.size == 3 && split[2].all { it.isDigit() }) {
-                if (Direction.byLabel(split[1]) != null)
-                    return msgId
-                else if (Direction.byLabel(split[1].lowercase(Locale.getDefault())) != null)
-                    return split[0] + ":" + split[1].lowercase(Locale.getDefault()) + ":" + split[2]
-            }
-        }
-
-        throw IllegalArgumentException("Invalid message id: $msgId")
+    private fun parseMessageId(msgId: String): StoredMessageId = try {
+        StoredMessageId.fromString(msgId)
+    } catch (ex: Exception) {
+        throw IllegalArgumentException("Invalid message id: $msgId", ex)
     }
 
 

@@ -22,6 +22,7 @@ import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.message
 import com.exactpro.th2.common.message.plusAssign
 import com.exactpro.th2.common.message.setMetadata
+import com.exactpro.th2.common.schema.message.DeliveryMetadata
 import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.lwdataprovider.grpc.toGrpcDirection
@@ -181,8 +182,9 @@ internal class TestRabbitMqDecoder {
         }.build()
 
     private fun notifyListeners(vararg messages: List<Message>) {
+        val metadata = DeliveryMetadata("")
         listeners.forEach {
-            it.handle("", MessageGroupBatch.newBuilder()
+            it.handle(metadata, MessageGroupBatch.newBuilder()
                 .apply {
                     for (messageGroup in messages) {
                         messageGroup.forEach(addGroupsBuilder()::plusAssign)

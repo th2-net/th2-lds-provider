@@ -21,6 +21,7 @@ import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.MessageID
+import com.exactpro.th2.common.schema.message.DeliveryMetadata
 import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.lwdataprovider.grpc.toInstant
 import mu.KotlinLogging
@@ -41,7 +42,7 @@ class CodecMessageListener(
         private val logger = KotlinLogging.logger { }
     }
     
-    override fun handle(consumerTag: String, message: MessageGroupBatch) {
+    override fun handle(deliveryMetadata: DeliveryMetadata, message: MessageGroupBatch) {
 
         message.groupsList.forEach { group ->
             if (group.messagesList.any { !it.hasMessage() }) {

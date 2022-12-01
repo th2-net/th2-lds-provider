@@ -36,6 +36,12 @@ dependencies {
     implementation 'org.eclipse.jetty:jetty-server:9.4.44.v20210927'
     implementation 'org.eclipse.jetty:jetty-servlet:9.4.44.v20210927'
 
+    implementation('org.apache.logging.log4j:log4j-core') {
+        because('need to have log4j core inside the classpath')
+    }
+    implementation('org.apache.logging.log4j:log4j-slf4j2-impl') {
+        because('need loging impl')
+    }
 
     implementation("com.exactpro.th2:cradle-cassandra:$cradleApiVersion") {
         exclude group: 'org.slf4j', module: 'slf4j-log4j12'

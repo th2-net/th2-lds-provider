@@ -91,8 +91,7 @@ message MessageGroupItem {
 message MessageGroupResponse {
   MessageID message_id = 1; // Message id should be unique in session
   google.protobuf.Timestamp timestamp = 2; // Message creation timestamp
-  bytes body_raw = 3 [deprecated = true];
-  RawMessage raw_message = 6;
+  bytes body_raw = 3;
   repeated EventID attached_event_id = 4; // ids of events linked to this message group
   repeated MessageGroupItem message_item = 5; // May be absent.
 }
@@ -117,9 +116,7 @@ message EventSearchRequest {
 
   google.protobuf.Int32Value result_count_limit = 5; // Sets the maximum amount of events to return. By default it is absent (unlimited).
 
-  google.protobuf.BoolValue keep_open = 6; // If the search has reached the current moment, it is necessary to wait further for the appearance of new data.Set to false by default.
-
-  repeated Filter filter = 7; // List of event search filters. (See 'search/sse/events' HTTP method https://github.com/th2-net/th2-rpt-data-provider)
+  repeated Filter filter = 6; // List of event search filters. (See 'search/sse/events' HTTP method https://github.com/th2-net/th2-rpt-data-provider)
 }
 
 message EventSearchResponse {

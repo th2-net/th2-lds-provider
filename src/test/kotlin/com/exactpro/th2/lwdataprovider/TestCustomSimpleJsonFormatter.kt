@@ -19,20 +19,32 @@ package com.exactpro.th2.lwdataprovider
 import com.exactpro.th2.common.message.addField
 import com.exactpro.th2.common.message.addFields
 import com.exactpro.th2.common.message.message
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 
 internal class TestCustomSimpleJsonFormatter {
     private val formatter = CustomSimpleJsonFormatter()
     private val objectMapper = ObjectMapper()
 
-    @Test
-    fun `prints simple field`() {
-        val message = message().addField("a", "1").build()
+    @ParameterizedTest
+    @ValueSource(strings = ["\\", "/", "\"", "'", "normal"])
+    fun `prints simple field`(value: String) {
+        val message = message().addField("a", value).build()
         val result = formatter.print(message)
-        assertDoesNotThrow { objectMapper.readTree(result) }
-        assertEquals("""{"fields":{"a":"1"}}""", result)
+        val node: JsonNode = assertDoesNotThrow({ "cannot deserialize result: $result" }) {
+            objectMapper.readTree(result)
+        }
+        val fields = node.get("fields")
+        assertNotNull(fields) { "no fields in $node" }
+        val simpleValue = fields["a"]
+        assertNotNull(simpleValue) { "no field 'a' in $node" }
+        assertEquals(value, simpleValue.asText(), "incorrect simple value")
     }
 
     @Test

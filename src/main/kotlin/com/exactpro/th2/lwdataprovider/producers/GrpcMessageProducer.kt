@@ -20,6 +20,7 @@ import com.exactpro.cradle.Direction
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.grpc.ConnectionID
 import com.exactpro.th2.common.grpc.MessageID
+import com.exactpro.th2.common.message.toTimestamp
 import com.exactpro.th2.dataprovider.lw.grpc.MessageGroupItem
 import com.exactpro.th2.dataprovider.lw.grpc.MessageGroupResponse
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
@@ -37,6 +38,7 @@ class GrpcMessageProducer {
             return MessageGroupResponse.newBuilder().apply {
                 messageId = convertMessageId(storedMessage.id)
                 timestamp = convertTimestamp(storedMessage.timestamp)
+                putAllMessageProperties(storedMessage.metadata?.toMap() ?: emptyMap())
 
                 if (responseFormats.isEmpty() || ResponseFormat.BASE_64 in responseFormats) {
                     bodyRaw = rawMessage.rawMessage.body
@@ -54,6 +56,7 @@ class GrpcMessageProducer {
                 it.connectionId = ConnectionID.newBuilder().setSessionAlias(messageID.sessionAlias).build()
                 it.direction = convertDirection(messageID)
                 it.sequence = messageID.sequence
+                it.timestamp = messageID.timestamp.toTimestamp()
             }.build()
         }
 

@@ -37,6 +37,7 @@ class GrpcMessageProducer {
             return MessageGroupResponse.newBuilder().apply {
                 messageId = convertMessageId(storedMessage.id)
                 timestamp = convertTimestamp(storedMessage.timestamp)
+                putAllMessageProperties(storedMessage.metadata?.toMap() ?: emptyMap())
 
                 if (responseFormats.isEmpty() || ResponseFormat.BASE_64 in responseFormats) {
                     bodyRaw = rawMessage.rawMessage.body

@@ -35,7 +35,7 @@ import java.time.Instant
 class SseEventSearchRequest(
     val startTimestamp: Instant?,
     val parentEvent: ProviderEventId?,
-    val searchDirection: TimeRelation,
+    val searchDirection: SearchDirection,
     val resultCountLimit: Int?,
     endTimestamp: Instant?,
     val filter: DataFilter<BaseEventEntity> = DataFilter.acceptAll(),
@@ -64,9 +64,7 @@ class SseEventSearchRequest(
     constructor(parameters: Map<String, List<String>>) : this(
         startTimestamp = parameters["startTimestamp"]?.firstOrNull()?.let { Instant.ofEpochMilli(it.toLong()) },
         parentEvent = parameters["parentEvent"]?.firstOrNull()?.let { ProviderEventId(it) },
-        searchDirection = parameters["searchDirection"]?.firstOrNull()?.let {
-            asCradleTimeRelation(it)
-        } ?: TimeRelation.AFTER,
+        searchDirection = parameters["searchDirection"]?.firstOrNull()?.let(SearchDirection::valueOf) ?: SearchDirection.next,
         endTimestamp = parameters["endTimestamp"]?.firstOrNull()?.let { Instant.ofEpochMilli(it.toLong()) },
         resultCountLimit = parameters["resultCountLimit"]?.firstOrNull()?.toInt(),
         filter = EventsFilterFactory.create(httpConverter.convert(parameters)),
@@ -86,8 +84,8 @@ class SseEventSearchRequest(
         } else null,
         searchDirection = request.searchDirection.let {
             when (it) {
-                PREVIOUS -> TimeRelation.BEFORE
-                else -> TimeRelation.AFTER
+                PREVIOUS -> SearchDirection.previous
+                else -> SearchDirection.next
             }
         },
         endTimestamp = if (request.hasEndTimestamp())
@@ -105,7 +103,7 @@ class SseEventSearchRequest(
     private fun checkEndTimestamp() {
         if (startTimestamp == null) return
 
-        if (searchDirection == TimeRelation.AFTER) {
+        if (searchDirection == SearchDirection.next) {
             if (startTimestamp.isAfter(endTimestamp))
                 invalidRequest("startTimestamp: $startTimestamp > endTimestamp: $endTimestamp")
         } else {

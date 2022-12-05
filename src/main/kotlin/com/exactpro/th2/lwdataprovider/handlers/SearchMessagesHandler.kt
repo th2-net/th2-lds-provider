@@ -20,8 +20,6 @@ import com.exactpro.cradle.BookId
 import com.exactpro.cradle.BookInfo
 import com.exactpro.cradle.Direction
 import com.exactpro.cradle.Order
-import com.exactpro.cradle.TimeRelation
-import com.exactpro.cradle.TimeRelation.AFTER
 import com.exactpro.cradle.messages.GroupedMessageFilter
 import com.exactpro.cradle.messages.MessageFilterBuilder
 import com.exactpro.cradle.messages.StoredMessage
@@ -38,11 +36,12 @@ import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
+import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 import com.exactpro.th2.lwdataprovider.handlers.util.BookGroup
 import com.exactpro.th2.lwdataprovider.handlers.util.GroupParametersHolder
-import com.exactpro.th2.lwdataprovider.handlers.util.modifyFilterBuilderTimestamps
 import com.exactpro.th2.lwdataprovider.handlers.util.computeNewParametersForGroupRequest
+import com.exactpro.th2.lwdataprovider.handlers.util.modifyFilterBuilderTimestamps
 import mu.KotlinLogging
 import java.time.Instant
 import java.util.concurrent.Executor
@@ -318,7 +317,7 @@ class SearchMessagesHandler(
                 sessionAlias(stream)
                 direction(direction)
                 modifyFilterBuilderTimestamps(request)
-                if (request.searchDirection == TimeRelation.BEFORE) {
+                if (request.searchDirection == SearchDirection.previous) {
                     order(Order.REVERSE)
                 }
                 limitFilter(sink)
@@ -337,7 +336,7 @@ class SearchMessagesHandler(
     }
 
     private fun orderFrom(request: SseMessageSearchRequest): Order {
-        val order = if (request.searchDirection == AFTER) {
+        val order = if (request.searchDirection == SearchDirection.next) {
             Order.DIRECT
         } else {
             Order.REVERSE
@@ -349,7 +348,7 @@ class SearchMessagesHandler(
         request: SseMessageSearchRequest,
         resumeFromId: StoredMessageId,
     ) {
-        if (request.searchDirection == AFTER) {
+        if (request.searchDirection == SearchDirection.next) {
             sequence().isGreaterThanOrEqualTo(resumeFromId.sequence)
         } else {
             sequence().isLessThanOrEqualTo(resumeFromId.sequence)

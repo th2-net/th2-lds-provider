@@ -123,6 +123,11 @@ jobs:
         uses: gradle/gradle-build-action@v2
       - name: Build and publish gRPC with Gradle
         run: ./gradlew --info --warning-mode all build dockerPrepare -Prelease_version=${{ needs.metadata.outputs.release_ver }}
+      - name: Upload OpenAPI schema
+        uses: actions/upload-artifact@v3
+        with:
+          name: lwdp-openapi-schema
+          path: build/tmp/kapt3/classes/main/openapi-plugin/openapi-default.json
       # Build and publish image
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2

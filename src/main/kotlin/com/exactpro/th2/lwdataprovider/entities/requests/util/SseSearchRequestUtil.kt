@@ -18,12 +18,13 @@ package com.exactpro.th2.lwdataprovider.entities.requests.util
 
 import com.exactpro.cradle.TimeRelation
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
+import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import java.time.Instant
 
 fun getInitEndTimestamp(passedEndTimestamp: Instant?, resultCountLimit: Int?,
-                        searchDirection: TimeRelation) : Instant {
+                        searchDirection: SearchDirection) : Instant {
     return if (resultCountLimit != null && passedEndTimestamp == null){
-        if(searchDirection == TimeRelation.AFTER){
+        if(searchDirection == SearchDirection.next){
             Instant.MAX
         } else {
             Instant.MIN

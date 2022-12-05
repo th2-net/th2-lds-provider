@@ -39,6 +39,7 @@ import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
+import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 import com.exactpro.th2.lwdataprovider.grpc.toCradleDirection
 import com.exactpro.th2.lwdataprovider.util.ImmutableListCradleResult
@@ -431,7 +432,7 @@ internal class TestSearchMessagesHandler {
         startTimestamp = Instant.now(),
         endTimestamp = Instant.now(),
         stream = streams,
-        searchDirection = TimeRelation.AFTER,
+        searchDirection = SearchDirection.next,
         resultCountLimit = null,
         keepOpen = false,
         responseFormats = if (isRawOnly) setOf(ResponseFormat.BASE_64) else null,

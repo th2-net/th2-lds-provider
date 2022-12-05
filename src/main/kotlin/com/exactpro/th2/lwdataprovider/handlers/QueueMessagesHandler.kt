@@ -129,23 +129,23 @@ class QueueMessagesHandler(
         )
     }
 
+    private inline fun Map<BookId, Set<String>>.toFilters(
+        start: Instant,
+        end: Instant,
+        crossinline paramSupplier: (BookGroup) -> CradleGroupRequest,
+    ): Map<BookGroup, Pair<GroupedMessageFilter, CradleGroupRequest>> {
+        return asSequence().flatMap { (bookId, groups) ->
+            groups.ifEmpty { extractor.getGroups(bookId) }.asSequence().map { group ->
+                val filter = groupedMessageFilter(bookId, group, start, end)
+                val bookGroup = BookGroup(group, bookId)
+                bookGroup to (filter to paramSupplier(bookGroup))
+            }
+        }.toMap()
+    }
+
     companion object {
         private val LOGGER = KotlinLogging.logger { }
     }
-}
-
-private inline fun Map<BookId, Set<String>>.toFilters(
-    start: Instant,
-    end: Instant,
-    crossinline paramSupplier: (BookGroup) -> CradleGroupRequest,
-): Map<BookGroup, Pair<GroupedMessageFilter, CradleGroupRequest>> {
-    return asSequence().flatMap { (bookId, groups) ->
-        groups.asSequence().map { group ->
-            val filter = groupedMessageFilter(bookId, group, start, end)
-            val bookGroup = BookGroup(group, bookId)
-            bookGroup to (filter to paramSupplier(bookGroup))
-        }
-    }.toMap()
 }
 
 private fun groupedMessageFilter(

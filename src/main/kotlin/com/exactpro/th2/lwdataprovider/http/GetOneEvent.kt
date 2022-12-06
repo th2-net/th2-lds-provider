@@ -16,39 +16,73 @@
 
 package com.exactpro.th2.lwdataprovider.http
 
+import com.exactpro.th2.lwdataprovider.ExceptionInfo
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
+import com.exactpro.th2.lwdataprovider.entities.responses.Event
+import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
+import io.javalin.Javalin
+import io.javalin.http.Context
+import io.javalin.openapi.HttpMethod
+import io.javalin.openapi.OpenApi
+import io.javalin.openapi.OpenApiContent
+import io.javalin.openapi.OpenApiParam
+import io.javalin.openapi.OpenApiResponse
 import mu.KotlinLogging
 import java.util.concurrent.ArrayBlockingQueue
-import javax.servlet.http.HttpServletRequest
-import javax.servlet.http.HttpServletResponse
 
 class GetOneEvent(
     private val sseResponseBuilder: SseResponseBuilder,
     private val keepAliveHandler: KeepAliveHandler,
     private val searchEventsHandler: SearchEventsHandler
-) : NoSseServlet() {
+) : AbstractRequestHandler() {
 
     companion object {
+        const val ROUTE = "/event/{id}"
         private val logger = KotlinLogging.logger { }
     }
 
-    override fun doGet(req: HttpServletRequest, resp: HttpServletResponse) {
-        val queue = ArrayBlockingQueue<SseEvent>(2)
-        val eventId = req.pathInfo.run {
-            if (startsWith('/')) {
-                substring(1)
-            } else {
-                this
-            }
-        }
+    override fun setup(app: Javalin) {
+        app.get(ROUTE, this)
+    }
 
-        val queryParametersMap = getParameters(req)
-        logger.info { "Received get message request (${req.pathInfo}) with parameters: $queryParametersMap" }
+    @OpenApi(
+        path = ROUTE,
+        methods = [HttpMethod.GET],
+        description = "returns event with the requested id",
+        pathParams = [
+            OpenApiParam(
+                name = "id",
+                required = true,
+                description = "requested event ID",
+                example = "book:scope:20221031130000000000000:eventId",
+            )
+        ],
+        responses = [
+            OpenApiResponse(
+                status = "200",
+                content = [
+                    OpenApiContent(from = Event::class)
+                ],
+            ),
+            OpenApiResponse(
+                status = "404",
+                content = [
+                    OpenApiContent(from = ExceptionInfo::class)
+                ],
+                description = "event is not found",
+            )
+        ]
+    )
+    override fun handle(ctx: Context) {
+        val queue = ArrayBlockingQueue<SseEvent>(2)
+        val eventId = ctx.pathParam("id")
+
+        logger.info { "Received get event request ($eventId)" }
 
         val reqContext = HttpEventResponseHandler(queue, sseResponseBuilder)
         try {
@@ -62,7 +96,7 @@ class GetOneEvent(
             reqContext.complete()
         }
 
-        this.waitAndWrite(queue, resp)
+        ctx.waitAndWrite(queue)
         logger.info { "Processing search sse events request finished" }
     }
 

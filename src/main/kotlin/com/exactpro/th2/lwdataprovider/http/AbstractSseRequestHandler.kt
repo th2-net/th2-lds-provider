@@ -18,40 +18,29 @@ package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.th2.lwdataprovider.EventType
 import com.exactpro.th2.lwdataprovider.SseEvent
-import com.exactpro.th2.lwdataprovider.SseResponseWriter
-import org.eclipse.jetty.http.HttpHeader
-import org.eclipse.jetty.http.HttpStatus
+import io.javalin.http.sse.SseClient
 import java.util.concurrent.BlockingQueue
-import javax.servlet.http.HttpServlet
-import javax.servlet.http.HttpServletRequest
-import javax.servlet.http.HttpServletResponse
+import java.util.function.Consumer
 
-open class SseServlet : HttpServlet() {
+abstract class AbstractSseRequestHandler : Consumer<SseClient>, JavalinHandler {
     
-    protected open fun waitAndWrite(
+    protected fun SseClient.waitAndWrite(
         queue: BlockingQueue<SseEvent>,
-        resp: HttpServletResponse,
     ) {
-        resp.contentType = "text/event-stream"
-        resp.status = HttpStatus.OK_200
-        resp.addHeader(HttpHeader.CACHE_CONTROL.asString(), "no-cache, no-store")
-        
-        val writer = SseResponseWriter(resp.writer)
 
         var inProcess = true
         while (inProcess) {
             val event = queue.take()
             if (event.event == EventType.CLOSE) {
-                writer.closeWriter()
+                close()
                 inProcess = false
             } else {
-                writer.writeEvent(event)
+                sendEvent(
+                    event.event.typeName,
+                    event.data.get(),
+                    event.metadata,
+                )
             }
         }
     }
-
-    protected fun getParameters(req: HttpServletRequest): Map<String, List<String>> {
-        return req.parameterMap.mapValues { it.value.toList() }
-    }
-    
 }

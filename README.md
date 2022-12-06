@@ -6,6 +6,12 @@ This component is similar to [rpt-data-provider](https://github.com/th2-net/th2-
 
 # API
 
+You can download OpenAPI schema from here: `http://<provider_address>:<port>/openapi`
+
+You can view the endpoints documentation from here: `http://<provider_address>:<port>/redoc`
+
+You can see the Swagger UI from here: `http://<provider_address>:<port>/swagger`
+
 ### REST
 
 `http://localhost:8080/event/{id}` - returns a single event with the specified id.

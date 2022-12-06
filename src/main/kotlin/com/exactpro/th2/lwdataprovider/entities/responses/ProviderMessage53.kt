@@ -22,6 +22,8 @@ import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.lwdataprovider.entities.internal.Direction
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonRawValue
+import io.javalin.openapi.OpenApiIgnore
+import io.javalin.openapi.OpenApiPropertyType
 import java.time.Instant
 import java.util.*
 
@@ -36,14 +38,17 @@ data class ProviderMessage53 (
     val attachedEventIds: Set<String>,
 
     @JsonRawValue
+    @get:OpenApiPropertyType(Map::class)
     val body: String?,
 
     val bodyBase64: String?,
 
     @JsonIgnore
+    @get:OpenApiIgnore
     val id: StoredMessageId,
 
     @JsonIgnore
+    @get:OpenApiIgnore
     val message: Message?
 ) : ResponseMessage {
 

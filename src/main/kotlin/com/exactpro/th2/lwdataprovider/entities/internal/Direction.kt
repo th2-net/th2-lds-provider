@@ -20,6 +20,7 @@ enum class Direction {
     IN, OUT;
 
     companion object {
+        @JvmStatic
         fun fromStored(stored: com.exactpro.cradle.Direction): Direction? {
             if (stored == com.exactpro.cradle.Direction.FIRST) return IN
             if (stored == com.exactpro.cradle.Direction.SECOND) return OUT

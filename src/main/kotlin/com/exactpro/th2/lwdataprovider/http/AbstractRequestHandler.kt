@@ -17,38 +17,29 @@
 package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.th2.lwdataprovider.EventType
-import com.exactpro.th2.lwdataprovider.NoSseResponseWriter
 import com.exactpro.th2.lwdataprovider.SseEvent
-import org.eclipse.jetty.http.HttpHeader
-import org.eclipse.jetty.http.HttpStatus
+import io.javalin.http.ContentType
+import io.javalin.http.Context
+import io.javalin.http.Handler
+import io.javalin.http.Header
+import io.javalin.http.HttpStatus
 import java.util.concurrent.BlockingQueue
-import javax.servlet.http.HttpServlet
-import javax.servlet.http.HttpServletRequest
-import javax.servlet.http.HttpServletResponse
 
-open class NoSseServlet : HttpServlet() {
-    
-    protected open fun waitAndWrite(queue: BlockingQueue<SseEvent>, resp: HttpServletResponse) {
-        resp.contentType = "application/json"
-        resp.addHeader(HttpHeader.CACHE_CONTROL.asString(), "no-cache, no-store")
-
-        val writer = NoSseResponseWriter(resp.writer)
+abstract class AbstractRequestHandler : Handler, JavalinHandler {
+    protected fun Context.waitAndWrite(queue: BlockingQueue<SseEvent>) {
         val event = queue.take()
-        resp.status = statusFromEventType(event.event)
-        writer.writeEvent(event)
-        writer.closeWriter()    
+        status(statusFromEventType(event.event))
+            .header(Header.CACHE_CONTROL, "no-cache, no-store")
+            .contentType(ContentType.APPLICATION_JSON)
+            .result(event.data.get())
     }
 
-    private fun statusFromEventType(event: EventType): Int {
+    private fun statusFromEventType(event: EventType): HttpStatus {
         return if (event == EventType.ERROR) {
-            HttpStatus.NOT_FOUND_404
+            HttpStatus.NOT_FOUND
         } else {
-            HttpStatus.OK_200
+            HttpStatus.OK
         }
-    }
-
-    protected fun getParameters(req: HttpServletRequest): Map<String, List<String>> {
-        return req.parameterMap.mapValues { it.value.toList() }
     }
 
 }

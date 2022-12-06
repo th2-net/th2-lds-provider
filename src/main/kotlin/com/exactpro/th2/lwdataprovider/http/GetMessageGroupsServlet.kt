@@ -16,17 +16,26 @@
 
 package com.exactpro.th2.lwdataprovider.http
 
+import com.exactpro.cradle.BookId
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
+import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
+import io.javalin.Javalin
+import io.javalin.http.queryParamAsClass
+import io.javalin.http.sse.SseClient
+import io.javalin.openapi.HttpMethod
+import io.javalin.openapi.OpenApi
+import io.javalin.openapi.OpenApiContent
+import io.javalin.openapi.OpenApiParam
+import io.javalin.openapi.OpenApiResponse
 import mu.KotlinLogging
+import java.time.Instant
 import java.util.concurrent.ArrayBlockingQueue
-import javax.servlet.http.HttpServletRequest
-import javax.servlet.http.HttpServletResponse
 
 class GetMessageGroupsServlet(
     private val configuration: Configuration,
@@ -34,27 +43,110 @@ class GetMessageGroupsServlet(
     private val keepAliveHandler: KeepAliveHandler,
     private val searchMessagesHandler: SearchMessagesHandler,
     private val dataMeasurement: DataMeasurement,
-) : SseServlet() {
+) : AbstractSseRequestHandler() {
 
-    override fun doGet(req: HttpServletRequest, resp: HttpServletResponse) {
-        LOGGER.info { "Processing request for getting message groups: ${req.queryString}" }
-        val queryParametersMap = getParameters(req)
-        val request = MessagesGroupRequest.fromParametersMap(queryParametersMap)
+    override fun setup(app: Javalin) {
+        app.sse(ROUTE, this)
+    }
+
+    @OpenApi(
+        path = ROUTE,
+        queryParams = [
+            OpenApiParam(
+                GROUP_PARAM,
+                type = Array<String>::class,
+                description = "set of books to request",
+                isRepeatable = true,
+            ),
+            OpenApiParam(
+                START_TIMESTAMP_PARAM,
+                type = Long::class,
+                description = "start timestamp for group search. Epoch time in milliseconds",
+                required = true,
+                example = "1669990000000",
+            ),
+            OpenApiParam(
+                END_TIMESTAMP_PARAM,
+                type = Long::class,
+                description = "end timestamp for group search. Epoch time in milliseconds",
+                required = true,
+                example = "1669990000000",
+            ),
+            OpenApiParam(
+                SORT_PARAMETER,
+                type = Boolean::class,
+                description = "enables message sorting in the request",
+            ),
+            OpenApiParam(
+                RAW_ONLY_PARAMETER,
+                type = Boolean::class,
+                description = "only raw message will be returned in the response",
+            ),
+            OpenApiParam(
+                KEEP_OPEN_PARAMETER,
+                type = Boolean::class,
+                description = "enables pulling for updates until have not found a message outside the requested interval",
+            ),
+            OpenApiParam(
+                BOOK_ID_PARAM,
+                description = "book ID for requested groups",
+                required = true,
+                example = "bookId123",
+            )
+        ],
+        methods = [HttpMethod.GET],
+        responses = [
+            OpenApiResponse(
+                status = "200",
+                content = [
+                    OpenApiContent(
+                        from = ProviderMessage53::class,
+                        mimeType = "text/event-stream",
+                    )
+                ]
+            )
+        ]
+    )
+    override fun accept(sseClient: SseClient) {
+        val ctx = sseClient.ctx()
+        LOGGER.info { "Processing request for getting message groups: ${ctx.queryString()}" }
+        val request = MessagesGroupRequest(
+            groups = ctx.queryParams(GROUP_PARAM).toSet(),
+            startTimestamp = ctx.queryParamAsClass<Instant>(START_TIMESTAMP_PARAM)
+                .get(),
+            endTimestamp = ctx.queryParamAsClass<Instant>(END_TIMESTAMP_PARAM)
+                .get(),
+            sort = ctx.queryParamAsClass<Boolean>(SORT_PARAMETER)
+                .getOrDefault(false),
+            rawOnly = ctx.queryParamAsClass<Boolean>(RAW_ONLY_PARAMETER)
+                .getOrDefault(false),
+            keepOpen = ctx.queryParamAsClass<Boolean>(KEEP_OPEN_PARAMETER)
+                .getOrDefault(false),
+            bookId = ctx.queryParamAsClass<BookId>(BOOK_ID_PARAM).get(),
+        )
 
 
         val queue = ArrayBlockingQueue<SseEvent>(configuration.responseQueueSize)
         val handler = HttpMessagesRequestHandler(queue, sseResponseBuilder, dataMeasurement, maxMessagesPerRequest = configuration.bufferPerQuery)
 //        reqContext.startStep("messages_loading").use {
-            keepAliveHandler.addKeepAliveData(handler).use {
-                searchMessagesHandler.loadMessageGroups(request, handler, dataMeasurement)
-                this.waitAndWrite(queue, resp)
-                LOGGER.info { "Processing search sse messages group request finished" }
-            }
+        keepAliveHandler.addKeepAliveData(handler).use {
+            searchMessagesHandler.loadMessageGroups(request, handler, dataMeasurement)
+            sseClient.waitAndWrite(queue)
+            LOGGER.info { "Processing search sse messages group request finished" }
+        }
 
 //        }
     }
 
     companion object {
+        const val ROUTE = "/search/sse/messages/group"
+        private const val GROUP_PARAM = "group"
+        private const val START_TIMESTAMP_PARAM = "startTimestamp"
+        private const val END_TIMESTAMP_PARAM = "endTimestamp"
+        private const val SORT_PARAMETER = "sort"
+        private const val RAW_ONLY_PARAMETER = "onlyRaw"
+        private const val KEEP_OPEN_PARAMETER = "keepOpen"
+        private const val BOOK_ID_PARAM = "bookId"
         private val LOGGER = KotlinLogging.logger { }
     }
 }

@@ -36,7 +36,8 @@ dependencies {
     }
 
     implementation "io.javalin:javalin:$javalin"
-    implementation "io.javalin:javalin-testtools:$javalin"
+    implementation "io.javalin:javalin-micrometer:$javalin"
+
     kapt("io.javalin.community.openapi:openapi-annotation-processor:$javalin")
 
     implementation("io.javalin.community.openapi:javalin-openapi-plugin:$javalin") {
@@ -70,6 +71,8 @@ dependencies {
 
     implementation 'com.fasterxml.jackson.core:jackson-core'
     implementation 'com.fasterxml.jackson.module:jackson-module-kotlin'
+
+    testImplementation "io.javalin:javalin-testtools:$javalin"
 }
 
 applicationName = 'service'

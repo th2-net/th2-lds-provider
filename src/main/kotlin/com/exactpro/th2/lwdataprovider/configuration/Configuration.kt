@@ -35,7 +35,7 @@ class CustomConfigurationClass(
     val mode: String? = null,
     val grpcBackPressure : Boolean? = null,
     val bufferPerQuery: Int? = null,
-    val responseFormats: Set<String> = emptySet(),
+    val responseFormats: Set<String>? = null,
 )
 
 class Configuration(customConfiguration: CustomConfigurationClass) {

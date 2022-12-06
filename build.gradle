@@ -36,6 +36,7 @@ dependencies {
     }
 
     implementation "io.javalin:javalin:$javalin"
+    implementation "io.javalin:javalin-testtools:$javalin"
     kapt("io.javalin.community.openapi:openapi-annotation-processor:$javalin")
 
     implementation("io.javalin.community.openapi:javalin-openapi-plugin:$javalin") {

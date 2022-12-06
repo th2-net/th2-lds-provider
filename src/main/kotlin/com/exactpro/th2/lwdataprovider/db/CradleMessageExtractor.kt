@@ -53,7 +53,6 @@ class CradleMessageExtractor(
     }
 
     fun getGroups(bookId: BookId): Set<String> = storage.getGroups(bookId).toSet()
-    fun getBooks(): Collection<BookInfo> = storage.books
 
     fun getStreams(bookId: BookId): Collection<String> = storage.getSessionAliases(bookId)
 

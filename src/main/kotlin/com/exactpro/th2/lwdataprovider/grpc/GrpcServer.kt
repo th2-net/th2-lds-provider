@@ -41,11 +41,23 @@ class GrpcServer private constructor(
                 executor = Executors.newSingleThreadScheduledExecutor(ThreadFactoryBuilder()
                     .setNameFormat("grpc-backpressure-readiness-checker-%d")
                     .build())
-                GrpcDataProviderBackPressure(context.configuration, context.searchMessagesHandler, context.searchEventsHandler, context.dataMeasurement,
-                    requireNotNull(executor) { "executor cannot be null" } )
+                GrpcDataProviderBackPressure(
+                    context.configuration,
+                    context.searchMessagesHandler,
+                    context.searchEventsHandler,
+                    context.generalCradleHandler,
+                    context.dataMeasurement,
+                    requireNotNull(executor) { "executor cannot be null" },
+                )
             } else {
                 logger.info { "Creating grpc provider" }
-                GrpcDataProviderImpl(context.configuration, context.searchMessagesHandler, context.searchEventsHandler, context.dataMeasurement)
+                GrpcDataProviderImpl(
+                    context.configuration,
+                    context.searchMessagesHandler,
+                    context.searchEventsHandler,
+                    context.generalCradleHandler,
+                    context.dataMeasurement,
+                )
             }
             logger.info { "Creating grpc queue provider" }
             val queueServer = QueueGrpcProvider(context.queueMessageHandler, context.queueEventsHandler)

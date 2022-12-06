@@ -21,7 +21,6 @@ import com.exactpro.th2.lwdataprovider.Context
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.javalin.Javalin
 import io.javalin.config.JavalinConfig
 import io.javalin.json.JavalinJackson
@@ -38,35 +37,23 @@ import io.javalin.openapi.plugin.swagger.SwaggerConfiguration
 import io.javalin.openapi.plugin.swagger.SwaggerPlugin
 import io.javalin.validation.JavalinValidation
 import mu.KotlinLogging
-import org.eclipse.jetty.server.Server
-import org.eclipse.jetty.server.ServerConnector
 import org.eclipse.jetty.server.handler.gzip.GzipHandler
-import org.eclipse.jetty.servlet.ServletHandler
-import org.eclipse.jetty.servlet.ServletHolder
 import java.time.Instant
 
 class HttpServer(private val context: Context) {
-
-
-    companion object {
-        private val logger = KotlinLogging.logger {}
-    }
 
     private val jacksonMapper = context.jacksonMapper
     private val configuration = context.configuration
 
     private var app: Javalin? = null
-    
-    
+
+
     fun run() {
 
         val searchMessagesHandler = this.context.searchMessagesHandler
         val keepAliveHandler = this.context.keepAliveHandler
 
-        JavalinValidation.register(Instant::class.java) { Instant.ofEpochMilli(it.toLong()) }
-        JavalinValidation.register(ProviderEventId::class.java, ::ProviderEventId)
-        JavalinValidation.register(SearchDirection::class.java, SearchDirection::valueOf)
-        JavalinValidation.register(BookId::class.java, ::BookId)
+        setupConverters()
 
         val sseResponseBuilder = SseResponseBuilder(jacksonMapper)
         val handlers: Collection<JavalinHandler> = listOf(
@@ -81,6 +68,10 @@ class HttpServer(private val context: Context) {
             GetOneEvent(sseResponseBuilder, keepAliveHandler, this.context.searchEventsHandler),
             GetEventsServlet(configuration, sseResponseBuilder, keepAliveHandler,
                 this.context.searchEventsHandler),
+            GetBookIDs(context.generalCradleHandler),
+            GetSessionAliases(context.searchMessagesHandler),
+            GetEventScopes(context.searchEventsHandler),
+            GetMessageGroups(context.searchMessagesHandler),
         )
 
         app = Javalin.create {
@@ -150,6 +141,17 @@ class HttpServer(private val context: Context) {
         openApiConfiguration.info = openApiInfo
         openApiConfiguration.servers = servers
         it.plugins.register(OpenApiPlugin(openApiConfiguration))
+    }
+
+    companion object {
+        private val logger = KotlinLogging.logger {}
+        @JvmStatic
+        fun setupConverters() {
+            JavalinValidation.register(Instant::class.java) { Instant.ofEpochMilli(it.toLong()) }
+            JavalinValidation.register(ProviderEventId::class.java, ::ProviderEventId)
+            JavalinValidation.register(SearchDirection::class.java, SearchDirection::valueOf)
+            JavalinValidation.register(BookId::class.java, ::BookId)
+        }
     }
 }
 

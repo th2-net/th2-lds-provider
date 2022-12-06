@@ -35,7 +35,7 @@ import java.time.Instant
 class SseMessageSearchRequest(
     val startTimestamp: Instant?,
     val stream: List<ProviderMessageStream>?,
-    val searchDirection: TimeRelation,
+    val searchDirection: SearchDirection,
     val resultCountLimit: Int?,
     val keepOpen: Boolean,
     val resumeFromIdsList: List<StoredMessageId>?,
@@ -69,7 +69,8 @@ class SseMessageSearchRequest(
             invalidRequest("'$value' is not a valid timeline direction. Use 'next' or 'previous'")
         }
 
-        private fun toStreams(streams: List<String>?): List<ProviderMessageStream>? {
+        @JvmStatic
+        fun toStreams(streams: List<String>?): List<ProviderMessageStream>? {
             if (streams == null)
                 return null;
             return streams.asSequence().flatMap {
@@ -104,9 +105,7 @@ class SseMessageSearchRequest(
     constructor(parameters: Map<String, List<String>>) : this(
         startTimestamp = parameters["startTimestamp"]?.firstOrNull()?.let { Instant.ofEpochMilli(it.toLong()) },
         stream = toStreams(parameters["stream"]),
-        searchDirection = parameters["searchDirection"]?.firstOrNull()?.let {
-            asCradleTimeRelation(it)
-        } ?: TimeRelation.AFTER,
+        searchDirection = parameters["searchDirection"]?.firstOrNull()?.let(SearchDirection::valueOf) ?: SearchDirection.next,
         endTimestamp = parameters["endTimestamp"]?.firstOrNull()?.let { Instant.ofEpochMilli(it.toLong()) },
         resumeFromIdsList = parameters["messageId"]?.map { StoredMessageId.fromString(it) },
         resultCountLimit = parameters["resultCountLimit"]?.firstOrNull()?.toInt(),
@@ -137,7 +136,7 @@ class SseMessageSearchRequest(
     private fun checkEndTimestamp() {
         if (startTimestamp == null) return
 
-        if (searchDirection == TimeRelation.AFTER) {
+        if (searchDirection == SearchDirection.next) {
             if (startTimestamp.isAfter(endTimestamp))
                 invalidRequest("startTimestamp: $startTimestamp > endTimestamp: $endTimestamp")
         } else {

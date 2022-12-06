@@ -16,12 +16,12 @@
 
 package com.exactpro.th2.lwdataprovider.handlers.util
 
-import com.exactpro.cradle.TimeRelation.AFTER
 import com.exactpro.cradle.messages.MessageFilterBuilder
+import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 
 fun MessageFilterBuilder.modifyFilterBuilderTimestamps(request: SseMessageSearchRequest){
-    if (request.searchDirection == AFTER){
+    if (request.searchDirection == SearchDirection.next){
         request.startTimestamp?.let { timestampFrom().isGreaterThanOrEqualTo(it) }
         request.endTimestamp.let { timestampTo().isLessThan(it) }
     } else {

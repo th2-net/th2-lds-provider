@@ -29,6 +29,7 @@ import com.exactpro.cradle.testevents.TestEventFilterBuilder
 import com.exactpro.th2.lwdataprovider.db.util.getGenericWithSyncInterval
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.QueueEventsScopeRequest
+import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.BaseEventEntity
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
@@ -68,8 +69,8 @@ class CradleEventExtractor(
                 .startTimestampFrom().isGreaterThanOrEqualTo(start)
                 .startTimestampTo().isLessThan(end)
                 .order(when (filter.searchDirection) {
-                    TimeRelation.BEFORE -> Order.REVERSE
-                    TimeRelation.AFTER -> Order.DIRECT
+                    SearchDirection.previous -> Order.REVERSE
+                    SearchDirection.next -> Order.DIRECT
                 })
                 .bookId(filter.bookId)
                 .scope(filter.scope)

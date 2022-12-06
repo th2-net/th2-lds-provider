@@ -25,6 +25,7 @@ import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.cradle.testevents.TestEventToStore
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
+import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.util.ListCradleResult
@@ -194,7 +195,7 @@ internal class TestCradleEventExtractor {
         endTimestamp = end,
         parentEvent = null,
         resultCountLimit = 0,
-        searchDirection = TimeRelation.AFTER,
+        searchDirection = SearchDirection.next,
         bookId = BookId("test"),
         scope = "test-scope",
     )

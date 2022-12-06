@@ -28,6 +28,7 @@ import com.exactpro.th2.common.message.toTimestamp
 import com.exactpro.th2.dataprovider.lw.grpc.MessageStream
 import com.exactpro.th2.dataprovider.lw.grpc.TimeRelation
 import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
+import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.google.protobuf.ByteString
 import com.google.protobuf.Timestamp
 import com.google.protobuf.UnsafeByteOperations
@@ -35,11 +36,11 @@ import java.time.Instant
 
 fun Timestamp.toInstant() : Instant = Instant.ofEpochSecond(this.seconds, this.nanos.toLong())
 
-fun TimeRelation?.toProviderRelation(): com.exactpro.cradle.TimeRelation {
+fun TimeRelation?.toProviderRelation(): SearchDirection {
     return if (this == null || this == TimeRelation.NEXT)
-        com.exactpro.cradle.TimeRelation.AFTER
+        SearchDirection.next
     else
-        com.exactpro.cradle.TimeRelation.BEFORE
+        SearchDirection.previous
 }
 
 fun Direction.toCradleDirection(): com.exactpro.cradle.Direction {

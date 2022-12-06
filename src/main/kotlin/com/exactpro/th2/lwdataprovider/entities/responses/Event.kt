@@ -30,6 +30,7 @@ import com.fasterxml.jackson.annotation.JsonRawValue
 import com.fasterxml.jackson.databind.annotation.JsonSerialize
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.google.protobuf.UnsafeByteOperations
+import io.javalin.openapi.OpenApiPropertyType
 import java.time.Instant
 
 data class Event(
@@ -42,6 +43,7 @@ data class Event(
     val endTimestamp: Instant?,
     val startTimestamp: Instant,
     @field:JsonSerialize(using = ToStringSerializer::class)
+    @get:OpenApiPropertyType(definedBy = String::class)
     val parentEventId: ProviderEventId?,
     val successful: Boolean,
     val bookId: String,
@@ -49,6 +51,7 @@ data class Event(
     val attachedMessageIds: Set<String>,
 
     @JsonRawValue
+    @get:OpenApiPropertyType(definedBy = Array<Any>::class)
     val body: String
 ) {
 

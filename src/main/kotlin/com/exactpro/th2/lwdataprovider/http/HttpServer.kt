@@ -24,6 +24,7 @@ import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import io.javalin.Javalin
 import io.javalin.config.JavalinConfig
 import io.javalin.json.JavalinJackson
+import io.javalin.micrometer.MicrometerPlugin
 import io.javalin.openapi.OpenApiContact
 import io.javalin.openapi.OpenApiInfo
 import io.javalin.openapi.OpenApiLicense
@@ -78,6 +79,7 @@ class HttpServer(private val context: Context) {
             it.showJavalinBanner = false
             it.jsonMapper(JavalinJackson(jacksonMapper))
 //            it.plugins.enableDevLogging()
+            it.plugins.register(MicrometerPlugin.create {})
 
             setupOpenApi(it)
 

@@ -58,9 +58,7 @@ class SearchMessagesHandler(
         private val logger = KotlinLogging.logger { }
     }
 
-    fun extractBookNames(): Collection<BookInfo> {
-        return cradleMsgExtractor.getBooks()
-    }
+    fun extractGroups(bookId: BookId): Set<String> = cradleMsgExtractor.getGroups(bookId)
 
     fun extractStreamNames(bookId: BookId): Collection<String> {
         logger.info { "Getting stream names" }

@@ -20,6 +20,7 @@ import com.exactpro.th2.lwdataprovider.CancelableResponseHandler
 import com.exactpro.th2.lwdataprovider.GrpcEvent
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.handlers.GeneralCradleHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import io.grpc.stub.ServerCallStreamObserver
@@ -31,8 +32,9 @@ class GrpcDataProviderBackPressure(
     configuration: Configuration,
     searchMessagesHandler: SearchMessagesHandler,
     searchEventsHandler: SearchEventsHandler,
+    generalCradleHandler: GeneralCradleHandler,
     dataMeasurement: DataMeasurement,
-) : GrpcDataProviderImpl(configuration, searchMessagesHandler, searchEventsHandler, dataMeasurement) {
+) : GrpcDataProviderImpl(configuration, searchMessagesHandler, searchEventsHandler, generalCradleHandler, dataMeasurement) {
 
     companion object {
         private val logger = KotlinLogging.logger { }

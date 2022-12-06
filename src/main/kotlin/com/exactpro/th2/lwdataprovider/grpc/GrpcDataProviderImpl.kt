@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.lwdataprovider.grpc
 
+import com.exactpro.cradle.BookId
 import com.exactpro.cradle.BookInfo
 import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.EventID
@@ -43,6 +44,7 @@ import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
+import com.exactpro.th2.lwdataprovider.handlers.GeneralCradleHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import com.exactpro.th2.lwdataprovider.toCradle
@@ -57,6 +59,7 @@ open class GrpcDataProviderImpl(
     private val configuration: Configuration,
     private val searchMessagesHandler: SearchMessagesHandler,
     private val searchEventsHandler: SearchEventsHandler,
+    private val generalCradleHandler: GeneralCradleHandler,
     private val dataMeasurement: DataMeasurement,
 ): DataProviderGrpc.DataProviderImplBase() {
 
@@ -67,7 +70,7 @@ open class GrpcDataProviderImpl(
     override fun getBooks(request: BooksRequest, responseObserver: StreamObserver<BooksResponse>) {
         LOGGER.info { "Extracting list of books" }
         try {
-            val books = searchMessagesHandler.extractBookNames().map(BookInfo::toGrpc)
+            val books = generalCradleHandler.getBookIDs().map(BookId::toGrpc)
             responseObserver.onNext(BooksResponse.newBuilder().addAllBookIds(books).build())
             responseObserver.onCompleted()
         } catch (ex: Exception) {

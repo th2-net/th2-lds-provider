@@ -34,10 +34,22 @@ class GrpcServer private constructor(
         fun createGrpc(context: Context, grpcRouter: GrpcRouter): GrpcServer {
             val mainServer: BindableService = if (context.configuration.grpcBackPressure) {
                 logger.info { "Creating grpc provider with back pressure" }
-                GrpcDataProviderBackPressure(context.configuration, context.searchMessagesHandler, context.searchEventsHandler, context.dataMeasurement)
+                GrpcDataProviderBackPressure(
+                    context.configuration,
+                    context.searchMessagesHandler,
+                    context.searchEventsHandler,
+                    context.generalCradleHandler,
+                    context.dataMeasurement,
+                )
             } else {
                 logger.info { "Creating grpc provider" }
-                GrpcDataProviderImpl(context.configuration, context.searchMessagesHandler, context.searchEventsHandler, context.dataMeasurement)
+                GrpcDataProviderImpl(
+                    context.configuration,
+                    context.searchMessagesHandler,
+                    context.searchEventsHandler,
+                    context.generalCradleHandler,
+                    context.dataMeasurement,
+                )
             }
             logger.info { "Creating grpc queue provider" }
             val queueServer = QueueGrpcProvider(context.queueMessageHandler, context.queueEventsHandler)

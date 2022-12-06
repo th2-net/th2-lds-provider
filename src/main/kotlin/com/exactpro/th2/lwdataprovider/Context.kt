@@ -24,6 +24,8 @@ import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.CradleEventExtractor
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.db.GeneralCradleExtractor
+import com.exactpro.th2.lwdataprovider.handlers.GeneralCradleHandler
 import com.exactpro.th2.lwdataprovider.handlers.QueueEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.QueueMessagesHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
@@ -55,6 +57,7 @@ class Context(
     val timeoutHandler: TimerWatcher = TimerWatcher(mqDecoder, configuration),
     val cradleEventExtractor: CradleEventExtractor = CradleEventExtractor(cradleManager),
     val cradleMsgExtractor: CradleMessageExtractor = CradleMessageExtractor(configuration.groupRequestBuffer, cradleManager),
+    val generalCradleExtractor: GeneralCradleExtractor = GeneralCradleExtractor(cradleManager),
     val pool: ExecutorService = Executors.newFixedThreadPool(configuration.execThreadPoolSize),
 
     val searchMessagesHandler: SearchMessagesHandler = SearchMessagesHandler(
@@ -78,4 +81,5 @@ class Context(
         configuration.batchSize,
         pool,
     ),
+    val generalCradleHandler: GeneralCradleHandler = GeneralCradleHandler(generalCradleExtractor),
 )

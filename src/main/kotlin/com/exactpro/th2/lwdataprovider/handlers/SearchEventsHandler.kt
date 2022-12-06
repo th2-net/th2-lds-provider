@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.lwdataprovider.handlers
 
+import com.exactpro.cradle.BookId
 import com.exactpro.th2.lwdataprovider.ResponseHandler
 import com.exactpro.th2.lwdataprovider.db.CradleEventExtractor
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
@@ -29,6 +30,8 @@ class SearchEventsHandler(
     private val cradle: CradleEventExtractor,
     private val threadPool: Executor,
 ) {
+
+    fun loadScopes(bookId: BookId): Set<String> = cradle.getEventsScopes(bookId)
 
     fun loadEvents(request: SseEventSearchRequest, requestContext: ResponseHandler<Event>) {
         threadPool.execute {

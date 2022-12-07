@@ -18,6 +18,7 @@ package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
+import com.exactpro.th2.lwdataprovider.Context
 import com.exactpro.th2.lwdataprovider.Decoder
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
@@ -94,6 +95,6 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler>(
     }
 
     companion object {
-        private val MAPPER = jacksonObjectMapper()
+        private val MAPPER = Context.createObjectMapper()
     }
 }

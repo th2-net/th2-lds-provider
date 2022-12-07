@@ -54,8 +54,6 @@ class HttpServer(private val context: Context) {
         val searchMessagesHandler = this.context.searchMessagesHandler
         val keepAliveHandler = this.context.keepAliveHandler
 
-        setupConverters()
-
         val sseResponseBuilder = SseResponseBuilder(jacksonMapper)
         val handlers: Collection<JavalinHandler> = listOf(
             GetMessagesServlet(configuration, sseResponseBuilder, keepAliveHandler,
@@ -87,6 +85,7 @@ class HttpServer(private val context: Context) {
 
             setupReDoc(it)
         }.apply {
+            setupConverters(this)
             for (handler in handlers) {
                 handler.setup(this)
             }
@@ -148,11 +147,12 @@ class HttpServer(private val context: Context) {
     companion object {
         private val logger = KotlinLogging.logger {}
         @JvmStatic
-        fun setupConverters() {
+        fun setupConverters(javalin: Javalin) {
             JavalinValidation.register(Instant::class.java) { Instant.ofEpochMilli(it.toLong()) }
             JavalinValidation.register(ProviderEventId::class.java, ::ProviderEventId)
             JavalinValidation.register(SearchDirection::class.java, SearchDirection::valueOf)
             JavalinValidation.register(BookId::class.java, ::BookId)
+            JavalinValidation.addValidationExceptionMapper(javalin)
         }
     }
 }

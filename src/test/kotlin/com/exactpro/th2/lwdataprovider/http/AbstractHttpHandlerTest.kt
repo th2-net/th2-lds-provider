@@ -19,21 +19,27 @@ package com.exactpro.th2.lwdataprovider.http
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
 import com.exactpro.th2.lwdataprovider.Decoder
+import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.configuration.CustomConfigurationClass
 import com.exactpro.th2.lwdataprovider.db.CradleEventExtractor
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
+import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.db.GeneralCradleExtractor
 import com.exactpro.th2.lwdataprovider.handlers.GeneralCradleHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
+import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.javalin.Javalin
+import io.javalin.http.Header
 import io.javalin.json.JavalinJackson
+import io.javalin.testtools.HttpClient
 import io.javalin.testtools.JavalinTest
 import io.javalin.testtools.TestCase
 import io.javalin.testtools.TestConfig
+import okhttp3.Request
 import okhttp3.Response
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
@@ -51,12 +57,17 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler>(
     private val inPlaceExecutor = Executor { it.run() }
 
     protected val decoder: Decoder = mock { }
+    protected val configuration = Configuration(CustomConfigurationClass())
+    protected val sseResponseBuilder = SseResponseBuilder(MAPPER)
+    protected val dataMeasurement: DataMeasurement = mock { }
+
+    protected val keepAliveHandler = KeepAliveHandler(configuration)
 
     protected val messageHandler = SearchMessagesHandler(
         CradleMessageExtractor(100, manager),
         decoder = decoder,
         threadPool = inPlaceExecutor,
-        Configuration(CustomConfigurationClass()),
+        configuration,
     )
     protected val eventsHandler = SearchEventsHandler(
         CradleEventExtractor(manager),
@@ -64,9 +75,11 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler>(
     )
     protected val generalHandler = GeneralCradleHandler(GeneralCradleExtractor(manager))
     fun startTest(testConfig: TestConfig = TestConfig(), testCase: TestCase) {
-        HttpServer.setupConverters()
         JavalinTest.test(
-            app = Javalin.create { it.jsonMapper(JavalinJackson(MAPPER)) }.apply(createHandler()::setup),
+            app = Javalin.create {
+                it.jsonMapper(JavalinJackson(MAPPER))
+                it.plugins.enableDevLogging()
+            }.apply(createHandler()::setup).also(HttpServer.Companion::setupConverters),
             config = testConfig,
             testCase,
         )
@@ -74,6 +87,11 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler>(
     abstract fun createHandler(): T
 
     protected fun Assertion.Builder<Response>.jsonBody(): Assertion.Builder<JsonNode> = get { body }.isNotNull().get { MAPPER.readTree(bytes()) }
+
+    protected fun HttpClient.sse(path: String, requestCfg: Request.Builder.() -> Unit = {}): Response = get(path) {
+        requestCfg(it)
+        it.header(Header.ACCEPT, "text/event-stream")
+    }
 
     companion object {
         private val MAPPER = jacksonObjectMapper()

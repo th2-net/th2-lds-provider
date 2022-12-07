@@ -17,7 +17,6 @@
 package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.cradle.BookId
-import com.exactpro.cradle.TimeRelation
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
@@ -31,7 +30,6 @@ import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import io.javalin.Javalin
 import io.javalin.http.Context
-import io.javalin.http.Handler
 import io.javalin.http.queryParamAsClass
 import io.javalin.http.sse.SseClient
 import io.javalin.openapi.HttpMethod
@@ -52,11 +50,15 @@ class GetEventsServlet(
 
     companion object {
         const val ROUTE = "/search/sse/events"
+        private const val REQUEST_KEY = "sse.events.request"
         private val httpFilterConverter = HttpFilterConverter()
         private val logger = KotlinLogging.logger { }
     }
 
     override fun setup(app: Javalin) {
+        app.before(ROUTE) {
+            it.attribute(REQUEST_KEY, createRequest(it))
+        }
         app.sse(ROUTE, this)
     }
 
@@ -108,25 +110,9 @@ class GetEventsServlet(
     override fun accept(sseClient: SseClient) {
         val ctx = sseClient.ctx()
         logger.info { "Received search sse event request with parameters: ${ctx.queryParamMap()}" }
-        val request = SseEventSearchRequest(
-            startTimestamp = ctx.queryParamAsClass<Instant>("startTimestamp")
-                .allowNullable().get(),
-            endTimestamp = ctx.queryParamAsClass<Instant>("endTimestamp")
-                .allowNullable().get(),
-            parentEvent = ctx.queryParamAsClass<ProviderEventId>("parentEvent")
-                .allowNullable().get(),
-            searchDirection = ctx.queryParamAsClass<SearchDirection>("searchDirection")
-                .getOrDefault(SearchDirection.next),
-            resultCountLimit = ctx.queryParamAsClass<Int>("resultCountLimit")
-                .allowNullable()
-                .check({
-                    it == null || it > 0
-                }, "must be create than zero")
-                .get(),
-            bookId = ctx.queryParamAsClass<BookId>("bookId").get(),
-            scope = ctx.queryParamAsClass<String>("scope").get(),
-            filter = EventsFilterFactory.create(httpFilterConverter.convert(ctx.queryParamMap())),
-        )
+        val request = checkNotNull(ctx.attribute<SseEventSearchRequest>(REQUEST_KEY)) {
+            "request was not created in before handler"
+        }
 
         val queue = ArrayBlockingQueue<SseEvent>(configuration.responseQueueSize)
         val reqContext = HttpEventResponseHandler(queue, sseResponseBuilder)
@@ -137,6 +123,26 @@ class GetEventsServlet(
             logger.info { "Processing search sse events request finished" }
         }
     }
+
+    private fun createRequest(ctx: Context) = SseEventSearchRequest(
+        startTimestamp = ctx.queryParamAsClass<Instant>("startTimestamp")
+            .allowNullable().get(),
+        endTimestamp = ctx.queryParamAsClass<Instant>("endTimestamp")
+            .allowNullable().get(),
+        parentEvent = ctx.queryParamAsClass<ProviderEventId>("parentEvent")
+            .allowNullable().get(),
+        searchDirection = ctx.queryParamAsClass<SearchDirection>("searchDirection")
+            .getOrDefault(SearchDirection.next),
+        resultCountLimit = ctx.queryParamAsClass<Int>("resultCountLimit")
+            .allowNullable()
+            .check({
+                it == null || it > 0
+            }, "must be create than zero")
+            .get(),
+        bookId = ctx.queryParamAsClass<BookId>("bookId").get(),
+        scope = ctx.queryParamAsClass<String>("scope").get(),
+        filter = EventsFilterFactory.create(httpFilterConverter.convert(ctx.queryParamMap())),
+    )
 
 
 }

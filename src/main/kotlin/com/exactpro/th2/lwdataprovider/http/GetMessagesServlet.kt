@@ -30,6 +30,7 @@ import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import io.javalin.Javalin
+import io.javalin.http.Context
 import io.javalin.http.queryParamAsClass
 import io.javalin.http.sse.SseClient
 import io.javalin.openapi.HttpMethod
@@ -69,10 +70,14 @@ class GetMessagesServlet(
 
     companion object {
         const val ROUTE = "/search/sse/messages"
+        private const val REQUEST_KEY = "sse.messages.request"
         private val logger = KotlinLogging.logger { }
     }
 
     override fun setup(app: Javalin) {
+        app.before(ROUTE) {
+            it.attribute(REQUEST_KEY, createRequest(it))
+        }
         app.sse(ROUTE, this)
     }
 
@@ -134,22 +139,9 @@ class GetMessagesServlet(
         val ctx = sseClient.ctx()
         logger.info { "Received search sse event request with parameters: ${ctx.queryParamMap()}" }
 
-        val request = SseMessageSearchRequest(
-            startTimestamp = ctx.queryParamAsClass<Instant>(START_TIMESTAMP)
-                .allowNullable().get(),
-            stream = ctx.queryParams(STREAM).takeIf(List<*>::isNotEmpty)
-                ?.let(SseMessageSearchRequest::toStreams),
-            searchDirection = ctx.queryParamAsClass<SearchDirection>(SEARCH_DIRECTION)
-                .getOrDefault(SearchDirection.next),
-            endTimestamp = ctx.queryParamAsClass<Instant>(END_TIMESTAMP).allowNullable().get(),
-            resumeFromIdsList = ctx.queryParams(MESSAGE_ID).takeIf(List<*>::isNotEmpty)
-                ?.map { StoredMessageId.fromString(it) },
-            resultCountLimit = ctx.queryParamAsClass<Int>(RESULT_COUNT_LIMIT).allowNullable().get(),
-            keepOpen = ctx.queryParamAsClass<Boolean>(KEEP_OPEN).getOrDefault(false),
-            responseFormats = ctx.queryParams(RESPONSE_FORMATS).takeIf(List<*>::isNotEmpty)
-                ?.mapTo(hashSetOf(), ResponseFormat.Companion::fromString),
-            bookId = ctx.queryParamAsClass<BookId>(BOOK_ID).get(),
-        )
+        val request = checkNotNull(ctx.attribute<SseMessageSearchRequest>(REQUEST_KEY)) {
+            "request was not created in before handler"
+        }
 
         val queue = ArrayBlockingQueue<SseEvent>(configuration.responseQueueSize)
         val handler = HttpMessagesRequestHandler(queue, sseResponseBuilder, dataMeasurement, maxMessagesPerRequest = configuration.bufferPerQuery,
@@ -163,6 +155,23 @@ class GetMessagesServlet(
             }
 //        }
     }
+
+    private fun createRequest(ctx: Context) = SseMessageSearchRequest(
+        startTimestamp = ctx.queryParamAsClass<Instant>(START_TIMESTAMP)
+            .allowNullable().get(),
+        stream = ctx.queryParams(STREAM).takeIf(List<*>::isNotEmpty)
+            ?.let(SseMessageSearchRequest::toStreams),
+        searchDirection = ctx.queryParamAsClass<SearchDirection>(SEARCH_DIRECTION)
+            .getOrDefault(SearchDirection.next),
+        endTimestamp = ctx.queryParamAsClass<Instant>(END_TIMESTAMP).allowNullable().get(),
+        resumeFromIdsList = ctx.queryParams(MESSAGE_ID).takeIf(List<*>::isNotEmpty)
+            ?.map { StoredMessageId.fromString(it) },
+        resultCountLimit = ctx.queryParamAsClass<Int>(RESULT_COUNT_LIMIT).allowNullable().get(),
+        keepOpen = ctx.queryParamAsClass<Boolean>(KEEP_OPEN).getOrDefault(false),
+        responseFormats = ctx.queryParams(RESPONSE_FORMATS).takeIf(List<*>::isNotEmpty)
+            ?.mapTo(hashSetOf(), ResponseFormat.Companion::fromString),
+        bookId = ctx.queryParamAsClass<BookId>(BOOK_ID).get(),
+    )
 
 
 }

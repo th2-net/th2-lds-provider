@@ -26,6 +26,7 @@ import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import io.javalin.Javalin
+import io.javalin.http.Context
 import io.javalin.http.queryParamAsClass
 import io.javalin.http.sse.SseClient
 import io.javalin.openapi.HttpMethod
@@ -46,6 +47,9 @@ class GetMessageGroupsServlet(
 ) : AbstractSseRequestHandler() {
 
     override fun setup(app: Javalin) {
+        app.before(ROUTE) {
+            it.attribute(REQUEST_KEY, createRequest(it))
+        }
         app.sse(ROUTE, this)
     }
 
@@ -110,20 +114,9 @@ class GetMessageGroupsServlet(
     override fun accept(sseClient: SseClient) {
         val ctx = sseClient.ctx()
         LOGGER.info { "Processing request for getting message groups: ${ctx.queryString()}" }
-        val request = MessagesGroupRequest(
-            groups = ctx.queryParams(GROUP_PARAM).toSet(),
-            startTimestamp = ctx.queryParamAsClass<Instant>(START_TIMESTAMP_PARAM)
-                .get(),
-            endTimestamp = ctx.queryParamAsClass<Instant>(END_TIMESTAMP_PARAM)
-                .get(),
-            sort = ctx.queryParamAsClass<Boolean>(SORT_PARAMETER)
-                .getOrDefault(false),
-            rawOnly = ctx.queryParamAsClass<Boolean>(RAW_ONLY_PARAMETER)
-                .getOrDefault(false),
-            keepOpen = ctx.queryParamAsClass<Boolean>(KEEP_OPEN_PARAMETER)
-                .getOrDefault(false),
-            bookId = ctx.queryParamAsClass<BookId>(BOOK_ID_PARAM).get(),
-        )
+        val request = checkNotNull(ctx.attribute<MessagesGroupRequest>(REQUEST_KEY)) {
+            "request was not created in before handler"
+        }
 
 
         val queue = ArrayBlockingQueue<SseEvent>(configuration.responseQueueSize)
@@ -138,8 +131,24 @@ class GetMessageGroupsServlet(
 //        }
     }
 
+    private fun createRequest(ctx: Context) = MessagesGroupRequest(
+        groups = ctx.queryParams(GROUP_PARAM).toSet(),
+        startTimestamp = ctx.queryParamAsClass<Instant>(START_TIMESTAMP_PARAM)
+            .get(),
+        endTimestamp = ctx.queryParamAsClass<Instant>(END_TIMESTAMP_PARAM)
+            .get(),
+        sort = ctx.queryParamAsClass<Boolean>(SORT_PARAMETER)
+            .getOrDefault(false),
+        rawOnly = ctx.queryParamAsClass<Boolean>(RAW_ONLY_PARAMETER)
+            .getOrDefault(false),
+        keepOpen = ctx.queryParamAsClass<Boolean>(KEEP_OPEN_PARAMETER)
+            .getOrDefault(false),
+        bookId = ctx.queryParamAsClass<BookId>(BOOK_ID_PARAM).get(),
+    )
+
     companion object {
         const val ROUTE = "/search/sse/messages/group"
+        private const val REQUEST_KEY = "sse.groups.request"
         private const val GROUP_PARAM = "group"
         private const val START_TIMESTAMP_PARAM = "startTimestamp"
         private const val END_TIMESTAMP_PARAM = "endTimestamp"

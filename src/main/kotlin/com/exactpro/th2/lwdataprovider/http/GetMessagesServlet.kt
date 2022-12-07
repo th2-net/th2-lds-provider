@@ -113,7 +113,9 @@ class GetMessagesServlet(
             OpenApiParam(
                 STREAM,
                 type = Array<String>::class,
-                description = "list of stream to request. If direction is not specified all directions will be requested for stream",
+                description = "list of session aliases to request in format '<session_alias>[:<direction>]'. " +
+                        "If the direction is not specified all known directions will be requested for session alias. " +
+                        "Possible directions: 1 - incoming messages, 2 - outgoing messages",
                 example = "session_alias:1",
             ),
             OpenApiParam(

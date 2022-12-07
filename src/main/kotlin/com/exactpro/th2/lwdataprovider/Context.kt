@@ -47,14 +47,7 @@ import java.util.concurrent.Executors
 class Context(
     val configuration: Configuration,
 
-    val jacksonMapper: ObjectMapper = jacksonObjectMapper()
-        .registerModule(JavaTimeModule())
-        .registerModule(SimpleModule("backward_compatibility").apply {
-            addSerializer(Instant::class.java, InstantBackwardCompatibilitySerializer)
-        })
-        .enable(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY)
-        .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-        .disable(SerializationFeature.INDENT_OUTPUT),
+    val jacksonMapper: ObjectMapper = createObjectMapper(),
 
     val cradleManager: CradleManager,
     val messageRouter: MessageRouter<MessageGroupBatch>,
@@ -90,4 +83,16 @@ class Context(
         pool,
     ),
     val generalCradleHandler: GeneralCradleHandler = GeneralCradleHandler(generalCradleExtractor),
-)
+) {
+    companion object {
+        @JvmStatic
+        fun createObjectMapper(): ObjectMapper = jacksonObjectMapper()
+            .registerModule(JavaTimeModule())
+            .registerModule(SimpleModule("backward_compatibility").apply {
+                addSerializer(Instant::class.java, InstantBackwardCompatibilitySerializer)
+            })
+            .enable(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY)
+            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+            .disable(SerializationFeature.INDENT_OUTPUT)
+    }
+}

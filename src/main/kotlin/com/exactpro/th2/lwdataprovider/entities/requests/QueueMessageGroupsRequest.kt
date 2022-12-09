@@ -27,6 +27,7 @@ data class QueueMessageGroupsRequest(
     val syncInterval: Duration,
     val keepAlive: Boolean,
     val externalQueue: String,
+    val sendRawDirectly: Boolean,
 ) {
     init {
         require(startTimestamp < endTimestamp) { "$startTimestamp must be less than $endTimestamp" }
@@ -42,6 +43,7 @@ data class QueueMessageGroupsRequest(
             syncInterval: Duration?,
             keepAlive: Boolean?,
             externalQueue: String?,
+            sendRawDirectly: Boolean?
         ): QueueMessageGroupsRequest = QueueMessageGroupsRequest(
             requireNotNull(groupsByBook) { "groupsByBook must be set" },
             requireNotNull(startTimestamp) { "start timestamp must be set" },
@@ -49,6 +51,7 @@ data class QueueMessageGroupsRequest(
             requireNotNull(syncInterval) { "sync interval must be set" },
             keepAlive ?: false,
             requireNotNull(externalQueue) { "external queue must be set" },
+            sendRawDirectly ?: false,
         )
     }
 }

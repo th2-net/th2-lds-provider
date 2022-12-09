@@ -36,6 +36,10 @@ message MessageGroupsQueueSearchRequest {
   google.protobuf.Duration sync_interval = 4;
   string external_queue = 5;
   bool keep_alive = 6;
+  /**
+  Enables sending raw batches directly to external_queue. Sends raw directly first then sends raw to pins
+   */
+  bool send_raw_directly = 8;
 }
 
 message MessageLoadedStatistic {

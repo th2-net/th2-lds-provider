@@ -99,7 +99,8 @@ class GetMessageById(
 
 
         val handler = HttpMessagesRequestHandler(queue, sseResponseBuilder, dataMeasurement,
-        responseFormats = if (onlyRaw) EnumSet.of(ResponseFormat.BASE_64) else configuration.responseFormats)try {
+        responseFormats = if (onlyRaw) EnumSet.of(ResponseFormat.BASE_64) else configuration.responseFormats)
+        try {
             val newMsgId = parseMessageId(msgId)
             logger.info { "Received message request with id $msgId (onlyRaw: $onlyRaw)" }
 

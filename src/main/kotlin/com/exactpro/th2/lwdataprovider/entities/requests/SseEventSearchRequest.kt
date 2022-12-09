@@ -55,12 +55,6 @@ class SseEventSearchRequest(
     companion object {
         private val httpConverter = HttpFilterConverter()
         private val grpcConverter = GrpcFilterConverter()
-        private fun asCradleTimeRelation(value: String): TimeRelation {
-            if (value == "next") return TimeRelation.AFTER
-            if (value == "previous") return TimeRelation.BEFORE
-
-            invalidRequest("'$value' is not a valid timeline direction. Use 'next' or 'previous'")
-        }
     }
 
     constructor(parameters: Map<String, List<String>>) : this(

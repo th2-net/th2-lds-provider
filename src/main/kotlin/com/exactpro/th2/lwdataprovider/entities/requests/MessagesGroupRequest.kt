@@ -32,7 +32,7 @@ data class MessagesGroupRequest(
     val bookId: BookId,
 ) {
     init {
-        check(startTimestamp <= endTimestamp) { "$START_TIMESTAMP_PARAM must be greater than $END_TIMESTAMP_PARAM" }
+        require(startTimestamp <= endTimestamp) { "$START_TIMESTAMP_PARAM must be greater than $END_TIMESTAMP_PARAM" }
     }
     companion object {
         private const val GROUP_PARAM = "group"
@@ -42,19 +42,6 @@ data class MessagesGroupRequest(
         private const val RAW_ONLY_PARAMETER = "onlyRaw"
         private const val KEEP_OPEN_PARAMETER = "keepOpen"
         private const val BOOK_ID_PARAM = "bookId"
-
-        @JvmStatic
-        fun fromParametersMap(map: Map<String, List<String>>): MessagesGroupRequest =
-            MessagesGroupRequest(
-                map[GROUP_PARAM]?.toSet() ?: error("No $GROUP_PARAM param was set"),
-                extractInstant(map, START_TIMESTAMP_PARAM),
-                extractInstant(map, END_TIMESTAMP_PARAM),
-                map.booleanOrDefault(SORT_PARAMETER, false),
-                map.booleanOrDefault(RAW_ONLY_PARAMETER, false),
-                map.booleanOrDefault(KEEP_OPEN_PARAMETER, false),
-                map[BOOK_ID_PARAM]?.firstOrNull()?.let(::BookId)
-                    ?: error("parameter '$BOOK_ID_PARAM' is required"),
-            )
 
         @JvmStatic
         fun fromGrpcRequest(request: MessageGroupsSearchRequest): MessagesGroupRequest = request.run {

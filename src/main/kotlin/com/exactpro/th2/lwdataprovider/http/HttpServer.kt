@@ -19,10 +19,12 @@ package com.exactpro.th2.lwdataprovider.http
 import com.exactpro.cradle.BookId
 import com.exactpro.th2.lwdataprovider.Context
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
+import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import io.javalin.Javalin
 import io.javalin.config.JavalinConfig
+import io.javalin.http.BadRequestResponse
 import io.javalin.json.JavalinJackson
 import io.javalin.micrometer.MicrometerPlugin
 import io.javalin.openapi.OpenApiContact
@@ -38,6 +40,7 @@ import io.javalin.openapi.plugin.swagger.SwaggerConfiguration
 import io.javalin.openapi.plugin.swagger.SwaggerPlugin
 import io.javalin.validation.JavalinValidation
 import mu.KotlinLogging
+import org.apache.commons.lang3.exception.ExceptionUtils
 import org.eclipse.jetty.server.handler.gzip.GzipHandler
 import java.time.Instant
 
@@ -89,6 +92,8 @@ class HttpServer(private val context: Context) {
             for (handler in handlers) {
                 handler.setup(this)
             }
+            exception(IllegalArgumentException::class.java) { ex, _ -> throw BadRequestResponse(ExceptionUtils.getRootCauseMessage(ex)) }
+            exception(InvalidRequestException::class.java) { ex, _ -> throw BadRequestResponse(ExceptionUtils.getRootCauseMessage(ex)) }
             jettyServer()?.server()?.insertHandler(createGzipHandler())
         }.start(configuration.hostname, configuration.port)
 

@@ -41,6 +41,7 @@ class GetMessageGroups(
     @OpenApi(
         path = ROUTE,
         methods = [HttpMethod.GET],
+        description = "returns list of groups for specified $BOOK_ID_PARAM",
         pathParams = [
             OpenApiParam(
                 name = BOOK_ID_PARAM,
@@ -54,7 +55,8 @@ class GetMessageGroups(
                 status = "200",
                 content = [
                     OpenApiContent(from = Array<String>::class, mimeType = ContentType.JSON)
-                ]
+                ],
+                description = """set of groups for specified $BOOK_ID_PARAM. E.g. ["group1","group2"]"""
             )
         ]
     )

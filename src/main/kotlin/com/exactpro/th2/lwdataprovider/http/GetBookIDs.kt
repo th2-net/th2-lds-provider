@@ -33,6 +33,7 @@ class GetBookIDs(
 
     @OpenApi(
         path = ROUTE,
+        description = "returns the list of the book IDs stored in Cradle ",
         methods = [HttpMethod.GET],
         responses = [
             OpenApiResponse(
@@ -40,7 +41,7 @@ class GetBookIDs(
                 content = [
                     OpenApiContent(from = Array<String>::class)
                 ],
-                description = "list of book IDs in cradle",
+                description = "list of book IDs in cradle. E.g [\"book1\",\"book2\"]",
             )
         ]
     )

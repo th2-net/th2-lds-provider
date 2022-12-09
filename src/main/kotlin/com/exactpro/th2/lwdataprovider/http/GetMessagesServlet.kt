@@ -25,7 +25,6 @@ import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
-import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
@@ -56,7 +55,7 @@ private const val RESULT_COUNT_LIMIT = "resultCountLimit"
 
 private const val KEEP_OPEN = "keepOpen"
 
-private const val RESPONSE_FORMATS = "responseFormats"
+private const val RESPONSE_FORMAT = "responseFormat"
 
 private const val BOOK_ID = "bookId"
 
@@ -84,10 +83,13 @@ class GetMessagesServlet(
     @OpenApi(
         methods = [HttpMethod.GET],
         path = ROUTE,
+        description = "returns list of messages for specified streams (alias + direction). Messages are not sorted between stream. " +
+                "Order is guarantied only within stream (alias + direction)",
         queryParams = [
             OpenApiParam(
                 START_TIMESTAMP,
                 type = Int::class,
+                required = true,
                 description = "start timestamp for search", example = "1669990000000"),
             OpenApiParam(
                 END_TIMESTAMP,
@@ -109,13 +111,15 @@ class GetMessagesServlet(
             OpenApiParam(
                 MESSAGE_ID,
                 type = Array<String>::class,
-                description = "list of IDs to start request from", example = "book:session_alias:1:20221031130000000000000:1"),
+                description = "list of IDs to start request from. It must be specified if $STREAM parameter is not used",
+                example = "book:session_alias:1:20221031130000000000000:1"),
             OpenApiParam(
                 STREAM,
                 type = Array<String>::class,
                 description = "list of session aliases to request in format '<session_alias>[:<direction>]'. " +
                         "If the direction is not specified all known directions will be requested for session alias. " +
-                        "Possible directions: 1 - incoming messages, 2 - outgoing messages",
+                        "Possible directions: 1 - incoming messages, 2 - outgoing messages. " +
+                        "Parameter must be specified if $MESSAGE_ID parameter is not used",
                 example = "session_alias:1",
             ),
             OpenApiParam(
@@ -123,7 +127,7 @@ class GetMessagesServlet(
                 type = Boolean::class,
                 description = "keeps pulling for new message until don't have one outside the requested range"),
             OpenApiParam(
-                RESPONSE_FORMATS,
+                RESPONSE_FORMAT,
                 type = Array<String>::class,
                 description = "the format of the response"),
         ],
@@ -170,7 +174,7 @@ class GetMessagesServlet(
             ?.map { StoredMessageId.fromString(it) },
         resultCountLimit = ctx.queryParamAsClass<Int>(RESULT_COUNT_LIMIT).allowNullable().get(),
         keepOpen = ctx.queryParamAsClass<Boolean>(KEEP_OPEN).getOrDefault(false),
-        responseFormats = ctx.queryParams(RESPONSE_FORMATS).takeIf(List<*>::isNotEmpty)
+        responseFormats = ctx.queryParams(RESPONSE_FORMAT).takeIf(List<*>::isNotEmpty)
             ?.mapTo(hashSetOf(), ResponseFormat.Companion::fromString),
         bookId = ctx.queryParamAsClass<BookId>(BOOK_ID).get(),
     )

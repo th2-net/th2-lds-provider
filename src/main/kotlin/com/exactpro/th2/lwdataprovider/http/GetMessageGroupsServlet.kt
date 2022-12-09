@@ -55,11 +55,15 @@ class GetMessageGroupsServlet(
 
     @OpenApi(
         path = ROUTE,
+        description = "returns list of messages for specified groups. Each group will be requested one after another " +
+                "(there is no order guaranties between groups). Messages for a group are not sorted by default. " +
+                "Use $SORT_PARAMETER in order to sort messages for each group",
         queryParams = [
             OpenApiParam(
                 GROUP_PARAM,
                 type = Array<String>::class,
-                description = "set of books to request",
+                required = true,
+                description = "set of groups to request",
                 isRepeatable = true,
             ),
             OpenApiParam(
@@ -132,7 +136,10 @@ class GetMessageGroupsServlet(
     }
 
     private fun createRequest(ctx: Context) = MessagesGroupRequest(
-        groups = ctx.queryParams(GROUP_PARAM).toSet(),
+        groups = ctx.listQueryParameters(GROUP_PARAM)
+            .check(List<*>::isNotEmpty, "EMPTY_COLLECTION")
+            .check({ it.all(String::isNotBlank) }, "BLANK_GROUP")
+            .get().toSet(),
         startTimestamp = ctx.queryParamAsClass<Instant>(START_TIMESTAMP_PARAM)
             .get(),
         endTimestamp = ctx.queryParamAsClass<Instant>(END_TIMESTAMP_PARAM)

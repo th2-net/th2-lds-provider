@@ -76,6 +76,7 @@ class GetMessageById(
                 content = [
                     OpenApiContent(from = ProviderMessage53::class)
                 ],
+                description = "the message associated with specified id"
             ),
             OpenApiResponse(
                 status = "404",

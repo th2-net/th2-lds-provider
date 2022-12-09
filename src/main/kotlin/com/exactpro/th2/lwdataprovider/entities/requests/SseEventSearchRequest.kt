@@ -33,7 +33,7 @@ import com.exactpro.th2.lwdataprovider.toCradle
 import java.time.Instant
 
 class SseEventSearchRequest(
-    val startTimestamp: Instant?,
+    startTimestamp: Instant?,
     val parentEvent: ProviderEventId?,
     val searchDirection: SearchDirection,
     val resultCountLimit: Int?,
@@ -43,9 +43,11 @@ class SseEventSearchRequest(
     val scope: String,
 ) {
 
+    val startTimestamp: Instant
     val endTimestamp : Instant
 
     init {
+        this.startTimestamp = startTimestamp ?: invalidRequest("start timestamp is not set")
         this.endTimestamp = getInitEndTimestamp(endTimestamp, resultCountLimit, searchDirection)
         checkRequest()
     }
@@ -101,7 +103,6 @@ class SseEventSearchRequest(
     )
 
     private fun checkEndTimestamp() {
-        if (startTimestamp == null) return
 
         if (searchDirection == SearchDirection.next) {
             if (startTimestamp.isAfter(endTimestamp))
@@ -112,13 +113,7 @@ class SseEventSearchRequest(
         }
     }
 
-    private fun checkStartPoint() {
-        if (startTimestamp == null)
-            invalidRequest("'startTimestamp' must not be null")
-    }
-
     private fun checkRequest() {
-        checkStartPoint()
         checkEndTimestamp()
     }
 

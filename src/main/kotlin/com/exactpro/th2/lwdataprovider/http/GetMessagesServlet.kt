@@ -165,12 +165,14 @@ class GetMessagesServlet(
     private fun createRequest(ctx: Context) = SseMessageSearchRequest(
         startTimestamp = ctx.queryParamAsClass<Instant>(START_TIMESTAMP)
             .allowNullable().get(),
-        stream = ctx.queryParams(STREAM).takeIf(List<*>::isNotEmpty)
+        stream = ctx.listQueryParameters(STREAM).get()
+            .takeIf(List<*>::isNotEmpty)
             ?.let(SseMessageSearchRequest::toStreams),
         searchDirection = ctx.queryParamAsClass<SearchDirection>(SEARCH_DIRECTION)
             .getOrDefault(SearchDirection.next),
         endTimestamp = ctx.queryParamAsClass<Instant>(END_TIMESTAMP).allowNullable().get(),
-        resumeFromIdsList = ctx.queryParams(MESSAGE_ID).takeIf(List<*>::isNotEmpty)
+        resumeFromIdsList = ctx.listQueryParameters(MESSAGE_ID).get()
+            .takeIf(List<*>::isNotEmpty)
             ?.map { StoredMessageId.fromString(it) },
         resultCountLimit = ctx.queryParamAsClass<Int>(RESULT_COUNT_LIMIT).allowNullable().get(),
         keepOpen = ctx.queryParamAsClass<Boolean>(KEEP_OPEN).getOrDefault(false),

@@ -28,7 +28,7 @@ class TestStoredMessageFilterUtil {
     @Test
     fun testDirectionAfter(){
         val request = SseMessageSearchRequest(mapOf("startTimestamp" to listOf("1"),
-            "endTimestamp" to listOf("2"), "searchDirection" to listOf("next"), "bookId" to listOf("test")))
+            "endTimestamp" to listOf("2"), "searchDirection" to listOf("next"), "bookId" to listOf("test"), "stream" to listOf("test")))
         val filter = MessageFilterBuilder().apply {
             bookId(BookId("test"))
             sessionAlias("test")
@@ -47,7 +47,7 @@ class TestStoredMessageFilterUtil {
     @Test
     fun testDirectionBefore(){
         val request = SseMessageSearchRequest(mapOf("startTimestamp" to listOf("3"),
-            "endTimestamp" to listOf("2"), "searchDirection" to listOf("previous"), "bookId" to listOf("test")))
+            "endTimestamp" to listOf("2"), "searchDirection" to listOf("previous"), "bookId" to listOf("test"), "stream" to listOf("test")))
         val filter = MessageFilterBuilder().apply {
             bookId(BookId("test"))
             sessionAlias("test")

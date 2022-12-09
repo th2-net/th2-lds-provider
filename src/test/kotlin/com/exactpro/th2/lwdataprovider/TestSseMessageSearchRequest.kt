@@ -18,8 +18,10 @@ package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.cradle.TimeRelation
 import com.exactpro.cradle.utils.TimeUtils
+import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.dataprovider.lw.grpc.BookId
 import com.exactpro.th2.dataprovider.lw.grpc.MessageSearchRequest
+import com.exactpro.th2.dataprovider.lw.grpc.MessageStream
 import com.exactpro.th2.dataprovider.lw.grpc.MessageStreamPointer
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
@@ -38,7 +40,7 @@ class TestSseMessageSearchRequest {
     @Nested
     inner class TestConstructorParam {
         private val DEFAULT: Map<String, List<String>> = mapOf(
-            "bookId" to listOf("test")
+            "bookId" to listOf("test"), "stream" to listOf("test")
         )
         private fun params(vararg pairs: Pair<String, List<String>>): Map<String, List<String>> {
             return DEFAULT + mapOf(*pairs)
@@ -248,5 +250,6 @@ class TestSseMessageSearchRequest {
 
         private fun createBuilder(): MessageSearchRequest.Builder = MessageSearchRequest.newBuilder()
             .setBookId(BookId.newBuilder().setName("test"))
+            .addStream(MessageStream.newBuilder().setName("test").setDirection(Direction.FIRST))
     }
 }

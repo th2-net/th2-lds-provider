@@ -59,15 +59,12 @@ class SseMessageSearchRequest(
     init {
         this.endTimestamp = getInitEndTimestamp(endTimestamp, resultCountLimit, searchDirection)
         checkRequest()
+        if (resumeFromIdsList.isNullOrEmpty() && stream.isNullOrEmpty()) {
+            invalidRequest("either stream or IDs to resume must be set")
+        }
     }
 
     companion object {
-        private fun asCradleTimeRelation(value: String): TimeRelation {
-            if (value == "next") return TimeRelation.AFTER
-            if (value == "previous") return TimeRelation.BEFORE
-
-            invalidRequest("'$value' is not a valid timeline direction. Use 'next' or 'previous'")
-        }
 
         @JvmStatic
         fun toStreams(streams: List<String>?): List<ProviderMessageStream>? {

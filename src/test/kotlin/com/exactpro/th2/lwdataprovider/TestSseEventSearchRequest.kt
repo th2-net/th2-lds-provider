@@ -58,7 +58,7 @@ class TestSseEventSearchRequest {
             Assertions.assertEquals(SearchDirection.next, eventSearchReq.searchDirection, "search direction must be AFTER")
             Assertions.assertNotNull(eventSearchReq.startTimestamp, "start timestamp must be not null")
             Assertions.assertNotNull(eventSearchReq.endTimestamp, "end timestamp must be not null")
-            Assertions.assertTrue(eventSearchReq.endTimestamp > eventSearchReq.startTimestamp!!){
+            Assertions.assertTrue(eventSearchReq.endTimestamp > eventSearchReq.startTimestamp){
                 "end timestamp: " + eventSearchReq.endTimestamp + " must be after start timestamp: " + eventSearchReq.startTimestamp
 
             }
@@ -81,7 +81,7 @@ class TestSseEventSearchRequest {
             Assertions.assertEquals(SearchDirection.previous, eventSearchReq.searchDirection, "search direction must be BEFORE")
             Assertions.assertNotNull(eventSearchReq.startTimestamp, "start timestamp must be not null")
             Assertions.assertNotNull(eventSearchReq.endTimestamp, "end timestamp must be not null")
-            Assertions.assertTrue(eventSearchReq.endTimestamp < eventSearchReq.startTimestamp!!){
+            Assertions.assertTrue(eventSearchReq.endTimestamp < eventSearchReq.startTimestamp){
                 "end timestamp: " + eventSearchReq.endTimestamp + " must be before start timestamp: " + eventSearchReq.startTimestamp
             }
         }
@@ -144,7 +144,7 @@ class TestSseEventSearchRequest {
             Assertions.assertEquals(SearchDirection.next, eventSearchReq.searchDirection, "search direction must be AFTER")
             Assertions.assertNotNull(eventSearchReq.startTimestamp, "start timestamp must be not null")
             Assertions.assertNotNull(eventSearchReq.endTimestamp, "end timestamp must be not null")
-            Assertions.assertTrue(eventSearchReq.endTimestamp > eventSearchReq.startTimestamp!!){
+            Assertions.assertTrue(eventSearchReq.endTimestamp > eventSearchReq.startTimestamp){
                 "end timestamp: " + eventSearchReq.endTimestamp + " must be after start timestamp: " + eventSearchReq.startTimestamp
             }
         }
@@ -172,7 +172,7 @@ class TestSseEventSearchRequest {
             Assertions.assertEquals(SearchDirection.previous, eventSearchReq.searchDirection, "search direction must be BEFORE")
             Assertions.assertNotNull(eventSearchReq.startTimestamp, "start timestamp must be not null")
             Assertions.assertNotNull(eventSearchReq.endTimestamp, "end timestamp must be not null")
-            Assertions.assertTrue(eventSearchReq.endTimestamp < eventSearchReq.startTimestamp!!){
+            Assertions.assertTrue(eventSearchReq.endTimestamp < eventSearchReq.startTimestamp){
                 "end timestamp: " + eventSearchReq.endTimestamp + " must be before start timestamp: " + eventSearchReq.startTimestamp
             }
         }

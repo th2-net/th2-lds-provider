@@ -29,7 +29,6 @@ import java.util.*
 
 @Deprecated("same format as rpt-data-provider5.3")
 data class ProviderMessage53 (
-    val type: String = "message",
     val timestamp: Instant,
     val direction: Direction?,
     val sessionId: String,

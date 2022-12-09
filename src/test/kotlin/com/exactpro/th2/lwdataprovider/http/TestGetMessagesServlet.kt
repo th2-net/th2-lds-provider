@@ -86,7 +86,7 @@ internal class TestGetMessagesServlet : AbstractHttpHandlerTest<GetMessagesServl
                     .isEqualTo("""
                       id: 1
                       event: message
-                      data: {"type":"message","timestamp":{"epochSecond":${messageTimestamp.epochSecond},"nano":${messageTimestamp.nano}},"direction":"IN","sessionId":"test","messageType":"","attachedEventIds":[],"body":{},"bodyBase64":"dGVzdCBjb250ZW50","messageId":"test:test:1:${StoredMessageIdUtils.timestampToString(messageTimestamp)}:1"}
+                      data: {"timestamp":{"epochSecond":${messageTimestamp.epochSecond},"nano":${messageTimestamp.nano}},"direction":"IN","sessionId":"test","messageType":"","attachedEventIds":[],"body":{},"bodyBase64":"dGVzdCBjb250ZW50","messageId":"test:test:1:${StoredMessageIdUtils.timestampToString(messageTimestamp)}:1"}
 
 
                       """.trimIndent())

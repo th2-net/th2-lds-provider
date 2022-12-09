@@ -41,7 +41,7 @@ dependencies {
     kapt("io.javalin.community.openapi:openapi-annotation-processor:$javalin")
 
     implementation("io.javalin.community.openapi:javalin-openapi-plugin:$javalin") {
-        because("for /openapi route with JSON scheme")
+        because("for /openapi route with JSON scheme") // TODO: update to fix problem with enums
     }
     implementation("io.javalin.community.openapi:javalin-swagger-plugin:$javalin") {
         because("for Swagger UI")

@@ -75,6 +75,7 @@ class Context(
         dataMeasurement,
         messageRouter,
         configuration.batchSize,
+        configuration.codecUsePinAttributes,
         pool,
     ),
     val queueEventsHandler: QueueEventsHandler = QueueEventsHandler(

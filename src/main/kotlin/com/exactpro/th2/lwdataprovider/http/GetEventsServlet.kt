@@ -65,8 +65,9 @@ class GetEventsServlet(
     @OpenApi(
         methods = [HttpMethod.GET],
         path = ROUTE,
+        // todo: description
         queryParams = [
-            OpenApiParam("startTimestamp", type = Int::class,
+            OpenApiParam("startTimestamp", type = Int::class, required = true,
                 description = "start timestamp for search", example = "1669990000000"),
             OpenApiParam("endTimestamp", type = Int::class,
                 description = "end timestamp for search", example = "1669990000000"),
@@ -125,8 +126,7 @@ class GetEventsServlet(
     }
 
     private fun createRequest(ctx: Context) = SseEventSearchRequest(
-        startTimestamp = ctx.queryParamAsClass<Instant>("startTimestamp")
-            .allowNullable().get(),
+        startTimestamp = ctx.queryParamAsClass<Instant>("startTimestamp").get(),
         endTimestamp = ctx.queryParamAsClass<Instant>("endTimestamp")
             .allowNullable().get(),
         parentEvent = ctx.queryParamAsClass<ProviderEventId>("parentEvent")

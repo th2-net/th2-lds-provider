@@ -41,6 +41,7 @@ class GetEventScopes(
     @OpenApi(
         path = ROUTE,
         methods = [HttpMethod.GET],
+        description = "returns a list of scopes for specified $BOOK_ID_PARAM",
         pathParams = [
             OpenApiParam(
                 name = BOOK_ID_PARAM,
@@ -55,7 +56,7 @@ class GetEventScopes(
                 content = [
                     OpenApiContent(from = Array<String>::class, mimeType = ContentType.JSON)
                 ],
-                description = "list of event scopes for requested book",
+                description = "list of event scopes for requested book. E.g. [\"scope1\",\"scope2\"]",
             )
         ]
     )

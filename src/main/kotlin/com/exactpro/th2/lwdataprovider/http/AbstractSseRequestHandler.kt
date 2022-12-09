@@ -18,7 +18,9 @@ package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.th2.lwdataprovider.EventType
 import com.exactpro.th2.lwdataprovider.SseEvent
+import io.javalin.http.Context
 import io.javalin.http.sse.SseClient
+import io.javalin.validation.Validator
 import java.util.concurrent.BlockingQueue
 import java.util.function.Consumer
 
@@ -43,4 +45,7 @@ abstract class AbstractSseRequestHandler : Consumer<SseClient>, JavalinHandler {
             }
         }
     }
+
+    protected fun Context.listQueryParameters(name: String): Validator<List<String>> =
+        Validator(fieldName = name, typedValue = queryParams(name))
 }

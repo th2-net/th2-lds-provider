@@ -77,7 +77,7 @@ internal class TestGetMessagesServlet : AbstractHttpHandlerTest<GetMessagesServl
                         "&endTimestamp=${end.toEpochMilli()}" +
                         "&bookId=test" +
                         "&stream=test" +
-                        "&responseFormats=BASE_64"
+                        "&responseFormat=BASE_64"
             )
             expectThat(response) {
                 get { code } isEqualTo HttpStatus.OK.code

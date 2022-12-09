@@ -45,7 +45,7 @@ data class BaseEventEntity(
         private val mapper = jacksonObjectMapper()
         fun checkAndConvertBody(srcBody: String?) : String {
             return if (srcBody.isNullOrEmpty()) {
-                "{}"
+                "[]"
             } else if (srcBody.first().let {  it == '[' || it == '{'} && srcBody.last().let { it == ']' || it == '}'}) {
                 srcBody
             } else {

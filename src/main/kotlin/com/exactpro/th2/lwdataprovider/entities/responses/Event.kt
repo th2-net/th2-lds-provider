@@ -34,7 +34,6 @@ import io.javalin.openapi.OpenApiPropertyType
 import java.time.Instant
 
 data class Event(
-    val type: String = "event",
     val eventId: String,
     val batchId: String?,
     val isBatched: Boolean,

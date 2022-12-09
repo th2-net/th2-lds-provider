@@ -187,7 +187,7 @@ internal class TestCradleEventExtractor {
         get { eventName } isEqualTo toStore.name
         get { eventType } isEqualTo toStore.type
         get { successful } isEqualTo toStore.isSuccess
-        get { body } isEqualTo (toStore.asSingle().content.takeIf { it.isNotEmpty() }?.toString(Charsets.UTF_8) ?: "{}")
+        get { body } isEqualTo (toStore.asSingle().content.takeIf { it.isNotEmpty() }?.toString(Charsets.UTF_8) ?: "[]")
     }
 
     private fun createRequest(start: Instant?, end: Instant?): SseEventSearchRequest = SseEventSearchRequest(

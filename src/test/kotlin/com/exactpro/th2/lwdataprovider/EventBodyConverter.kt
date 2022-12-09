@@ -25,7 +25,7 @@ class EventBodyConverter {
     @Test
     fun test1 () {
         val from = ""
-        val toExp = "{}"
+        val toExp = "[]"
 
         Assertions.assertEquals(toExp, BaseEventEntity.checkAndConvertBody(from))
     }
@@ -33,7 +33,7 @@ class EventBodyConverter {
     @Test
     fun test2 () {
         val from:String? = null
-        val toExp = "{}"
+        val toExp = "[]"
 
         Assertions.assertEquals(toExp, BaseEventEntity.checkAndConvertBody(from))
     }

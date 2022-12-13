@@ -71,12 +71,18 @@ Filter parameters:
 - `bookId` - book ID for requested messages (*required)
 Example: `http://localhost:8080/search/sse/messages/group?group=A&group=B&startTimestamp=15600000&endTimestamp=15700000`
 
+`http://localhost:8080/search/sse/page-infos` - creates an SSE channel of page infos that matches the requested book id for the requested time period
+- `startTimestamp` - number, unix timestamp in milliseconds - Sets the search starting point. **Must not be null**
+- `endTimestamp` - number, unix timestamp in milliseconds - Sets the search ending point. **Must not be null**
+- `bookId` - book ID for requested messages (*required)
+- `resultCountLimit` - number - Sets the maximum amount of page events to return. Defaults to `null (unlimited)`.
+Example: `http://localhost:8080/search/sse/page-infos?startTimestamp=15600000&endTimestamp=15700000&bookId=book1`
 
 Elements in channel match the format sse:
 ```
-event: 'event' / 'message' | 'close' | 'error' | 'keep_alive'
-data: 'Event metadata object' / 'message' | 'Empty data' | 'HTTP Error code' | 'Empty data'
-id: event / message id | null | null | null
+event: 'event' / 'message' | 'close' | 'error' | 'keep_alive' | 'page_info'
+data: 'Event metadata object' / 'message' | 'Empty data' | 'HTTP Error code' | 'Empty data' | 'page info'
+id: event / message id | null | null | null | page id
 ```
 
 

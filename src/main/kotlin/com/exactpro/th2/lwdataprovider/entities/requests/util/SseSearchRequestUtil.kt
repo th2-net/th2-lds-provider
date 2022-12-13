@@ -16,7 +16,6 @@
 
 package com.exactpro.th2.lwdataprovider.entities.requests.util
 
-import com.exactpro.cradle.TimeRelation
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import java.time.Instant

@@ -20,7 +20,6 @@ import com.exactpro.th2.lwdataprovider.util.ImmutableListCradleResult
 import com.exactpro.th2.lwdataprovider.util.createEventStoredEvent
 import com.exactpro.th2.lwdataprovider.util.toStoredEvent
 import io.javalin.http.HttpStatus
-import mu.KotlinLogging
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.argThat
 import org.mockito.kotlin.doReturn
@@ -138,9 +137,5 @@ internal class TestGetEventsServlet : AbstractHttpHandlerTest<GetEventsServlet>(
                     .path("message").textValue().isEqualTo("NULLCHECK_FAILED")
             }
         }
-    }
-
-    companion object {
-        private val LOGGER = KotlinLogging.logger { }
     }
 }

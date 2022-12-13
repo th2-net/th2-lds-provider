@@ -20,6 +20,7 @@ import com.exactpro.cradle.BookId
 import com.exactpro.cradle.BookInfo
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
+import com.exactpro.cradle.PageInfo
 
 class GeneralCradleExtractor(
     cradleManager: CradleManager,
@@ -27,6 +28,9 @@ class GeneralCradleExtractor(
     private val storage: CradleStorage = cradleManager.storage
 
     fun getBookIDs(): Set<BookId> = storage.listBooks().mapTo(hashSetOf()) { BookId(it.name) }
+
+    //FIXME: use another cradle API to get pages by book id and time interval
+    fun getPageInfos(bookId: BookId): Collection<PageInfo> = storage.getAllPages(bookId)
 
     fun getCachedBooks(): Collection<BookInfo> = storage.books
 }

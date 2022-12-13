@@ -27,6 +27,8 @@ import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.cradle.testevents.StoredTestEventSingle
 import com.exactpro.cradle.testevents.TestEventSingleToStore
 import com.exactpro.cradle.testevents.TestEventToStore
+import com.exactpro.th2.lwdataprovider.handlers.CradlePageId
+import com.exactpro.th2.lwdataprovider.handlers.CradlePageInfo
 import java.time.Instant
 
 fun createCradleStoredMessage(
@@ -47,6 +49,21 @@ fun createCradleStoredMessage(
     .let { msg ->
         StoredMessage(msg, msg.id, null)
     }
+
+fun createPageInfo(
+    pageName: String,
+    started: Instant,
+    ended: Instant,
+    updated: Boolean = false,
+    removed: Boolean = false,
+): CradlePageInfo = CradlePageInfo(
+    CradlePageId(BookId("test"), pageName),
+    started,
+    ended,
+    "test comment for $pageName",
+    if (updated) started else null,
+    if (removed) ended else null
+)
 
 fun createEventStoredEvent(
     eventId: String,

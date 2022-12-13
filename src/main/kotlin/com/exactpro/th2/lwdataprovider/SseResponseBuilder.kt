@@ -20,8 +20,7 @@ import com.exactpro.cradle.Direction
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
-import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage
-import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
+import com.exactpro.th2.lwdataprovider.entities.responses.PageInfo
 import com.exactpro.th2.lwdataprovider.entities.responses.ResponseMessage
 import com.fasterxml.jackson.databind.ObjectMapper
 
@@ -45,4 +44,7 @@ class SseResponseBuilder(
         return SseEvent.build(jacksonMapper, event, lastEventId)
     }
 
+    fun build(pageInfo: PageInfo, lastEventId: Long): SseEvent {
+        return SseEvent.build(jacksonMapper, pageInfo, lastEventId)
+    }
 }

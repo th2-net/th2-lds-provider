@@ -30,9 +30,9 @@ import com.exactpro.th2.lwdataprovider.db.GeneralCradleExtractor
 import com.exactpro.th2.lwdataprovider.handlers.GeneralCradleHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
+import com.exactpro.th2.lwdataprovider.handlers.SearchPageInfosHandler
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.javalin.Javalin
 import io.javalin.http.Header
 import io.javalin.json.JavalinJackson
@@ -75,6 +75,10 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler>(
         inPlaceExecutor,
     )
     protected val generalHandler = GeneralCradleHandler(GeneralCradleExtractor(manager))
+    protected val pageInfosHandler = SearchPageInfosHandler(
+        generalHandler,
+        inPlaceExecutor
+    )
     fun startTest(testConfig: TestConfig = TestConfig(), testCase: TestCase) {
         JavalinTest.test(
             app = Javalin.create {

@@ -26,6 +26,7 @@ import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
+import com.exactpro.th2.lwdataprovider.entities.responses.PageInfo
 import com.exactpro.th2.lwdataprovider.handlers.AbstractCancelableHandler
 import com.exactpro.th2.lwdataprovider.handlers.MessageResponseHandler
 import com.exactpro.th2.lwdataprovider.producers.JsonFormatter
@@ -128,5 +129,39 @@ class HttpEventResponseHandler(
         if (!isAlive) return
         buffer.put(builder.build(scannedObjectInfo, indexer.nextIndex()))
     }
+}
 
+//FIXME: it is copy past as HttpEventResponseHandler
+class HttpPageInfoResponseHandler(
+    private val buffer: BlockingQueue<SseEvent>,
+    private val builder: SseResponseBuilder,
+) : AbstractCancelableHandler(), ResponseHandler<PageInfo>, KeepAliveListener {
+    private val indexer = DataIndexer()
+
+    private val scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
+
+    override val lastTimestampMillis: Long
+        get() = scannedObjectInfo.timestamp
+
+    override fun complete() {
+        buffer.put(SseEvent(event = EventType.CLOSE))
+    }
+
+    override fun writeErrorMessage(text: String) {
+        buffer.put(SseEvent(Gson().toJson(Collections.singletonMap("message", text)), EventType.ERROR))
+    }
+
+    override fun writeErrorMessage(error: Throwable) {
+        writeErrorMessage(ExceptionUtils.getMessage(error))
+    }
+
+    override fun handleNext(data: PageInfo) {
+        val index = indexer.nextIndex()
+        buffer.put(builder.build(data, index))
+        scannedObjectInfo.update(data.id.toString(), index)
+    }
+
+    override fun update() {
+        buffer.put(builder.build(scannedObjectInfo, indexer.nextIndex()))
+    }
 }

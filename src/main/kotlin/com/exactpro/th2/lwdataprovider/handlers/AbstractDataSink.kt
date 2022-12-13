@@ -20,10 +20,20 @@ import com.exactpro.th2.lwdataprovider.ResponseHandler
 import com.exactpro.th2.lwdataprovider.db.EventDataSink
 import com.exactpro.th2.lwdataprovider.db.MessageDataSink
 
-abstract class AbstractEventDataSink<T>(
+class ResponseHandlerDataSink<T>(
     override val handler: ResponseHandler<T>,
     limit: Int? = null,
-) : AbstractBasicDataSink(handler, limit), EventDataSink<T>
+) : AbstractBasicDataSink(handler, limit), EventDataSink<T> {
+    override fun completed() {
+        handler.complete()
+    }
+    override fun onNext(data: T) {
+        if (limit == null || loadedData < limit) {
+            loadedData++
+            handler.handleNext(data)
+        }
+    }
+}
 
 abstract class AbstractMessageDataSink<M, T>(
     override val handler: ResponseHandler<T>,

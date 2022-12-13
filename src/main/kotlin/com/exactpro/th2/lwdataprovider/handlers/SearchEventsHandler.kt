@@ -35,7 +35,7 @@ class SearchEventsHandler(
 
     fun loadEvents(request: SseEventSearchRequest, requestContext: ResponseHandler<Event>) {
         threadPool.execute {
-            EventDataSink(requestContext, request.resultCountLimit).use {
+            ResponseHandlerDataSink(requestContext, request.resultCountLimit).use {
                 try {
                     cradle.getEvents(request, it)
                 } catch (e: Exception) {
@@ -49,7 +49,7 @@ class SearchEventsHandler(
     fun loadOneEvent(request: GetEventRequest, requestContext: ResponseHandler<Event>) {
 
         threadPool.execute {
-            EventDataSink(requestContext, limit = null).use {
+            ResponseHandlerDataSink(requestContext, limit = null).use {
                 try {
                     cradle.getSingleEvents(request, it)
                 } catch (e: Exception) {
@@ -60,22 +60,3 @@ class SearchEventsHandler(
         }
     }
 }
-
-private class EventDataSink(
-    override val handler: ResponseHandler<Event>,
-    limit: Int? = null,
-) : AbstractEventDataSink<Event>(handler, limit) {
-
-    override fun completed() {
-        handler.complete()
-    }
-
-    override fun onNext(data: Event) {
-        if (limit == null || loadedData < limit) {
-            loadedData++
-            handler.handleNext(data)
-        }
-    }
-}
-
-    

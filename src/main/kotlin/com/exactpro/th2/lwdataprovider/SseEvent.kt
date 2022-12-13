@@ -20,7 +20,7 @@ import com.exactpro.cradle.Direction
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
-import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage
+import com.exactpro.th2.lwdataprovider.entities.responses.PageInfo
 import com.exactpro.th2.lwdataprovider.entities.responses.ResponseMessage
 import com.fasterxml.jackson.databind.ObjectMapper
 import java.util.*
@@ -30,7 +30,7 @@ import java.util.*
  */
 
 enum class EventType {
-    MESSAGE, EVENT, CLOSE, ERROR, KEEP_ALIVE, MESSAGE_IDS;
+    MESSAGE, EVENT, CLOSE, ERROR, KEEP_ALIVE, MESSAGE_IDS, PAGE_INFO;
 
     val typeName: String = name.lowercase(Locale.getDefault())
 
@@ -90,6 +90,14 @@ data class SseEvent(val data: String = "empty data", val event: EventType, val m
                     )
                 ),
                 event = EventType.MESSAGE_IDS
+            )
+        }
+
+        fun build(jacksonMapper: ObjectMapper, pageInfo: PageInfo, counter: Long): SseEvent {
+            return SseEvent(
+                jacksonMapper.writeValueAsString(pageInfo),
+                EventType.PAGE_INFO,
+                counter.toString()
             )
         }
     }

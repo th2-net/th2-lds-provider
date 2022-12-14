@@ -21,6 +21,8 @@ import com.exactpro.th2.lwdataprovider.SseEvent
 import io.javalin.http.Context
 import io.javalin.http.sse.SseClient
 import io.javalin.validation.Validator
+import mu.KotlinLogging
+import org.apache.commons.lang3.StringUtils
 import java.util.concurrent.BlockingQueue
 import java.util.function.Consumer
 
@@ -33,19 +35,23 @@ abstract class AbstractSseRequestHandler : Consumer<SseClient>, JavalinHandler {
         var inProcess = true
         while (inProcess) {
             val event = queue.take()
+            sendEvent(
+                event.event.typeName,
+                event.data,
+                event.metadata,
+            )
+            K_LOGGER.debug { "Sent sse event: type ${event.event}, metadata ${event.metadata}, data ${StringUtils.abbreviate(event.data, 50)}" }
             if (event.event == EventType.CLOSE) {
                 close()
                 inProcess = false
-            } else {
-                sendEvent(
-                    event.event.typeName,
-                    event.data,
-                    event.metadata,
-                )
             }
         }
     }
 
     protected fun Context.listQueryParameters(name: String): Validator<List<String>> =
         Validator(fieldName = name, typedValue = queryParams(name))
+
+    companion object {
+        private val K_LOGGER = KotlinLogging.logger { }
+    }
 }

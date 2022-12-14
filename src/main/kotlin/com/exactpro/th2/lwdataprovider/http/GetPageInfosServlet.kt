@@ -69,7 +69,7 @@ class GetPageInfosServlet(
             OpenApiResponse(
                 status = "200",
                 content = [
-                    OpenApiContent(from = PageInfo::class)
+                    OpenApiContent(from = PageInfo::class, mimeType = "text/event-stream")
                 ],
                 description = """page info in cradle. E.g 
                       {

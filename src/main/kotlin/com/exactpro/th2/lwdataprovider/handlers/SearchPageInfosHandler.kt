@@ -33,7 +33,7 @@ class SearchPageInfosHandler(
                 try {
                     cradle.getPageInfos(request, it)
                 } catch (e: Exception) {
-                    K_LOGGER.error(e) { "error during loading events $request" }
+                    K_LOGGER.error(e) { "error during loading page infos $request" }
                     it.onError(e)
                 }
             }

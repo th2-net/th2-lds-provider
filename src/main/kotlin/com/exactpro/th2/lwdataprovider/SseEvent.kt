@@ -98,7 +98,7 @@ data class SseEvent(val data: Supplier<String> = Supplier { "empty data" }, val 
 
         fun build(jacksonMapper: ObjectMapper, pageInfo: PageInfo, counter: Long): SseEvent {
             return SseEvent(
-                jacksonMapper.writeValueAsString(pageInfo),
+                { jacksonMapper.writeValueAsString(pageInfo) },
                 EventType.PAGE_INFO,
                 counter.toString()
             )

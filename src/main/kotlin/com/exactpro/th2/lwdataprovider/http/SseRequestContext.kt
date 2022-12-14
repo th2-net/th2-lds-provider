@@ -148,7 +148,7 @@ class HttpPageInfoResponseHandler(
     }
 
     override fun writeErrorMessage(text: String) {
-        buffer.put(SseEvent(Gson().toJson(Collections.singletonMap("message", text)), EventType.ERROR))
+        buffer.put(SseEvent({ Gson().toJson(Collections.singletonMap("message", text)) }, EventType.ERROR))
     }
 
     override fun writeErrorMessage(error: Throwable) {

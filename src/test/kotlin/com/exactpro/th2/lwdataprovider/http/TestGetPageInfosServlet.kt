@@ -76,6 +76,9 @@ internal class TestGetPageInfosServlet : AbstractHttpHandlerTest<GetPageInfosSer
                         id: 2
                         event: page_info
                         data: {"id":{"book":"test","name":"c"},"comment":"test comment for c","started":{"epochSecond":1604106000,"nano":0},"ended":{"epochSecond":1604106005,"nano":0},"updated":null,"removed":null}
+                    
+                        event: close
+                        data: empty data
                       
                       
                     """.trimIndent())
@@ -117,6 +120,9 @@ internal class TestGetPageInfosServlet : AbstractHttpHandlerTest<GetPageInfosSer
                         id: 3
                         event: page_info
                         data: {"id":{"book":"test","name":"c"},"comment":"test comment for c","started":{"epochSecond":1604105995,"nano":0},"ended":{"epochSecond":1604106000,"nano":0},"updated":null,"removed":null}
+                    
+                        event: close
+                        data: empty data
                       
                       
                     """.trimIndent())
@@ -152,6 +158,9 @@ internal class TestGetPageInfosServlet : AbstractHttpHandlerTest<GetPageInfosSer
                         id: 2
                         event: page_info
                         data: {"id":{"book":"test","name":"b"},"comment":"test comment for b","started":{"epochSecond":1604105995,"nano":0},"ended":{"epochSecond":1604106005,"nano":0},"updated":null,"removed":null}
+                    
+                        event: close
+                        data: empty data
                       
                       
                     """.trimIndent())
@@ -181,6 +190,9 @@ internal class TestGetPageInfosServlet : AbstractHttpHandlerTest<GetPageInfosSer
                         id: 1
                         event: page_info
                         data: {"id":{"book":"test","name":"a"},"comment":"test comment for a","started":{"epochSecond":1604102395,"nano":0},"ended":{"epochSecond":1604106005,"nano":0},"updated":null,"removed":null}
+                    
+                        event: close
+                        data: empty data
                       
                       
                     """.trimIndent())
@@ -219,6 +231,9 @@ internal class TestGetPageInfosServlet : AbstractHttpHandlerTest<GetPageInfosSer
                         id: 2
                         event: page_info
                         data: {"id":{"book":"test","name":"b"},"comment":"test comment for b","started":{"epochSecond":1604102410,"nano":0},"ended":{"epochSecond":1604105990,"nano":0},"updated":null,"removed":null}
+                    
+                        event: close
+                        data: empty data
                       
                       
                     """.trimIndent())

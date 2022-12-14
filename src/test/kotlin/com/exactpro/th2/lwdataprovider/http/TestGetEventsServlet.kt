@@ -88,6 +88,9 @@ internal class TestGetEventsServlet : AbstractHttpHandlerTest<GetEventsServlet>(
                     id: 2
                     event: event
                     data: {"eventId":"test:test-scope:20201101000001000000000:b","batchId":null,"isBatched":false,"eventName":"test_event","eventType":"test","endTimestamp":{"epochSecond":1604192399,"nano":0},"startTimestamp":{"epochSecond":1604188801,"nano":0},"parentEventId":null,"successful":true,"bookId":"test","scope":"test-scope","attachedMessageIds":[],"body":[]}
+                    
+                    event: close
+                    data: empty data
 
 
                 """.trimIndent())

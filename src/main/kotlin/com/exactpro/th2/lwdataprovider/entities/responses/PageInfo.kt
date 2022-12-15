@@ -20,7 +20,7 @@ import java.time.Instant
 
 data class PageInfo(
     val id: PageId,
-    val comment: String,
+    val comment: String?,
 
     val started: Instant,
     val ended: Instant,

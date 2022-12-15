@@ -42,6 +42,7 @@ class GeneralCradleHandler(
         }
         extractor.getPageInfos(request.bookId)
             .asSequence()
+            .filter { pageInfo -> pageInfo.ended != null && pageInfo.started != null }
             .dropWhile { pageInfo -> !predicate.invoke(pageInfo) }
             .takeWhile(predicate)
             .forEach { pageInfo ->

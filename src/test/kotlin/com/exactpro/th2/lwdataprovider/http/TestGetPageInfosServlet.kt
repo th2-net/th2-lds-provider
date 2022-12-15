@@ -16,11 +16,13 @@
 
 package com.exactpro.th2.lwdataprovider.http
 
+import com.exactpro.th2.lwdataprovider.handlers.CradlePageInfo
 import com.exactpro.th2.lwdataprovider.util.createPageInfo
 import io.javalin.http.HttpStatus
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 import strikt.api.expectThat
 import strikt.assertions.first
@@ -232,6 +234,33 @@ internal class TestGetPageInfosServlet : AbstractHttpHandlerTest<GetPageInfosSer
                         event: page_info
                         data: {"id":{"book":"test","name":"b"},"comment":"test comment for b","started":{"epochSecond":1604102410,"nano":0},"ended":{"epochSecond":1604105990,"nano":0},"updated":null,"removed":null}
                     
+                        event: close
+                        data: empty data
+                      
+                      
+                    """.trimIndent())
+            }
+        }
+    }
+
+    @Test
+    fun `skip empty page`() {
+        val start = Instant.parse("2020-10-31T00:00:00Z")
+        val end = start.plus(1, ChronoUnit.HOURS)
+
+        doReturn(listOf(mock<CradlePageInfo> {  }))
+            .whenever(storage).getAllPages(any())
+        startTest { _, client ->
+            client.sse(
+                "/search/sse/page-infos" +
+                        "?startTimestamp=${start.toEpochMilli()}" +
+                        "&endTimestamp=${end.toEpochMilli()}" +
+                        "&resultCountLimit=2" +
+                        "&bookId=test"
+            ).also { response ->
+                expectThat(response.body?.bytes()?.toString(Charsets.UTF_8))
+                    .isNotNull()
+                    .isEqualTo("""
                         event: close
                         data: empty data
                       

@@ -18,6 +18,7 @@ package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.th2.lwdataprovider.EventType
 import com.exactpro.th2.lwdataprovider.KeepAliveListener
+import com.exactpro.th2.lwdataprovider.RequestedMessage
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.ResponseHandler
 import com.exactpro.th2.lwdataprovider.SseEvent
@@ -38,9 +39,10 @@ import java.util.Collections
 import java.util.EnumSet
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.atomic.AtomicLong
+import java.util.function.Supplier
 
 class HttpMessagesRequestHandler(
-    private val buffer: BlockingQueue<SseEvent>,
+    private val buffer: BlockingQueue<Supplier<SseEvent>>,
     private val builder: SseResponseBuilder,
     dataMeasurement: DataMeasurement,
     maxMessagesPerRequest: Int = 0,
@@ -63,19 +65,31 @@ class HttpMessagesRequestHandler(
 
     override fun handleNextInternal(data: RequestedMessageDetails) {
         if (!isAlive) return
-        buffer.put(builder.build({
-            MessageProducer53.createMessage(data.awaitAndGet(), jsonFormatter, includeRaw)
-        }, indexer.nextIndex()))
+        val counter = indexer.nextIndex()
+        buffer.put {
+            val requestedMessage: RequestedMessage = data.awaitAndGet()
+            if (jsonFormatter != null && requestedMessage.parsedMessage == null) {
+                SseEvent(
+                    data = "{\"message\":\"Operation hasn't done during timeout\"}",
+                    event = EventType.TIMEOUT,
+                )
+            } else {
+                builder.build(
+                    MessageProducer53.createMessage(requestedMessage, jsonFormatter, includeRaw),
+                    counter,
+                )
+            }
+        }
     }
 
     override fun complete() {
         if (!isAlive) return
-        buffer.put(SseEvent(event = EventType.CLOSE))
+        buffer.put { SseEvent(event = EventType.CLOSE) }
     }
 
     override fun writeErrorMessage(text: String) {
         if (!isAlive) return
-        buffer.put(SseEvent({ Gson().toJson(Collections.singletonMap("message", text)) }, EventType.ERROR))
+        buffer.put { SseEvent(Gson().toJson(Collections.singletonMap("message", text)), EventType.ERROR) }
     }
 
     override fun writeErrorMessage(error: Throwable) {
@@ -84,7 +98,8 @@ class HttpMessagesRequestHandler(
 
     override fun update() {
         if (!isAlive) return
-        buffer.put(builder.build(scannedObjectInfo, indexer.nextIndex()))
+        val counter = indexer.nextIndex()
+        buffer.put { builder.build(scannedObjectInfo, counter) }
     }
 }
 
@@ -94,7 +109,7 @@ class DataIndexer {
 }
 
 class HttpEventResponseHandler(
-    private val buffer: BlockingQueue<SseEvent>,
+    private val buffer: BlockingQueue<Supplier<SseEvent>>,
     private val builder: SseResponseBuilder,
 ) : AbstractCancelableHandler(), ResponseHandler<Event>, KeepAliveListener {
     private val indexer = DataIndexer()
@@ -106,12 +121,12 @@ class HttpEventResponseHandler(
 
     override fun complete() {
         if (!isAlive) return
-        buffer.put(SseEvent(event = EventType.CLOSE))
+        buffer.put { SseEvent(event = EventType.CLOSE) }
     }
 
     override fun writeErrorMessage(text: String) {
         if (!isAlive) return
-        buffer.put(SseEvent({ Gson().toJson(Collections.singletonMap("message", text)) }, EventType.ERROR))
+        buffer.put { SseEvent(Gson().toJson(Collections.singletonMap("message", text)), EventType.ERROR) }
     }
 
     override fun writeErrorMessage(error: Throwable) {
@@ -121,19 +136,20 @@ class HttpEventResponseHandler(
     override fun handleNext(data: Event) {
         if (!isAlive) return
         val index = indexer.nextIndex()
-        buffer.put(builder.build(data, index))
+        buffer.put { builder.build(data, index) }
         scannedObjectInfo.update(data.eventId, index)
     }
 
     override fun update() {
         if (!isAlive) return
-        buffer.put(builder.build(scannedObjectInfo, indexer.nextIndex()))
+        val counter = indexer.nextIndex()
+        buffer.put { builder.build(scannedObjectInfo, counter) }
     }
 }
 
 //FIXME: it is copy past as HttpEventResponseHandler
 class HttpPageInfoResponseHandler(
-    private val buffer: BlockingQueue<SseEvent>,
+    private val buffer: BlockingQueue<Supplier<SseEvent>>,
     private val builder: SseResponseBuilder,
 ) : AbstractCancelableHandler(), ResponseHandler<PageInfo>, KeepAliveListener {
     private val indexer = DataIndexer()
@@ -144,11 +160,11 @@ class HttpPageInfoResponseHandler(
         get() = scannedObjectInfo.timestamp
 
     override fun complete() {
-        buffer.put(SseEvent(event = EventType.CLOSE))
+        buffer.put { SseEvent(event = EventType.CLOSE) }
     }
 
     override fun writeErrorMessage(text: String) {
-        buffer.put(SseEvent({ Gson().toJson(Collections.singletonMap("message", text)) }, EventType.ERROR))
+        buffer.put { SseEvent(Gson().toJson(Collections.singletonMap("message", text)), EventType.ERROR) }
     }
 
     override fun writeErrorMessage(error: Throwable) {
@@ -157,11 +173,12 @@ class HttpPageInfoResponseHandler(
 
     override fun handleNext(data: PageInfo) {
         val index = indexer.nextIndex()
-        buffer.put(builder.build(data, index))
+        buffer.put { builder.build(data, index) }
         scannedObjectInfo.update(data.id.toString(), index)
     }
 
     override fun update() {
-        buffer.put(builder.build(scannedObjectInfo, indexer.nextIndex()))
+        val counter = indexer.nextIndex()
+        buffer.put { builder.build(scannedObjectInfo, counter) }
     }
 }

@@ -21,6 +21,8 @@ import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.lwdataprovider.grpc.toRawMessage
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
 class RequestedMessageDetails(
     val storedMessage: StoredMessage,
@@ -46,6 +48,13 @@ class RequestedMessageDetails(
     }
 
     fun awaitAndGet(): RequestedMessage = completed.get()
+
+    // TODO: use to get error if no response during timeout
+    fun awaitAndGet(timeout: Long, unit: TimeUnit): RequestedMessage? = try {
+        completed.get(timeout, unit)
+    } catch (ex: TimeoutException) {
+        null
+    }
 
     private fun complete() {
         completed.complete(RequestedMessage(id, storedMessage, rawMessage, parsedMessage))

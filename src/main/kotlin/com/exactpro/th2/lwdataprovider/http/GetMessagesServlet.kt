@@ -40,6 +40,7 @@ import io.javalin.openapi.OpenApiResponse
 import mu.KotlinLogging
 import java.time.Instant
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.function.Supplier
 
 private const val START_TIMESTAMP = "startTimestamp"
 
@@ -149,7 +150,7 @@ class GetMessagesServlet(
             "request was not created in before handler"
         }
 
-        val queue = ArrayBlockingQueue<SseEvent>(configuration.responseQueueSize)
+        val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
         val handler = HttpMessagesRequestHandler(queue, sseResponseBuilder, dataMeasurement, maxMessagesPerRequest = configuration.bufferPerQuery,
             responseFormats = request.responseFormats ?: configuration.responseFormats)
 //        dataMeasurement.start("messages_loading").use {

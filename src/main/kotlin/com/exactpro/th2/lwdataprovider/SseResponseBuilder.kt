@@ -28,7 +28,7 @@ class SseResponseBuilder(
     private val jacksonMapper: ObjectMapper = ObjectMapper(),
 ) {
 
-    fun build(message: () -> ResponseMessage, counter: Long): SseEvent {
+    fun build(message: ResponseMessage, counter: Long): SseEvent {
         return SseEvent.build(jacksonMapper, message, counter)
     }
 

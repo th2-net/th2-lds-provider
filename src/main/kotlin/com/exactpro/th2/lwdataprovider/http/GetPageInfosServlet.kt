@@ -36,6 +36,7 @@ import io.javalin.openapi.OpenApiResponse
 import mu.KotlinLogging
 import java.time.Instant
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.function.Supplier
 
 class GetPageInfosServlet(
     private val configuration: Configuration,
@@ -91,7 +92,7 @@ class GetPageInfosServlet(
             "request was not created in before handler"
         }
 
-        val queue = ArrayBlockingQueue<SseEvent>(configuration.responseQueueSize)
+        val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
         val reqContext = HttpPageInfoResponseHandler(queue, sseResponseBuilder)
         keepAliveHandler.addKeepAliveData(reqContext).use {
             handler.loadPageInfos(request, reqContext)

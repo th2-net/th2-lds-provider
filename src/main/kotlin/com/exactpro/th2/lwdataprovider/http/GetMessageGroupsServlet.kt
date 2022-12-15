@@ -37,6 +37,7 @@ import io.javalin.openapi.OpenApiResponse
 import mu.KotlinLogging
 import java.time.Instant
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.function.Supplier
 
 class GetMessageGroupsServlet(
     private val configuration: Configuration,
@@ -123,7 +124,7 @@ class GetMessageGroupsServlet(
         }
 
 
-        val queue = ArrayBlockingQueue<SseEvent>(configuration.responseQueueSize)
+        val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
         val handler = HttpMessagesRequestHandler(queue, sseResponseBuilder, dataMeasurement, maxMessagesPerRequest = configuration.bufferPerQuery)
 //        reqContext.startStep("messages_loading").use {
         keepAliveHandler.addKeepAliveData(handler).use {

@@ -25,22 +25,24 @@ import mu.KotlinLogging
 import org.apache.commons.lang3.StringUtils
 import java.util.concurrent.BlockingQueue
 import java.util.function.Consumer
+import java.util.function.Supplier
 
 abstract class AbstractSseRequestHandler : Consumer<SseClient>, JavalinHandler {
     
     protected fun SseClient.waitAndWrite(
-        queue: BlockingQueue<SseEvent>,
+        queue: BlockingQueue<Supplier<SseEvent>>,
     ) {
 
         var inProcess = true
         while (inProcess) {
-            val event = queue.take()
+            val supplier = queue.take()
+            val event = supplier.get()
             sendEvent(
                 event.event.typeName,
-                event.data.get(),
+                event.data,
                 event.metadata,
             )
-            K_LOGGER.debug { "Sent sse event: type ${event.event}, metadata ${event.metadata}, data ${StringUtils.abbreviate(event.data.get(), 50)}" }
+            K_LOGGER.debug { "Sent sse event: type ${event.event}, metadata ${event.metadata}, data ${StringUtils.abbreviate(event.data, 50)}" }
             if (event.event == EventType.CLOSE) {
                 close()
                 inProcess = false

@@ -19,12 +19,11 @@ package com.exactpro.th2.lwdataprovider.http
 import com.exactpro.th2.lwdataprovider.ExceptionInfo
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
+import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
-import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
-import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import io.javalin.Javalin
 import io.javalin.http.Context
 import io.javalin.openapi.HttpMethod
@@ -34,10 +33,11 @@ import io.javalin.openapi.OpenApiParam
 import io.javalin.openapi.OpenApiResponse
 import mu.KotlinLogging
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.function.Supplier
 
 class GetOneEvent(
+    private val configuration: Configuration,
     private val sseResponseBuilder: SseResponseBuilder,
-    private val keepAliveHandler: KeepAliveHandler,
     private val searchEventsHandler: SearchEventsHandler
 ) : AbstractRequestHandler() {
 
@@ -79,7 +79,7 @@ class GetOneEvent(
         ]
     )
     override fun handle(ctx: Context) {
-        val queue = ArrayBlockingQueue<SseEvent>(2)
+        val queue = ArrayBlockingQueue<Supplier<SseEvent>>(2)
         val eventId = ctx.pathParam("id")
 
         logger.info { "Received get event request ($eventId)" }

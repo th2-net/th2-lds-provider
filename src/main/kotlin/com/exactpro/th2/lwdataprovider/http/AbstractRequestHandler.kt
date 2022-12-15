@@ -24,22 +24,31 @@ import io.javalin.http.Handler
 import io.javalin.http.Header
 import io.javalin.http.HttpStatus
 import java.util.concurrent.BlockingQueue
+import java.util.function.Supplier
 
 abstract class AbstractRequestHandler : Handler, JavalinHandler {
-    protected fun Context.waitAndWrite(queue: BlockingQueue<SseEvent>) {
-        val event = queue.take()
-        status(statusFromEventType(event.event))
-            .header(Header.CACHE_CONTROL, "no-cache, no-store")
-            .contentType(ContentType.APPLICATION_JSON)
-            .result(event.data.get())
-    }
+    protected fun Context.waitAndWrite(queue: BlockingQueue<Supplier<SseEvent>>) {
+        header(Header.CACHE_CONTROL, "no-cache, no-store")
+        contentType(ContentType.APPLICATION_JSON)
 
-    private fun statusFromEventType(event: EventType): HttpStatus {
-        return if (event == EventType.ERROR) {
-            HttpStatus.NOT_FOUND
-        } else {
-            HttpStatus.OK
+        try {
+            val supplier = queue.poll()
+            val event = supplier.get()
+            status(statusFromEventType(event.event))
+                .result(event.data)
+
+        } catch (e: RuntimeException) {
+            status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .result("{\"message\":\"${e.message}\"}")
+            throw e
         }
     }
 
+    private fun statusFromEventType(event: EventType): HttpStatus {
+        return when (event) {
+            EventType.TIMEOUT -> HttpStatus.REQUEST_TIMEOUT
+            EventType.ERROR -> HttpStatus.NOT_FOUND
+            else -> HttpStatus.OK
+        }
+    }
 }

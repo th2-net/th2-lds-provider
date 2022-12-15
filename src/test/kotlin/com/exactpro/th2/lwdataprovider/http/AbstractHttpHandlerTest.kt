@@ -19,6 +19,7 @@ package com.exactpro.th2.lwdataprovider.http
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
 import com.exactpro.th2.lwdataprovider.Context
+import com.exactpro.th2.lwdataprovider.DataMeasurementImpl
 import com.exactpro.th2.lwdataprovider.Decoder
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
@@ -40,6 +41,7 @@ import io.javalin.testtools.HttpClient
 import io.javalin.testtools.JavalinTest
 import io.javalin.testtools.TestCase
 import io.javalin.testtools.TestConfig
+import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import org.mockito.kotlin.doReturn
@@ -58,9 +60,11 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler>(
     private val inPlaceExecutor = Executor { it.run() }
 
     protected val decoder: Decoder = mock { }
-    protected val configuration = Configuration(CustomConfigurationClass())
+    protected val configuration = Configuration(CustomConfigurationClass(
+        decodingTimeout = 1
+    ))
     protected val sseResponseBuilder = SseResponseBuilder(MAPPER)
-    protected val dataMeasurement: DataMeasurement = mock { }
+    protected val dataMeasurement: DataMeasurement = DataMeasurementImpl
 
     protected val keepAliveHandler = KeepAliveHandler(configuration)
 
@@ -79,7 +83,11 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler>(
         generalHandler,
         inPlaceExecutor
     )
-    fun startTest(testConfig: TestConfig = TestConfig(), testCase: TestCase) {
+    fun startTest(testConfig: TestConfig = TestConfig(
+         okHttpClient = OkHttpClient.Builder()
+             .retryOnConnectionFailure(false) // otherwise, the client does retry on timeout response
+             .build()
+    ), testCase: TestCase) {
         JavalinTest.test(
             app = Javalin.create {
                 it.jsonMapper(JavalinJackson(MAPPER))

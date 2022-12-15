@@ -40,6 +40,7 @@ import io.javalin.openapi.OpenApiResponse
 import mu.KotlinLogging
 import java.time.Instant
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.function.Supplier
 
 class GetEventsServlet(
     private val configuration: Configuration,
@@ -115,7 +116,7 @@ class GetEventsServlet(
             "request was not created in before handler"
         }
 
-        val queue = ArrayBlockingQueue<SseEvent>(configuration.responseQueueSize)
+        val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
         val reqContext = HttpEventResponseHandler(queue, sseResponseBuilder)
         keepAliveHandler.addKeepAliveData(reqContext).use {
             searchEventsHandler.loadEvents(request, reqContext)

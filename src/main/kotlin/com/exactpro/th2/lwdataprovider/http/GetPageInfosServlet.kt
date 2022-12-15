@@ -73,13 +73,12 @@ class GetPageInfosServlet(
                 ],
                 description = """page info in cradle. E.g 
                       {
-                        "book": "book1",
-                        "name": "page1",
-                        "comment": "comment 1",
-                        "started": 1669990000000,
-                        "ended": 1669990000000,
-                        "updated": 1669990000000,
-                        "removed": 1669990000000,
+                        "id": {"book":"book_name","name":"page_name"},
+                        "comment": "comment_example",
+                        "started": {"epochSecond":1668024000,"nano":0},
+                        "ended": {"epochSecond":1668024000,"nano":0},
+                        "updated": {"epochSecond":1668024000,"nano":0},
+                        "removed": {"epochSecond":1668024000,"nano":0},
                       }"""
             )
         ]

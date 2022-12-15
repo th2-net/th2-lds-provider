@@ -24,14 +24,27 @@ import io.javalin.http.Handler
 import io.javalin.http.Header
 import io.javalin.http.HttpStatus
 import java.util.concurrent.BlockingQueue
+import java.util.concurrent.TimeUnit
 
 abstract class AbstractRequestHandler : Handler, JavalinHandler {
-    protected fun Context.waitAndWrite(queue: BlockingQueue<SseEvent>) {
-        val event = queue.take()
-        status(statusFromEventType(event.event))
-            .header(Header.CACHE_CONTROL, "no-cache, no-store")
-            .contentType(ContentType.APPLICATION_JSON)
-            .result(event.data)
+    protected fun Context.waitAndWrite(queue: BlockingQueue<SseEvent>, timeout: Long, unit: TimeUnit) {
+        header(Header.CACHE_CONTROL, "no-cache, no-store")
+        contentType(ContentType.APPLICATION_JSON)
+
+        try {
+            val event = queue.poll(timeout, unit)
+            if (event == null) {
+                status(HttpStatus.REQUEST_TIMEOUT)
+                    .result("{\"message\":\"Operation hasn't done during timeout $timeout $unit\"}")
+            } else {
+                status(statusFromEventType(event.event))
+                    .result(event.data)
+            }
+        } catch (e: RuntimeException) {
+            status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .result("{\"message\":\"${e.message}\"}")
+            throw e
+        }
     }
 
     private fun statusFromEventType(event: EventType): HttpStatus {
@@ -41,5 +54,4 @@ abstract class AbstractRequestHandler : Handler, JavalinHandler {
             HttpStatus.OK
         }
     }
-
 }

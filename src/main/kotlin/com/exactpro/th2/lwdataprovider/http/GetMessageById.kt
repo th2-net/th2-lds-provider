@@ -20,11 +20,11 @@ import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.lwdataprovider.ExceptionInfo
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
+import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
-import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import io.javalin.Javalin
 import io.javalin.http.Context
 import io.javalin.http.pathParamAsClass
@@ -36,10 +36,11 @@ import io.javalin.openapi.OpenApiParam
 import io.javalin.openapi.OpenApiResponse
 import mu.KotlinLogging
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.TimeUnit
 
 class GetMessageById(
+    private val configuration: Configuration,
     private val sseResponseBuilder: SseResponseBuilder,
-    private val keepAliveHandler: KeepAliveHandler,
     private val searchMessagesHandler: SearchMessagesHandler,
     private val dataMeasurement: DataMeasurement,
 ) : AbstractRequestHandler() {
@@ -95,7 +96,6 @@ class GetMessageById(
 
 
         val handler = HttpMessagesRequestHandler(queue, sseResponseBuilder, dataMeasurement)
-        keepAliveHandler.addKeepAliveData(handler).use {
             try {
                 val newMsgId = parseMessageId(msgId)
                 logger.info { "Received message request with id $msgId (onlyRaw: $onlyRaw)" }
@@ -103,15 +103,15 @@ class GetMessageById(
                 val request = GetMessageRequest(newMsgId, onlyRaw)
 
                 searchMessagesHandler.loadOneMessage(request, handler, dataMeasurement)
-            } catch (ex: Exception) {
+
+                ctx.waitAndWrite(queue, configuration.decodingTimeout, TimeUnit.MILLISECONDS)
+            } catch (ex: Throwable) {
                 logger.error(ex) { "cannot load message $msgId" }
                 handler.writeErrorMessage(ex.message ?: ex.toString())
                 handler.complete()
+            } finally {
+                logger.info { "Processing message request finished" }
             }
-
-            ctx.waitAndWrite(queue)
-            logger.info { "Processing message request finished" }
-        }
     }
 
     private fun parseMessageId(msgId: String): StoredMessageId = try {

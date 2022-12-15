@@ -58,7 +58,9 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler>(
     private val inPlaceExecutor = Executor { it.run() }
 
     protected val decoder: Decoder = mock { }
-    protected val configuration = Configuration(CustomConfigurationClass())
+    protected val configuration = Configuration(CustomConfigurationClass(
+        decodingTimeout = 1
+    ))
     protected val sseResponseBuilder = SseResponseBuilder(MAPPER)
     protected val dataMeasurement: DataMeasurement = mock { }
 

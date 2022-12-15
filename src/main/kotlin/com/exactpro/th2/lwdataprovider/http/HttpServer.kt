@@ -64,10 +64,10 @@ class HttpServer(private val context: Context) {
             GetMessageGroupsServlet(configuration, sseResponseBuilder, keepAliveHandler,
                 searchMessagesHandler, context.dataMeasurement),
             GetMessageById(
-                sseResponseBuilder, keepAliveHandler, searchMessagesHandler,
-                context.dataMeasurement
+                configuration,
+                sseResponseBuilder, searchMessagesHandler, context.dataMeasurement
             ),
-            GetOneEvent(sseResponseBuilder, keepAliveHandler, this.context.searchEventsHandler),
+            GetOneEvent(configuration, sseResponseBuilder, this.context.searchEventsHandler),
             GetEventsServlet(configuration, sseResponseBuilder, keepAliveHandler,
                 this.context.searchEventsHandler),
             GetBookIDs(context.generalCradleHandler),

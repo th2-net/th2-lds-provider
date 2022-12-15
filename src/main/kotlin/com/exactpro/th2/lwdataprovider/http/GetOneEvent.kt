@@ -19,12 +19,11 @@ package com.exactpro.th2.lwdataprovider.http
 import com.exactpro.th2.lwdataprovider.ExceptionInfo
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
+import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
-import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
-import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import io.javalin.Javalin
 import io.javalin.http.Context
 import io.javalin.openapi.HttpMethod
@@ -34,10 +33,11 @@ import io.javalin.openapi.OpenApiParam
 import io.javalin.openapi.OpenApiResponse
 import mu.KotlinLogging
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.TimeUnit
 
 class GetOneEvent(
+    private val configuration: Configuration,
     private val sseResponseBuilder: SseResponseBuilder,
-    private val keepAliveHandler: KeepAliveHandler,
     private val searchEventsHandler: SearchEventsHandler
 ) : AbstractRequestHandler() {
 
@@ -85,21 +85,20 @@ class GetOneEvent(
         logger.info { "Received get event request ($eventId)" }
 
         val reqContext = HttpEventResponseHandler(queue, sseResponseBuilder)
-        keepAliveHandler.addKeepAliveData(reqContext).use {
             try {
                 val toEventIds = toEventIds(eventId)
                 val request = GetEventRequest(toEventIds.first, toEventIds.second)
 
                 searchEventsHandler.loadOneEvent(request, reqContext)
+
+                ctx.waitAndWrite(queue, configuration.decodingTimeout, TimeUnit.MILLISECONDS)
             } catch (ex: Exception) {
                 logger.error(ex) { "error getting event $eventId" }
                 reqContext.writeErrorMessage(ex.message ?: ex.toString())
                 reqContext.complete()
+            } finally {
+                logger.info { "Processing search sse events request finished" }
             }
-
-            ctx.waitAndWrite(queue)
-        }
-        logger.info { "Processing search sse events request finished" }
     }
 
     private fun toEventIds(evId: String): Pair<String?, String> {

@@ -38,11 +38,11 @@ class GeneralCradleHandler(
     ) {
 //        WHERE T.start <= R.end AND T.end >= Q.start
         val predicate: (CradlePageInfo) -> Boolean = {
-                pageInfo -> pageInfo.started <= request.endTimestamp && pageInfo.ended >= request.startTimestamp
+                pageInfo -> pageInfo.started <= request.endTimestamp && ( pageInfo.ended == null || pageInfo.ended >= request.startTimestamp)
         }
         extractor.getPageInfos(request.bookId)
             .asSequence()
-            .filter { pageInfo -> pageInfo.ended != null && pageInfo.started != null }
+            .filter { pageInfo -> pageInfo.started != null }
             .dropWhile { pageInfo -> !predicate.invoke(pageInfo) }
             .takeWhile(predicate)
             .forEach { pageInfo ->

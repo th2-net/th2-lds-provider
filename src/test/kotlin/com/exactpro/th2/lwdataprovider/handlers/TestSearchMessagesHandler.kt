@@ -20,7 +20,6 @@ import com.exactpro.cradle.BookId
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
 import com.exactpro.cradle.Direction
-import com.exactpro.cradle.TimeRelation
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.grpc.MessageGroupBatch
@@ -48,7 +47,6 @@ import com.exactpro.th2.lwdataprovider.util.ListCradleResult
 import com.exactpro.th2.lwdataprovider.util.createBatches
 import com.exactpro.th2.lwdataprovider.util.createCradleStoredMessage
 import com.exactpro.th2.lwdataprovider.util.validateMessagesOrder
-import mu.KotlinLogging
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -77,7 +75,7 @@ import strikt.assertions.single
 import strikt.assertions.withElementAt
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import java.util.Queue
+import java.util.*
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
@@ -386,8 +384,8 @@ internal class TestSearchMessagesHandler {
 
         val captor = argumentCaptor<RequestedMessageDetails>()
         verify(handler, atMost(messagesCount)).handleNext(captor.capture())
-        verify(handler, never()).writeErrorMessage(any<String>())
-        verify(handler, never()).writeErrorMessage(any<Throwable>())
+        verify(handler, never()).writeErrorMessage(any<String>(), any(), any())
+        verify(handler, never()).writeErrorMessage(any<Throwable>(), any(), any())
         val messages: List<RequestedMessageDetails> = captor.allValues
         Assertions.assertEquals(messagesCount, messages.size) {
             val missing: List<StoredMessage> = (firstBatches.asSequence() + lastBatches.asSequence()).flatMap { it.messages }.filter { stored ->
@@ -436,10 +434,6 @@ internal class TestSearchMessagesHandler {
         resumeFromIdsList = null,
         bookId = BookId("test"),
     )
-
-    companion object {
-        private val LOGGER = KotlinLogging.logger { }
-    }
 }
 
 private open class TestDecoder : Decoder {
@@ -463,9 +457,9 @@ private open class MessageResponseHandlerTestImpl(
     override fun complete() {
     }
 
-    override fun writeErrorMessage(text: String) {
+    override fun writeErrorMessage(text: String, id: String?, batchId: String?) {
     }
 
-    override fun writeErrorMessage(error: Throwable) {
+    override fun writeErrorMessage(error: Throwable, id: String?, batchId: String?) {
     }
 }

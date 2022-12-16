@@ -19,7 +19,6 @@ package com.exactpro.th2.lwdataprovider.db
 import com.exactpro.cradle.BookId
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
-import com.exactpro.cradle.TimeRelation
 import com.exactpro.cradle.testevents.StoredTestEventBatch
 import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.cradle.testevents.TestEventToStore
@@ -37,6 +36,7 @@ import org.mockito.kotlin.argThat
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.eq
+import org.mockito.kotlin.isNull
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.times
@@ -107,17 +107,14 @@ internal class TestCradleEventExtractor {
         val start = Instant.parse("2022-11-14T00:00:00Z")
         val end = Instant.parse("2022-11-15T23:59:59.999999999Z")
         val middle = end.minus(1, ChronoUnit.DAYS)
+
         val firstToStore = createEventStoredEvent(eventId = "first", start, middle)
-        doReturn(
-            ListCradleResult(arrayListOf(firstToStore.toStoredEvent()))
-        ).whenever(storage).getTestEvents(argThat {
-            startTimestampFrom.value == start && startTimestampTo.value == middle
-        })
         val secondToStore = createEventStoredEvent(eventId = "second", middle, end)
+
         doReturn(
-            ListCradleResult(arrayListOf(secondToStore.toStoredEvent()))
+            ListCradleResult(arrayListOf(firstToStore.toStoredEvent(), secondToStore.toStoredEvent()))
         ).whenever(storage).getTestEvents(argThat {
-            startTimestampFrom.value == start.plus(1, ChronoUnit.DAYS) && startTimestampTo.value == end
+            startTimestampFrom.value == start && startTimestampTo.value == end
         })
 
         val sink: EventDataSink<Event> = mock { }
@@ -178,7 +175,11 @@ internal class TestCradleEventExtractor {
         extractor.getSingleEvents(GetEventRequest(null, createEventId("test", timestamp = Instant.ofEpochSecond(1)).toString()), sink)
         val event = argumentCaptor<Event>()
         verify(sink, never()).onNext(event.capture())
-        verify(sink).onError(eq("Event is not found with id: 'test:test-scope:19700101000001000000000:test'"))
+        verify(sink).onError(
+            eq("Event is not found with id: 'test:test-scope:19700101000001000000000:test'"),
+            eq("test:test-scope:19700101000001000000000:test"),
+            isNull()
+        )
     }
 
     private fun Assertion.Builder<Event>.isEqualTo(toStore: TestEventToStore, batchId: StoredTestEventId? = null) {

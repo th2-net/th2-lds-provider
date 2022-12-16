@@ -32,11 +32,13 @@ class GrpcHandler<IN>(
         buffer.put(GrpcEvent(close = true))
     }
 
-    override fun writeErrorMessage(text: String) {
+    //TODO: use ids
+    override fun writeErrorMessage(text: String, id: String?, batchId: String?) {
         writeErrorMessage(HandleDataException(text))
     }
 
-    override fun writeErrorMessage(error: Throwable) {
+    //TODO: use ids
+    override fun writeErrorMessage(error: Throwable, id: String?, batchId: String?) {
         if (!isAlive) return
         buffer.put(GrpcEvent(error = error))
     }

@@ -103,7 +103,8 @@ private class EventQueueDataSink(
         }
     }
 
-    override fun onError(message: String) {
+    override fun onError(message: String, id: String?, batchId: String?) {
+        handler.writeErrorMessage(message, id, batchId)
         handler.complete()
     }
 

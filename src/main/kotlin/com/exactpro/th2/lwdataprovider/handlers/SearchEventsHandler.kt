@@ -54,7 +54,7 @@ class SearchEventsHandler(
                     cradle.getSingleEvents(request, it)
                 } catch (e: Exception) {
                     logger.error(e) { "error during loading singe event $request" }
-                    it.onError(e)
+                    it.onError(e, request.eventId, request.batchId)
                 }
             }
         }

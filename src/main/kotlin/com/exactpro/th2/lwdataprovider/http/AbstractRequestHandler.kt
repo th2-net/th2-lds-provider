@@ -27,7 +27,10 @@ import java.util.concurrent.BlockingQueue
 import java.util.function.Supplier
 
 abstract class AbstractRequestHandler : Handler, JavalinHandler {
-    protected fun Context.waitAndWrite(queue: BlockingQueue<Supplier<SseEvent>>) {
+    protected fun Context.waitAndWrite(
+        queue: BlockingQueue<Supplier<SseEvent>>,
+        failureResult: (message: String) -> String,
+    ) {
         header(Header.CACHE_CONTROL, "no-cache, no-store")
         contentType(ContentType.APPLICATION_JSON)
 
@@ -39,7 +42,7 @@ abstract class AbstractRequestHandler : Handler, JavalinHandler {
 
         } catch (e: RuntimeException) {
             status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .result("{\"message\":\"${e.message}\"}")
+                .result(failureResult("${e.javaClass.simpleName}: ${e.message}"))
             throw e
         }
     }

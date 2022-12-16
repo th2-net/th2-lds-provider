@@ -28,8 +28,9 @@ interface MessageDataSink<M, T> : BaseDataSink {
 
 interface BaseDataSink : AutoCloseable {
     val canceled: CancellationReason?
-    fun onError(message: String)
-    fun onError(ex: Exception): Unit = onError(ex.message ?: ex.toString())
+    fun onError(message: String, id: String? = null, batchId: String? = null)
+    fun onError(ex: Exception, id: String? = null, batchId: String? = null): Unit =
+        onError(ex.message ?: ex.toString(), id, batchId)
     fun completed()
     override fun close() = completed()
 }

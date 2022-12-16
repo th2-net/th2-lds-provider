@@ -127,7 +127,8 @@ private class GenericGrpcResponseHandler<IN, OUT>(
         responseObserver.onCompleted()
     }
 
-    override fun writeErrorMessage(text: String) {
+    //TODO: use ids
+    override fun writeErrorMessage(text: String, id: String?, batchId: String?) {
         responseObserver.onError(Status.INTERNAL.withDescription(text).asRuntimeException())
         hasError = true
     }

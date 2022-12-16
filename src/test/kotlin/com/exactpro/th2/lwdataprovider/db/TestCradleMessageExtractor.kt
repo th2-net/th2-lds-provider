@@ -32,7 +32,6 @@ import com.exactpro.th2.lwdataprovider.util.ListCradleResult
 import com.exactpro.th2.lwdataprovider.util.createBatches
 import com.exactpro.th2.lwdataprovider.util.createCradleStoredMessage
 import com.exactpro.th2.lwdataprovider.util.validateOrder
-import mu.KotlinLogging
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -276,16 +275,12 @@ internal class TestCradleMessageExtractor {
         )
 
         verify(sink, atMost(messagesCount.toInt())).onNext(any(), any<Collection<StoredMessage>>())
-        verify(sink, never()).onError(any<String>())
+        verify(sink, never()).onError(any<String>(), any(), any())
         val messages = sink.messages
         Assertions.assertEquals(messagesCount.toInt(), messages.size) {
             "Unexpected messages count: $messages"
         }
         validateOrder(messages, messagesCount.toInt())
-    }
-
-    companion object {
-        private val LOGGER = KotlinLogging.logger { }
     }
 }
 
@@ -294,7 +289,7 @@ private open class StoredMessageDataSink : MessageDataSink<String, StoredMessage
     override val canceled: CancellationReason?
         get() = null
 
-    override fun onError(message: String) {
+    override fun onError(message: String, id: String?, batchId: String?) {
     }
 
     override fun completed() {

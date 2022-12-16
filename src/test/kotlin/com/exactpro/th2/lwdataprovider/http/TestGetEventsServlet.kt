@@ -63,14 +63,9 @@ internal class TestGetEventsServlet : AbstractHttpHandlerTest<GetEventsServlet>(
             end = end,
         )
         doReturn(
-            ImmutableListCradleResult(listOf(first.toStoredEvent()))
+            ImmutableListCradleResult(listOf(first.toStoredEvent(), second.toStoredEvent()))
         ).whenever(storage).getTestEvents(argThat {
-            startTimestampFrom.value == start && startTimestampTo.value == middleA
-        })
-        doReturn(
-            ImmutableListCradleResult(listOf(second.toStoredEvent()))
-        ).whenever(storage).getTestEvents(argThat {
-            startTimestampFrom.value == middleB && startTimestampTo.value == end
+            startTimestampFrom.value == start && startTimestampTo.value == end
         })
         startTest { _, client ->
             val response = client.sse(

@@ -187,8 +187,8 @@ private class QueueMessageDataSink(
     override val canceled: CancellationReason?
         get() = if (handler.isAlive) null else CancellationReason("user request is canceled")
 
-    override fun onError(message: String) {
-        handler.writeErrorMessage(message)
+    override fun onError(message: String, id: String?, batchId: String?) {
+        handler.writeErrorMessage(message, id, batchId)
     }
 
     override fun completed() {

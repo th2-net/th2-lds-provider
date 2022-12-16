@@ -17,7 +17,6 @@
 package com.exactpro.th2.lwdataprovider.grpc
 
 import com.exactpro.cradle.BookId
-import com.exactpro.cradle.BookInfo
 import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageID
@@ -48,7 +47,6 @@ import com.exactpro.th2.lwdataprovider.handlers.GeneralCradleHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import com.exactpro.th2.lwdataprovider.toCradle
-import com.exactpro.th2.lwdataprovider.toGrpc
 import io.grpc.Status
 import io.grpc.stub.StreamObserver
 import mu.KotlinLogging

@@ -28,8 +28,9 @@ interface ResponseHandler<T> : BasicResponseHandler {
 interface BasicResponseHandler {
     val isAlive: Boolean
     fun complete()
-    fun writeErrorMessage(text: String)
-    fun writeErrorMessage(error: Throwable) = writeErrorMessage(ExceptionUtils.getMessage(error))
+    fun writeErrorMessage(text: String, id: String? = null, batchId: String? = null)
+    fun writeErrorMessage(error: Throwable, id: String? = null, batchId: String? = null)
+        = writeErrorMessage(ExceptionUtils.getMessage(error), id, batchId)
 }
 
 interface CancelableResponseHandler : BasicResponseHandler {

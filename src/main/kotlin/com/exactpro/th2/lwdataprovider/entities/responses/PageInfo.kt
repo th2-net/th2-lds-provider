@@ -23,7 +23,7 @@ data class PageInfo(
     val comment: String?,
 
     val started: Instant,
-    val ended: Instant,
+    val ended: Instant?,
 
     val updated: Instant?,
     val removed: Instant?

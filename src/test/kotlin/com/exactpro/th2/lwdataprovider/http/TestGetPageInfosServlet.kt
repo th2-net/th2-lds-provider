@@ -16,7 +16,9 @@
 
 package com.exactpro.th2.lwdataprovider.http
 
-import com.exactpro.th2.lwdataprovider.handlers.CradlePageInfo
+import com.exactpro.cradle.BookId
+import com.exactpro.cradle.PageId
+import com.exactpro.cradle.PageInfo
 import com.exactpro.th2.lwdataprovider.util.createPageInfo
 import io.javalin.http.HttpStatus
 import org.junit.jupiter.api.Test
@@ -248,8 +250,10 @@ internal class TestGetPageInfosServlet : AbstractHttpHandlerTest<GetPageInfosSer
         val start = Instant.parse("2020-10-31T00:00:00Z")
         val end = start.plus(1, ChronoUnit.HOURS)
 
-        doReturn(listOf(mock<CradlePageInfo> {  }))
-            .whenever(storage).getAllPages(any())
+        doReturn(listOf(
+            mock { },
+            PageInfo(PageId(BookId("book"), "page"), end, null, null, null, null),
+        )).whenever(storage).getAllPages(any())
         startTest { _, client ->
             client.sse(
                 "/search/sse/page-infos" +
@@ -261,6 +265,10 @@ internal class TestGetPageInfosServlet : AbstractHttpHandlerTest<GetPageInfosSer
                 expectThat(response.body?.bytes()?.toString(Charsets.UTF_8))
                     .isNotNull()
                     .isEqualTo("""
+                        id: 1
+                        event: page_info
+                        data: {"id":{"book":"book","name":"page"},"comment":null,"started":{"epochSecond":1604106000,"nano":0},"ended":null,"updated":null,"removed":null}
+                        
                         event: close
                         data: empty data
                       

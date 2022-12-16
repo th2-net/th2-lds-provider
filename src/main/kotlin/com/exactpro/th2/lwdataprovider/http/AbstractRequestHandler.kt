@@ -27,7 +27,12 @@ import java.util.concurrent.BlockingQueue
 import java.util.concurrent.TimeUnit
 
 abstract class AbstractRequestHandler : Handler, JavalinHandler {
-    protected fun Context.waitAndWrite(queue: BlockingQueue<SseEvent>, timeout: Long, unit: TimeUnit) {
+    protected fun Context.waitAndWrite(
+        queue: BlockingQueue<SseEvent>,
+        timeout: Long,
+        unit: TimeUnit,
+        failureResult: (message: String) -> String
+    ) {
         header(Header.CACHE_CONTROL, "no-cache, no-store")
         contentType(ContentType.APPLICATION_JSON)
 
@@ -35,14 +40,14 @@ abstract class AbstractRequestHandler : Handler, JavalinHandler {
             val event = queue.poll(timeout, unit)
             if (event == null) {
                 status(HttpStatus.REQUEST_TIMEOUT)
-                    .result("{\"message\":\"Operation hasn't done during timeout $timeout $unit\"}")
+                    .result(failureResult("Operation hasn't done during timeout $timeout $unit"))
             } else {
                 status(statusFromEventType(event.event))
                     .result(event.data)
             }
         } catch (e: RuntimeException) {
             status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .result("{\"message\":\"${e.message}\"}")
+                .result(failureResult("${e.javaClass.simpleName}: ${e.message}"))
             throw e
         }
     }

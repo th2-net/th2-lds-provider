@@ -17,6 +17,7 @@
 package com.exactpro.th2.lwdataprovider.entities.requests
 
 import com.exactpro.th2.common.grpc.EventID
+import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 
 
 data class GetEventRequest(
@@ -34,6 +35,18 @@ data class GetEventRequest(
             } else {
                 GetEventRequest(null, id)
             }
+        }
+
+        fun fromString(evId: String): GetEventRequest {
+            if (!evId.contains('/') && !evId.contains('?')) {
+                val split = evId.split(ProviderEventId.DIVIDER)
+                if (split.size == 2) {
+                    return GetEventRequest(split[0], split[1])
+                } else if (split.size == 1) {
+                    return GetEventRequest(null, split[0])
+                }
+            }
+            throw IllegalArgumentException("Invalid event id: $evId")
         }
 
     }

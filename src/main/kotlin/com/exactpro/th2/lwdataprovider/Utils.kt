@@ -16,24 +16,31 @@
 
 package com.exactpro.th2.lwdataprovider
 
-import com.exactpro.cradle.BookInfo
-import com.exactpro.cradle.Direction
+import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.dataprovider.lw.grpc.BookId
+import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
+import com.google.gson.Gson
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.util.*
 
-fun cradleDirectionToGrpc(direction: Direction): com.exactpro.th2.common.grpc.Direction {
-    return if (direction == Direction.FIRST)
-        com.exactpro.th2.common.grpc.Direction.FIRST
-    else
-        com.exactpro.th2.common.grpc.Direction.SECOND
-}
-
-fun grpcDirectionToCradle(direction: com.exactpro.th2.common.grpc.Direction): Direction {
-    return if (direction == com.exactpro.th2.common.grpc.Direction.FIRST)
-        Direction.FIRST
-    else
-        Direction.SECOND
-}
+@Suppress("SpellCheckingInspection")
+val LOG_TIMESTAMP_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSSSSSSSS").withZone(ZoneOffset.UTC)
 
 fun BookId.toCradle(): com.exactpro.cradle.BookId = com.exactpro.cradle.BookId(name)
 
-fun BookInfo.toGrpc(): BookId = BookId.newBuilder().setName(fullName).build()
+fun failureReason(batchId: String? = null, id: String? = null, error: String): String = Gson().toJson(
+    mapOf(
+        "batchId" to batchId,
+        "id" to id,
+        "error" to error,
+    )
+)
+
+fun StoredMessageId.toReportId() = "${bookId.name}:$sessionAlias:${direction.label}:${LOG_TIMESTAMP_FORMAT.format(timestamp)}:$sequence"
+fun GetEventRequest.failureReason(error: String): String = failureReason(batchId, eventId, error)
+fun StoredMessageId.failureReason(error: String): String = failureReason(
+    null,
+    toReportId(),
+    error
+)

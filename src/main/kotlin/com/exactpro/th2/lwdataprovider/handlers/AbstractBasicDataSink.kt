@@ -39,13 +39,13 @@ abstract class AbstractBasicDataSink(
             else -> error?.let { CancellationReason("error $it") }
         }
 
-    override fun onError(ex: Exception) {
-        onError(ex.message ?: ex.toString())
+    override fun onError(ex: Exception, id: String?, batchId: String?) {
+        onError(ex.message ?: ex.toString(), id, batchId)
     }
 
-    override fun onError(message: String) {
+    override fun onError(message: String, id: String?, batchId: String?) {
         error = message
-        handler.writeErrorMessage(message)
+        handler.writeErrorMessage(message, id, batchId)
         handler.complete()
     }
 }

@@ -17,7 +17,6 @@
 package com.exactpro.th2.lwdataprovider.db
 
 import com.exactpro.cradle.BookId
-import com.exactpro.cradle.BookInfo
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
 import com.exactpro.cradle.TimeRelation
@@ -31,6 +30,7 @@ import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.resultset.CradleResultSet
 import com.exactpro.th2.lwdataprovider.db.util.getGenericWithSyncInterval
 import com.exactpro.th2.lwdataprovider.handlers.util.BookGroup
+import com.exactpro.th2.lwdataprovider.toReportId
 import mu.KotlinLogging
 import java.time.Duration
 import java.time.Instant
@@ -217,7 +217,7 @@ class CradleMessageExtractor(
             val message = measurement.start("cradle_message").use { storage.getMessage(msgId) }
 
             if (message == null) {
-                sink.onError("Message with id $msgId not found")
+                sink.onError("Message with id $msgId not found", msgId.toReportId())
                 return
             }
 
@@ -281,19 +281,6 @@ class CradleMessageExtractor(
         return StoredMessageIterator(messages.iterator(), dataMeasurement)
     }
 
-}
-
-private class BatchToMessageSinkAdapter(
-    private val sink: MessageDataSink<String, StoredMessage>,
-    private val preFilter: (String, StoredMessage) -> Boolean = { _, _ -> true },
-) : MessageDataSink<String, StoredGroupedMessageBatch>, BaseDataSink by sink {
-    override fun onNext(marker: String, data: StoredGroupedMessageBatch) {
-        for (message in data.messages) {
-            if (preFilter(marker, message)) {
-                sink.onNext(marker, message)
-            }
-        }
-    }
 }
 
 private class StoredMessageIterator<T>(

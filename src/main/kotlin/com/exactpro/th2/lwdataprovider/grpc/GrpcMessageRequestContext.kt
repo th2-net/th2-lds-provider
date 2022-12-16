@@ -40,16 +40,18 @@ class GrpcMessageResponseHandler(
 
     override fun complete() {
         if (!isAlive) return
-        val grpcPointers = MessageStreamPointers.newBuilder().addAllMessageStreamPointer(streamInfo.toGrpc());
+        val grpcPointers = MessageStreamPointers.newBuilder().addAllMessageStreamPointer(streamInfo.toGrpc())
         buffer.put(GrpcEvent(message = MessageSearchResponse.newBuilder().setMessageStreamPointers(grpcPointers).build()))
         buffer.put(GrpcEvent(close = true))
     }
 
-    override fun writeErrorMessage(text: String) {
+    //TODO: use ids
+    override fun writeErrorMessage(text: String, id: String?, batchId: String?) {
         writeErrorMessage(HandleDataException(text))
     }
 
-    override fun writeErrorMessage(error: Throwable) {
+    //TODO: use ids
+    override fun writeErrorMessage(error: Throwable, id: String?, batchId: String?) {
         buffer.put(GrpcEvent(error = error))
     }
 

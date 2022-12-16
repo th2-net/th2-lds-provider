@@ -20,9 +20,9 @@ import com.exactpro.th2.lwdataprovider.ExceptionInfo
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
-import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
+import com.exactpro.th2.lwdataprovider.failureReason
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import io.javalin.Javalin
 import io.javalin.http.Context
@@ -86,12 +86,12 @@ class GetOneEvent(
 
         val reqContext = HttpEventResponseHandler(queue, sseResponseBuilder)
             try {
-                val toEventIds = toEventIds(eventId)
-                val request = GetEventRequest(toEventIds.first, toEventIds.second)
-
+                val request = GetEventRequest.fromString(eventId)
                 searchEventsHandler.loadOneEvent(request, reqContext)
 
-                ctx.waitAndWrite(queue, configuration.decodingTimeout, TimeUnit.MILLISECONDS)
+                ctx.waitAndWrite(queue, configuration.decodingTimeout, TimeUnit.MILLISECONDS) {
+                    request.failureReason(it)
+                }
             } catch (ex: Exception) {
                 logger.error(ex) { "error getting event $eventId" }
                 reqContext.writeErrorMessage(ex.message ?: ex.toString())
@@ -99,18 +99,6 @@ class GetOneEvent(
             } finally {
                 logger.info { "Processing search sse events request finished" }
             }
-    }
-
-    private fun toEventIds(evId: String): Pair<String?, String> {
-        if (!evId.contains('/') && !evId.contains('?')) {
-            val split = evId.split(ProviderEventId.DIVIDER)
-            if (split.size == 2) {
-                return split[0] to split[1]
-            } else if (split.size == 1) {
-                return null to split[0]
-            }
-        }
-        throw IllegalArgumentException("Invalid event id: $evId")
     }
 
 }

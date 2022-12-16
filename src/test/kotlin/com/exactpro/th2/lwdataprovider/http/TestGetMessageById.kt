@@ -45,7 +45,7 @@ internal class TestGetMessageById : AbstractHttpHandlerTest<GetMessageById>() {
             ).also { response ->
                 expectThat(response.body?.bytes()?.toString(Charsets.UTF_8))
                     .isNotNull()
-                    .isEqualTo("{\"message\":\"Message with id test:sessionAlias:2:20201031010203123456789:1 not found\"}")
+                    .isEqualTo("{\"id\":\"test:sessionAlias:2:20201031010203123456789:1\",\"error\":\"Message with id test:sessionAlias:2:20201031010203123456789:1 not found\"}")
             }
         }
     }
@@ -68,7 +68,7 @@ internal class TestGetMessageById : AbstractHttpHandlerTest<GetMessageById>() {
             ).also { response ->
                 expectThat(response.body?.bytes()?.toString(Charsets.UTF_8))
                     .isNotNull()
-                    .isEqualTo("{\"message\":\"Operation hasn't done during timeout ${configuration.decodingTimeout} MILLISECONDS\"}")
+                    .isEqualTo("{\"id\":\"test:test:2:20201031010203123456789:1\",\"error\":\"Operation hasn\\u0027t done during timeout ${configuration.decodingTimeout} MILLISECONDS\"}")
             }
         }
     }

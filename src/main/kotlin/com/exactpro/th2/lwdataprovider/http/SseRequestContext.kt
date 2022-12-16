@@ -27,15 +27,14 @@ import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.exactpro.th2.lwdataprovider.entities.responses.PageInfo
+import com.exactpro.th2.lwdataprovider.failureReason
 import com.exactpro.th2.lwdataprovider.handlers.AbstractCancelableHandler
 import com.exactpro.th2.lwdataprovider.handlers.MessageResponseHandler
 import com.exactpro.th2.lwdataprovider.producers.JsonFormatter
 import com.exactpro.th2.lwdataprovider.producers.MessageProducer53
 import com.exactpro.th2.lwdataprovider.producers.ParsedFormats
-import com.google.gson.Gson
 import org.apache.commons.lang3.exception.ExceptionUtils
-import java.util.Collections
-import java.util.EnumSet
+import java.util.*
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.atomic.AtomicLong
 
@@ -70,12 +69,12 @@ class HttpMessagesRequestHandler(
         buffer.put(SseEvent(event = EventType.CLOSE))
     }
 
-    override fun writeErrorMessage(text: String) {
-        buffer.put(SseEvent(Gson().toJson(Collections.singletonMap("message", text)), EventType.ERROR))
+    override fun writeErrorMessage(text: String, id: String?, batchId: String?) {
+        buffer.put(SseEvent(failureReason(batchId, id, text), EventType.ERROR))
     }
 
-    override fun writeErrorMessage(error: Throwable) {
-        writeErrorMessage(ExceptionUtils.getMessage(error))
+    override fun writeErrorMessage(error: Throwable, id: String?, batchId: String?) {
+        writeErrorMessage(ExceptionUtils.getMessage(error), id, batchId)
     }
 
     override fun update() {
@@ -103,12 +102,12 @@ class HttpEventResponseHandler(
         buffer.put(SseEvent(event = EventType.CLOSE))
     }
 
-    override fun writeErrorMessage(text: String) {
-        buffer.put(SseEvent(Gson().toJson(Collections.singletonMap("message", text)), EventType.ERROR))
+    override fun writeErrorMessage(text: String, id: String?, batchId: String?) {
+        buffer.put(SseEvent(failureReason(batchId, id, text), EventType.ERROR))
     }
 
-    override fun writeErrorMessage(error: Throwable) {
-        writeErrorMessage(ExceptionUtils.getMessage(error))
+    override fun writeErrorMessage(error: Throwable, id: String?, batchId: String?) {
+        writeErrorMessage(ExceptionUtils.getMessage(error), id, batchId)
     }
 
     override fun handleNext(data: Event) {
@@ -138,12 +137,12 @@ class HttpPageInfoResponseHandler(
         buffer.put(SseEvent(event = EventType.CLOSE))
     }
 
-    override fun writeErrorMessage(text: String) {
-        buffer.put(SseEvent(Gson().toJson(Collections.singletonMap("message", text)), EventType.ERROR))
+    override fun writeErrorMessage(text: String, id: String?, batchId: String?) {
+        buffer.put(SseEvent(failureReason(batchId, id, text), EventType.ERROR))
     }
 
-    override fun writeErrorMessage(error: Throwable) {
-        writeErrorMessage(ExceptionUtils.getMessage(error))
+    override fun writeErrorMessage(error: Throwable, id: String?, batchId: String?) {
+        writeErrorMessage(ExceptionUtils.getMessage(error), id, batchId)
     }
 
     override fun handleNext(data: PageInfo) {

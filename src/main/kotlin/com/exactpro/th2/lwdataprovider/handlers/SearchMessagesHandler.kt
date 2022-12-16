@@ -17,7 +17,6 @@
 package com.exactpro.th2.lwdataprovider.handlers
 
 import com.exactpro.cradle.BookId
-import com.exactpro.cradle.BookInfo
 import com.exactpro.cradle.Direction
 import com.exactpro.cradle.Order
 import com.exactpro.cradle.messages.GroupedMessageFilter
@@ -42,6 +41,7 @@ import com.exactpro.th2.lwdataprovider.handlers.util.BookGroup
 import com.exactpro.th2.lwdataprovider.handlers.util.GroupParametersHolder
 import com.exactpro.th2.lwdataprovider.handlers.util.computeNewParametersForGroupRequest
 import com.exactpro.th2.lwdataprovider.handlers.util.modifyFilterBuilderTimestamps
+import com.exactpro.th2.lwdataprovider.toReportId
 import mu.KotlinLogging
 import java.time.Instant
 import java.util.concurrent.Executor
@@ -62,7 +62,7 @@ class SearchMessagesHandler(
 
     fun extractStreamNames(bookId: BookId): Collection<String> {
         logger.info { "Getting stream names" }
-        return cradleMsgExtractor.getStreams(bookId);
+        return cradleMsgExtractor.getStreams(bookId)
     }
 
     fun loadMessages(request: SseMessageSearchRequest, requestContext: MessageResponseHandler, dataMeasurement: DataMeasurement) {
@@ -106,7 +106,6 @@ class SearchMessagesHandler(
                             logger.info { "request canceled: $message" }
                             return@use
                         }
-                        val lastTimestamp = checkNotNull(request.endTimestamp) { "end timestamp is null" }
                         val order = orderFrom(request)
                         val allLoaded = hashSetOf<Stream>()
                         do {
@@ -133,10 +132,10 @@ class SearchMessagesHandler(
                 }
             ).use { sink ->
                 try {
-                    cradleMsgExtractor.getMessage(request.msgId, sink, dataMeasurement);
+                    cradleMsgExtractor.getMessage(request.msgId, sink, dataMeasurement)
                 } catch (e: Exception) {
                     logger.error(e) { "error getting messages" }
-                    sink.onError(e)
+                    sink.onError(e, request.msgId.toReportId())
                 }
             }
         }
@@ -441,12 +440,12 @@ private class ParsedStoredMessageHandler(
         processBatch(details)
     }
 
-    override fun writeErrorMessage(text: String) {
-        handler.writeErrorMessage(text)
+    override fun writeErrorMessage(text: String, id: String?, batchId: String?) {
+        handler.writeErrorMessage(text, id, batchId)
     }
 
-    override fun writeErrorMessage(error: Throwable) {
-        handler.writeErrorMessage(error)
+    override fun writeErrorMessage(error: Throwable, id: String?, batchId: String?) {
+        handler.writeErrorMessage(error, id, batchId)
     }
 
     override fun handleNext(data: StoredMessage) {
@@ -481,12 +480,12 @@ private class RawStoredMessageHandler(
     override fun complete() {
     }
 
-    override fun writeErrorMessage(text: String) {
-        handler.writeErrorMessage(text)
+    override fun writeErrorMessage(text: String, id: String?, batchId: String?) {
+        handler.writeErrorMessage(text, id, batchId)
     }
 
-    override fun writeErrorMessage(error: Throwable) {
-        handler.writeErrorMessage(error)
+    override fun writeErrorMessage(error: Throwable, id: String?, batchId: String?) {
+        handler.writeErrorMessage(error, id, batchId)
     }
 
     override fun handleNext(data: StoredMessage) {

@@ -24,6 +24,7 @@ import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
+import com.exactpro.th2.lwdataprovider.failureReason
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import io.javalin.Javalin
 import io.javalin.http.Context
@@ -104,7 +105,9 @@ class GetMessageById(
 
                 searchMessagesHandler.loadOneMessage(request, handler, dataMeasurement)
 
-                ctx.waitAndWrite(queue, configuration.decodingTimeout, TimeUnit.MILLISECONDS)
+                ctx.waitAndWrite(queue, configuration.decodingTimeout, TimeUnit.MILLISECONDS) {
+                    newMsgId.failureReason(it)
+                }
             } catch (ex: Throwable) {
                 logger.error(ex) { "cannot load message $msgId" }
                 handler.writeErrorMessage(ex.message ?: ex.toString())

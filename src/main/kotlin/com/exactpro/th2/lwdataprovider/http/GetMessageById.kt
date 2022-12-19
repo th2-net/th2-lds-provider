@@ -99,8 +99,7 @@ class GetMessageById(
 
 
         val handler = HttpMessagesRequestHandler(queue, sseResponseBuilder, dataMeasurement,
-            responseFormats = if (onlyRaw) EnumSet.of(ResponseFormat.BASE_64) else configuration.responseFormats)
-        try {
+        responseFormats = if (onlyRaw) EnumSet.of(ResponseFormat.BASE_64) else configuration.responseFormats)try {
             val newMsgId = parseMessageId(msgId)
             logger.info { "Received message request with id $msgId (onlyRaw: $onlyRaw)" }
 
@@ -108,8 +107,10 @@ class GetMessageById(
 
             searchMessagesHandler.loadOneMessage(request, handler, dataMeasurement)
 
-            ctx.waitAndWrite(queue) { newMsgId.failureReason(it) }
-        } catch (ex: Exception) {
+            ctx.waitAndWrite(queue) {
+                newMsgId.failureReason(it)}
+            }
+         catch (ex: Exception) {
             logger.error(ex) { "cannot load message $msgId" }
             handler.writeErrorMessage(ex.message ?: ex.toString())
             handler.complete()

@@ -89,9 +89,7 @@ class GetOneEvent(
             val request = GetEventRequest.fromString(eventId)
             searchEventsHandler.loadOneEvent(request, reqContext)
 
-            ctx.waitAndWrite(queue) {
-                request.failureReason(it)
-            }
+            ctx.waitAndWrite(queue) { request.failureReason(it) }
         } catch (ex: Exception) {
             logger.error(ex) { "error getting event $eventId" }
             reqContext.writeErrorMessage(ex.message ?: ex.toString())

@@ -17,18 +17,11 @@
 package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.cradle.Direction
-import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.util.createCradleStoredMessage
 import org.junit.jupiter.api.Test
-import org.mockito.kotlin.any
-import org.mockito.kotlin.argumentCaptor
-import org.mockito.kotlin.doAnswer
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.eq
-import org.mockito.kotlin.timeout
-import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
-import strikt.api.expectCatching
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo
 import strikt.assertions.isNotNull
@@ -39,8 +32,8 @@ internal class TestGetMessageById : AbstractHttpHandlerTest<GetMessageById>() {
         return GetMessageById(
             configuration,
             sseResponseBuilder,
-            messageHandler,
-            dataMeasurement
+            context.searchMessagesHandler,
+            context.dataMeasurement,
         )
     }
 
@@ -69,17 +62,13 @@ internal class TestGetMessageById : AbstractHttpHandlerTest<GetMessageById>() {
         )
         doReturn(message)
             .whenever(storage).getMessage(eq(message.id))
-        whenever(decoder.sendBatchMessage(any(), any(), any())) doAnswer {
-            // emulate timeout
-            it.getArgument<Collection<RequestedMessageDetails>>(1).forEach(RequestedMessageDetails::responseMessage)
-        }
         startTest { _, client ->
             client.get(
                 "/message/test:test:2:20201031010203123456789:1"
             ).also { response ->
                 expectThat(response.body?.bytes()?.toString(Charsets.UTF_8))
                     .isNotNull()
-                    .isEqualTo("{\"id\":\"test:test:2:20201031010203123456789:1\",\"error\":\"Operation hasn\\u0027t done during timeout\"}")
+                    .isEqualTo("{\"id\":\"test:test:2:20201031010203123456789:1\",\"error\":\"Codec response wasn\\u0027t received during timeout\"}")
             }
         }
     }

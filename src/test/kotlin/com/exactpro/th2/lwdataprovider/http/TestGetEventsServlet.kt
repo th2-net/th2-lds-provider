@@ -41,8 +41,8 @@ internal class TestGetEventsServlet : AbstractHttpHandlerTest<GetEventsServlet>(
         return GetEventsServlet(
             configuration,
             sseResponseBuilder,
-            keepAliveHandler,
-            eventsHandler,
+            context.keepAliveHandler,
+            context.searchEventsHandler,
         )
     }
 

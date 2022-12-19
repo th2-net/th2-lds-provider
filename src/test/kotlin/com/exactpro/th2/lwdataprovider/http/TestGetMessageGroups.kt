@@ -30,7 +30,7 @@ import strikt.jackson.isArray
 import strikt.jackson.textValues
 
 class TestGetMessageGroups : AbstractHttpHandlerTest<GetMessageGroups>() {
-    override fun createHandler(): GetMessageGroups = GetMessageGroups(messageHandler)
+    override fun createHandler(): GetMessageGroups = GetMessageGroups(context.searchMessagesHandler)
 
     @Test
     fun `returns groups`() {

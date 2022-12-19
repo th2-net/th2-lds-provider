@@ -31,7 +31,7 @@ import strikt.jackson.textValues
 
 internal class TestGetBookIDs : AbstractHttpHandlerTest<GetBookIDs>() {
     override fun createHandler(): GetBookIDs {
-        return GetBookIDs(GeneralCradleHandler(GeneralCradleExtractor(manager)))
+        return GetBookIDs(context.generalCradleHandler)
     }
 
     @Test

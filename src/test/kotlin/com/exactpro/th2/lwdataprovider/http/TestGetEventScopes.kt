@@ -30,7 +30,7 @@ import strikt.jackson.isArray
 import strikt.jackson.textValues
 
 class TestGetEventScopes : AbstractHttpHandlerTest<GetEventScopes>() {
-    override fun createHandler(): GetEventScopes = GetEventScopes(eventsHandler)
+    override fun createHandler(): GetEventScopes = GetEventScopes(context.searchEventsHandler)
 
     @Test
     fun `returns groups`() {

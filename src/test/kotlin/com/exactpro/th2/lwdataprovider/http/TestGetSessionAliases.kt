@@ -30,7 +30,7 @@ import strikt.jackson.isArray
 import strikt.jackson.textValues
 
 class TestGetSessionAliases : AbstractHttpHandlerTest<GetSessionAliases>() {
-    override fun createHandler(): GetSessionAliases = GetSessionAliases(messageHandler)
+    override fun createHandler(): GetSessionAliases = GetSessionAliases(context.searchMessagesHandler)
 
     @Test
     fun `returns session aliases`() {

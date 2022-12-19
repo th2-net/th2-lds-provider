@@ -16,7 +16,6 @@
 
 package com.exactpro.th2.lwdataprovider.http
 
-import com.exactpro.th2.lwdataprovider.EventType
 import com.exactpro.th2.lwdataprovider.KeepAliveListener
 import com.exactpro.th2.lwdataprovider.RequestedMessage
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
@@ -26,7 +25,6 @@ import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
-import com.exactpro.th2.lwdataprovider.entities.responses.PageInfo
 import com.exactpro.th2.lwdataprovider.failureReason
 import com.exactpro.th2.lwdataprovider.handlers.AbstractCancelableHandler
 import com.exactpro.th2.lwdataprovider.handlers.MessageResponseHandler
@@ -34,7 +32,7 @@ import com.exactpro.th2.lwdataprovider.producers.JsonFormatter
 import com.exactpro.th2.lwdataprovider.producers.MessageProducer53
 import com.exactpro.th2.lwdataprovider.producers.ParsedFormats
 import org.apache.commons.lang3.exception.ExceptionUtils
-import java.util.*
+import java.util.EnumSet
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.atomic.AtomicLong
 import java.util.function.Supplier
@@ -67,10 +65,7 @@ class HttpMessagesRequestHandler(
         buffer.put {
             val requestedMessage: RequestedMessage = data.awaitAndGet()
             if (jsonFormatter != null && requestedMessage.parsedMessage == null) {
-                SseEvent(
-                    data = failureReason( id = requestedMessage.id, error = "Operation hasn't done during timeout"),
-                    event = EventType.TIMEOUT,
-                )
+                builder.codecTimeoutError(requestedMessage.storedMessage.id, counter)
             } else {
                 builder.build(
                     MessageProducer53.createMessage(requestedMessage, jsonFormatter, includeRaw),
@@ -82,12 +77,12 @@ class HttpMessagesRequestHandler(
 
     override fun complete() {
         if (!isAlive) return
-        buffer.put { SseEvent(event = EventType.CLOSE) }
+        buffer.put { SseEvent.Closed }
     }
 
     override fun writeErrorMessage(text: String, id: String?, batchId: String?) {
         if (!isAlive) return
-        buffer.put { SseEvent(failureReason(batchId, id, text), EventType.ERROR) }
+        buffer.put { SseEvent.ErrorData.SimpleError(failureReason(batchId, id, text)) }
     }
 
     override fun writeErrorMessage(error: Throwable, id: String?, batchId: String?) {
@@ -121,12 +116,12 @@ class HttpGenericResponseHandler<T>(
 
     override fun complete() {
         if (!isAlive) return
-        buffer.put { SseEvent(event = EventType.CLOSE) }
+        buffer.put { SseEvent.Closed }
     }
 
     override fun writeErrorMessage(text: String, id: String?, batchId: String?) {
         if (!isAlive) return
-        buffer.put { SseEvent(failureReason(batchId, id, text), EventType.ERROR) }
+        buffer.put { SseEvent.ErrorData.SimpleError(failureReason(batchId, id, text)) }
     }
 
     override fun writeErrorMessage(error: Throwable, id: String?, batchId: String?) {

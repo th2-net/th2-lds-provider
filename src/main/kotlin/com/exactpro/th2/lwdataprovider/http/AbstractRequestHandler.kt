@@ -16,7 +16,6 @@
 
 package com.exactpro.th2.lwdataprovider.http
 
-import com.exactpro.th2.lwdataprovider.EventType
 import com.exactpro.th2.lwdataprovider.SseEvent
 import io.javalin.http.ContentType
 import io.javalin.http.Context
@@ -35,22 +34,23 @@ abstract class AbstractRequestHandler : Handler, JavalinHandler {
         contentType(ContentType.APPLICATION_JSON)
 
         try {
-            val supplier = queue.poll()
+            val supplier = checkNotNull(queue.poll()) { "queue returned null event" }
             val event = supplier.get()
-            status(statusFromEventType(event.event))
+            status(statusFromEventType(event))
                 .result(event.data)
 
-        } catch (e: RuntimeException) {
+        } catch (e: Exception) {
             status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .result(failureResult("${e.javaClass.simpleName}: ${e.message}"))
             throw e
         }
     }
 
-    private fun statusFromEventType(event: EventType): HttpStatus {
+    private fun statusFromEventType(event: SseEvent): HttpStatus {
         return when (event) {
-            EventType.TIMEOUT -> HttpStatus.REQUEST_TIMEOUT
-            EventType.ERROR -> HttpStatus.NOT_FOUND
+            is SseEvent.ErrorData.SimpleError -> HttpStatus.NOT_FOUND
+            is SseEvent.ErrorData.TimeoutError -> HttpStatus.REQUEST_TIMEOUT
+            is SseEvent.ErrorData -> HttpStatus.INTERNAL_SERVER_ERROR
             else -> HttpStatus.OK
         }
     }

@@ -72,9 +72,9 @@ class KeepAliveHandler(configuration: Configuration) {
                 try {
                     Thread.sleep(timeout)
                 } catch (e: InterruptedException) {
-                    if (running.get()) {
-                        running.set(false)
+                    if (running.compareAndSet(true, false)) {
                         logger.warn(e) { "Someone stopped keep alive handler" }
+                        break
                     }
                 }
             }

@@ -105,9 +105,7 @@ class GetMessageById(
 
             searchMessagesHandler.loadOneMessage(request, handler, dataMeasurement)
 
-            ctx.waitAndWrite(queue) {
-                newMsgId.failureReason(it)
-            }
+            ctx.waitAndWrite(queue) { newMsgId.failureReason(it) }
         } catch (ex: Exception) {
             logger.error(ex) { "cannot load message $msgId" }
             handler.writeErrorMessage(ex.message ?: ex.toString())

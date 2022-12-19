@@ -36,9 +36,9 @@ internal class TestGetMessageGroupsServlet : AbstractHttpHandlerTest<GetMessageG
         return GetMessageGroupsServlet(
             configuration,
             sseResponseBuilder,
-            keepAliveHandler,
-            messageHandler,
-            dataMeasurement,
+            context.keepAliveHandler,
+            context.searchMessagesHandler,
+            context.dataMeasurement,
         )
     }
 

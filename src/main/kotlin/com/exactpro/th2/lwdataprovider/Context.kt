@@ -41,6 +41,7 @@ import com.fasterxml.jackson.databind.module.SimpleModule
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import java.time.Instant
+import java.util.concurrent.Executor
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -60,7 +61,7 @@ class Context(
     val cradleEventExtractor: CradleEventExtractor = CradleEventExtractor(cradleManager),
     val cradleMsgExtractor: CradleMessageExtractor = CradleMessageExtractor(configuration.groupRequestBuffer, cradleManager),
     val generalCradleExtractor: GeneralCradleExtractor = GeneralCradleExtractor(cradleManager),
-    val pool: ExecutorService = Executors.newFixedThreadPool(configuration.execThreadPoolSize),
+    val pool: Executor = Executors.newFixedThreadPool(configuration.execThreadPoolSize),
 
     val searchMessagesHandler: SearchMessagesHandler = SearchMessagesHandler(
         cradleMsgExtractor,

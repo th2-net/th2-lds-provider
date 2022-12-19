@@ -47,4 +47,10 @@ class SseResponseBuilder(
     fun build(pageInfo: PageInfo, lastEventId: Long): SseEvent {
         return SseEvent.build(jacksonMapper, pageInfo, lastEventId)
     }
+
+    fun codecTimeoutError(id: StoredMessageId, lastEventId: Long): SseEvent =
+        SseEvent.ErrorData.TimeoutError(
+            id.failureReason("Codec response wasn't received during timeout"),
+            lastEventId.toString()
+        )
 }

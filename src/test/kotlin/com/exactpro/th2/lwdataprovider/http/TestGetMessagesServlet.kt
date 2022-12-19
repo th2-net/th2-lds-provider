@@ -19,6 +19,10 @@ package com.exactpro.th2.lwdataprovider.http
 import com.exactpro.cradle.Direction
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageIdUtils
+import com.exactpro.th2.common.message.addField
+import com.exactpro.th2.common.message.message
+import com.exactpro.th2.common.message.setMetadata
+import com.exactpro.th2.lwdataprovider.grpc.toRawMessage
 import com.exactpro.th2.lwdataprovider.util.ImmutableListCradleResult
 import com.exactpro.th2.lwdataprovider.util.createCradleStoredMessage
 import io.javalin.http.HttpStatus
@@ -44,9 +48,9 @@ internal class TestGetMessagesServlet : AbstractHttpHandlerTest<GetMessagesServl
         return GetMessagesServlet(
             configuration,
             sseResponseBuilder,
-            keepAliveHandler,
-            messageHandler,
-            dataMeasurement,
+            context.keepAliveHandler,
+            context.searchMessagesHandler,
+            context.dataMeasurement,
         )
     }
 
@@ -87,6 +91,119 @@ internal class TestGetMessagesServlet : AbstractHttpHandlerTest<GetMessagesServl
                       id: 1
                       event: message
                       data: {"timestamp":{"epochSecond":${messageTimestamp.epochSecond},"nano":${messageTimestamp.nano}},"direction":"IN","sessionId":"test","messageType":"","attachedEventIds":[],"body":{},"bodyBase64":"dGVzdCBjb250ZW50","messageId":"test:test:1:${StoredMessageIdUtils.timestampToString(messageTimestamp)}:1"}
+                    
+                      event: close
+                      data: empty data
+
+
+                      """.trimIndent())
+            }
+        }
+    }
+
+    @Test
+    fun `returns parsed message`() {
+        val start = Instant.now().truncatedTo(ChronoUnit.MILLIS)
+        val end = start.plus(1, ChronoUnit.HOURS)
+        val messageTimestamp = start.plus(30, ChronoUnit.MINUTES)
+        val message = createCradleStoredMessage(
+            streamName = "test",
+            direction = Direction.FIRST,
+            index = 1,
+            content = "test content",
+            timestamp = messageTimestamp,
+        )
+        doReturn(ImmutableListCradleResult(emptyList<StoredMessage>())).whenever(storage).getMessages(any())
+        doReturn(ImmutableListCradleResult(listOf(message)))
+            .whenever(storage).getMessages(argThat {
+                sessionAlias == "test" && bookId.name == "test"
+                        && timestampFrom.value == start && timestampTo.value == end
+                        && direction == Direction.FIRST
+            })
+
+        startTest { _, client ->
+            val response = client.sse(
+                "/search/sse/messages?" +
+                        "startTimestamp=${start.toEpochMilli()}" +
+                        "&endTimestamp=${end.toEpochMilli()}" +
+                        "&bookId=test" +
+                        "&stream=test" +
+                        "&responseFormat=BASE_64" +
+                        "&responseFormat=JSON_PARSED"
+            )
+            receiveMessages(message()
+                .setMetadata(
+                    bookName = "test",
+                    messageType = "Test",
+                    direction = com.exactpro.th2.common.grpc.Direction.FIRST,
+                    sessionAlias = "test",
+                    sequence = 1,
+                    timestamp = messageTimestamp,
+                ).addField("a", 42)
+                .build())
+            val expectedData =
+                "{\"timestamp\":{\"epochSecond\":${messageTimestamp.epochSecond},\"nano\":${messageTimestamp.nano}},\"direction\":\"IN\",\"sessionId\":\"test\"," +
+                        "\"messageType\":\"Test\",\"attachedEventIds\":[]," +
+                        "\"body\":{\"metadata\":{\"id\":{\"connectionId\":{\"sessionAlias\":\"test\"},\"direction\":\"FIRST\",\"sequence\":\"1\",\"timestamp\":{\"seconds\":\"${messageTimestamp.epochSecond}\",\"nanos\":\"${messageTimestamp.nano}\"},\"subsequence\":[]}," +
+                        "\"messageType\":\"Test\"},\"fields\":{\"a\":\"42\"}}," +
+                        "\"bodyBase64\":\"dGVzdCBjb250ZW50\",\"messageId\":\"test:test:1:${StoredMessageIdUtils.timestampToString(messageTimestamp)}:1\"}"
+            expectThat(response) {
+                get { code } isEqualTo HttpStatus.OK.code
+                get { body?.bytes()?.toString(Charsets.UTF_8) }
+                    .isNotNull()
+                    .isEqualTo("""
+                      id: 1
+                      event: message
+                      data: $expectedData
+                    
+                      event: close
+                      data: empty data
+
+
+                      """.trimIndent())
+            }
+        }
+    }
+
+    @Test
+    fun `returns timeout error message`() {
+        val start = Instant.now().truncatedTo(ChronoUnit.MILLIS)
+        val end = start.plus(1, ChronoUnit.HOURS)
+        val messageTimestamp = start.plus(30, ChronoUnit.MINUTES)
+        val message = createCradleStoredMessage(
+            streamName = "test",
+            direction = Direction.FIRST,
+            index = 1,
+            content = "test content",
+            timestamp = messageTimestamp,
+        )
+        doReturn(ImmutableListCradleResult(emptyList<StoredMessage>())).whenever(storage).getMessages(any())
+        doReturn(ImmutableListCradleResult(listOf(message)))
+            .whenever(storage).getMessages(argThat {
+                sessionAlias == "test" && bookId.name == "test"
+                        && timestampFrom.value == start && timestampTo.value == end
+                        && direction == Direction.FIRST
+            })
+
+        startTest { _, client ->
+            val response = client.sse(
+                "/search/sse/messages?" +
+                        "startTimestamp=${start.toEpochMilli()}" +
+                        "&endTimestamp=${end.toEpochMilli()}" +
+                        "&bookId=test" +
+                        "&stream=test" +
+                        "&responseFormat=BASE_64" +
+                        "&responseFormat=JSON_PARSED"
+            )
+
+            expectThat(response) {
+                get { code } isEqualTo HttpStatus.OK.code
+                get { body?.bytes()?.toString(Charsets.UTF_8) }
+                    .isNotNull()
+                    .isEqualTo("""
+                      id: 1
+                      event: error
+                      data: {"id":"test:test:1:${StoredMessageIdUtils.timestampToString(messageTimestamp)}:1","error":"Codec response wasn\u0027t received during timeout"}
                     
                       event: close
                       data: empty data

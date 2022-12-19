@@ -43,8 +43,8 @@ internal class TestGetPageInfosServlet : AbstractHttpHandlerTest<GetPageInfosSer
         return GetPageInfosServlet(
             configuration,
             sseResponseBuilder,
-            keepAliveHandler,
-            pageInfosHandler,
+            context.keepAliveHandler,
+            context.searchPageInfosHandler,
         )
     }
 

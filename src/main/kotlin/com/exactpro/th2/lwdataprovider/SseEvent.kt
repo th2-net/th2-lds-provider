@@ -38,22 +38,61 @@ enum class EventType {
     override fun toString(): String = typeName
 }
 
-data class SseEvent(val data: String = "empty data", val event: EventType, val metadata: String? = null) {
+sealed class SseEvent(
+    val event: EventType,
+) {
+    open val data: String = "empty data"
+    open val metadata: String? = null
+
+    object Closed : SseEvent(EventType.CLOSE)
+
+    data class EventData(
+        override val data: String,
+        override val metadata: String,
+    ) : SseEvent(EventType.EVENT)
+
+    data class MessageData(
+        override val data: String,
+        override val metadata: String,
+    ) : SseEvent(EventType.MESSAGE)
+
+    data class KeepAliveData(
+        override val data: String,
+        override val metadata: String,
+    ) : SseEvent(EventType.KEEP_ALIVE)
+
+    data class LastMessageIDsData(
+        override val data: String,
+    ) : SseEvent(EventType.MESSAGE_IDS)
+
+    data class PageInfoData(
+        override val data: String,
+        override val metadata: String,
+    ) : SseEvent(EventType.PAGE_INFO)
+    sealed class ErrorData : SseEvent(EventType.ERROR) {
+        data class SimpleError(
+            override val data: String
+        ) : ErrorData()
+
+        data class TimeoutError(
+            override val data: String,
+            override val metadata: String,
+        ) : ErrorData()
+    }
+
     companion object {
 
         fun build(jacksonMapper: ObjectMapper, event: Event, counter: Long): SseEvent {
-            return SseEvent(
+            return EventData(
                 jacksonMapper.writeValueAsString(event),
-                EventType.EVENT,
-                counter.toString()
+                counter.toString(),
             )
         }
 
         fun build(jacksonMapper: ObjectMapper, message: ResponseMessage, counter: Long): SseEvent {
-            return SseEvent(
+            return MessageData(
                 jacksonMapper.writeValueAsString(message),
-                EventType.MESSAGE,
-                counter.toString()
+                counter.toString(),
             )
         }
 
@@ -62,10 +101,9 @@ data class SseEvent(val data: String = "empty data", val event: EventType, val m
             lastScannedObjectInfo: LastScannedObjectInfo,
             counter: Long
         ): SseEvent {
-            return SseEvent(
-                data = jacksonMapper.writeValueAsString(lastScannedObjectInfo),
-                event = EventType.KEEP_ALIVE,
-                metadata = counter.toString()
+            return KeepAliveData(
+                jacksonMapper.writeValueAsString(lastScannedObjectInfo),
+                counter.toString(),
             )
         }
         
@@ -74,9 +112,8 @@ data class SseEvent(val data: String = "empty data", val event: EventType, val m
             while (rootCause?.cause != null) {
                 rootCause = rootCause.cause
             }
-            return SseEvent(
+            return ErrorData.SimpleError(
                 jacksonMapper.writeValueAsString(ExceptionInfo(e.javaClass.name,rootCause?.message ?: e.toString())),
-                event = EventType.ERROR
             )
         }
 
@@ -84,21 +121,19 @@ data class SseEvent(val data: String = "empty data", val event: EventType, val m
             jacksonMapper: ObjectMapper,
             lastIdInStream: Map<Pair<String, Direction>, StoredMessageId?>
         ): SseEvent {
-            return SseEvent(
+            return LastMessageIDsData(
                 jacksonMapper.writeValueAsString(
                     mapOf(
                         "messageIds" to lastIdInStream.entries.associate { it.key to it.value?.toString() }
                     )
                 ),
-                event = EventType.MESSAGE_IDS
             )
         }
 
         fun build(jacksonMapper: ObjectMapper, pageInfo: PageInfo, counter: Long): SseEvent {
-            return SseEvent(
+            return PageInfoData(
                 jacksonMapper.writeValueAsString(pageInfo),
-                EventType.PAGE_INFO,
-                counter.toString()
+                counter.toString(),
             )
         }
     }

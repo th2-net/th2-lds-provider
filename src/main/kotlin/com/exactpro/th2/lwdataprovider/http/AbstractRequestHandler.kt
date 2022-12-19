@@ -31,7 +31,7 @@ abstract class AbstractRequestHandler : Handler, JavalinHandler {
         queue: BlockingQueue<SseEvent>,
         timeout: Long,
         unit: TimeUnit,
-        failureResult: (message: String) -> String
+        failureResult: (message: String) -> String,
     ) {
         header(Header.CACHE_CONTROL, "no-cache, no-store")
         contentType(ContentType.APPLICATION_JSON)

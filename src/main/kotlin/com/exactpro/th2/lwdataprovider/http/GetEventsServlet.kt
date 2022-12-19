@@ -116,7 +116,7 @@ class GetEventsServlet(
         }
 
         val queue = ArrayBlockingQueue<SseEvent>(configuration.responseQueueSize)
-        val reqContext = HttpEventResponseHandler(queue, sseResponseBuilder)
+        val reqContext = HttpGenericResponseHandler(queue, sseResponseBuilder, Event::eventId, SseResponseBuilder::build)
         keepAliveHandler.addKeepAliveData(reqContext).use {
             searchEventsHandler.loadEvents(request, reqContext)
 

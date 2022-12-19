@@ -17,6 +17,7 @@
 package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.cradle.messages.StoredMessageId
+import com.exactpro.cradle.messages.StoredMessageIdUtils
 import com.exactpro.th2.dataprovider.lw.grpc.BookId
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.google.gson.Gson
@@ -24,12 +25,11 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.*
 
-@Suppress("SpellCheckingInspection")
-val LOG_TIMESTAMP_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSSSSSSSS").withZone(ZoneOffset.UTC)
+private val gson = Gson()
 
 fun BookId.toCradle(): com.exactpro.cradle.BookId = com.exactpro.cradle.BookId(name)
 
-fun failureReason(batchId: String? = null, id: String? = null, error: String): String = Gson().toJson(
+fun failureReason(batchId: String? = null, id: String? = null, error: String): String = gson.toJson(
     mapOf(
         "batchId" to batchId,
         "id" to id,
@@ -37,7 +37,8 @@ fun failureReason(batchId: String? = null, id: String? = null, error: String): S
     )
 )
 
-fun StoredMessageId.toReportId() = "${bookId.name}:$sessionAlias:${direction.label}:${LOG_TIMESTAMP_FORMAT.format(timestamp)}:$sequence"
+fun StoredMessageId.toReportId() =
+    "${bookId.name}:$sessionAlias:${direction.label}:${StoredMessageIdUtils.timestampToString(timestamp)}:$sequence"
 fun GetEventRequest.failureReason(error: String): String = failureReason(batchId, eventId, error)
 fun StoredMessageId.failureReason(error: String): String = failureReason(
     null,

@@ -84,21 +84,21 @@ class GetOneEvent(
 
         logger.info { "Received get event request ($eventId)" }
 
-        val reqContext = HttpEventResponseHandler(queue, sseResponseBuilder)
-            try {
-                val request = GetEventRequest.fromString(eventId)
-                searchEventsHandler.loadOneEvent(request, reqContext)
+        val reqContext = HttpGenericResponseHandler(queue, sseResponseBuilder, Event::eventId, SseResponseBuilder::build)
+        try {
+            val request = GetEventRequest.fromString(eventId)
+            searchEventsHandler.loadOneEvent(request, reqContext)
 
-                ctx.waitAndWrite(queue, configuration.decodingTimeout, TimeUnit.MILLISECONDS) {
-                    request.failureReason(it)
-                }
-            } catch (ex: Exception) {
-                logger.error(ex) { "error getting event $eventId" }
-                reqContext.writeErrorMessage(ex.message ?: ex.toString())
-                reqContext.complete()
-            } finally {
-                logger.info { "Processing search sse events request finished" }
+            ctx.waitAndWrite(queue, configuration.decodingTimeout, TimeUnit.MILLISECONDS) {
+                request.failureReason(it)
             }
+        } catch (ex: Exception) {
+            logger.error(ex) { "error getting event $eventId" }
+            reqContext.writeErrorMessage(ex.message ?: ex.toString())
+            reqContext.complete()
+        } finally {
+            logger.info { "Processing search sse events request finished" }
+        }
     }
 
 }

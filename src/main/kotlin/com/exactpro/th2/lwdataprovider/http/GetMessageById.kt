@@ -97,24 +97,24 @@ class GetMessageById(
 
 
         val handler = HttpMessagesRequestHandler(queue, sseResponseBuilder, dataMeasurement)
-            try {
-                val newMsgId = parseMessageId(msgId)
-                logger.info { "Received message request with id $msgId (onlyRaw: $onlyRaw)" }
+        try {
+            val newMsgId = parseMessageId(msgId)
+            logger.info { "Received message request with id $msgId (onlyRaw: $onlyRaw)" }
 
-                val request = GetMessageRequest(newMsgId, onlyRaw)
+            val request = GetMessageRequest(newMsgId, onlyRaw)
 
-                searchMessagesHandler.loadOneMessage(request, handler, dataMeasurement)
+            searchMessagesHandler.loadOneMessage(request, handler, dataMeasurement)
 
-                ctx.waitAndWrite(queue, configuration.decodingTimeout, TimeUnit.MILLISECONDS) {
-                    newMsgId.failureReason(it)
-                }
-            } catch (ex: Throwable) {
-                logger.error(ex) { "cannot load message $msgId" }
-                handler.writeErrorMessage(ex.message ?: ex.toString())
-                handler.complete()
-            } finally {
-                logger.info { "Processing message request finished" }
+            ctx.waitAndWrite(queue, configuration.decodingTimeout, TimeUnit.MILLISECONDS) {
+                newMsgId.failureReason(it)
             }
+        } catch (ex: Exception) {
+            logger.error(ex) { "cannot load message $msgId" }
+            handler.writeErrorMessage(ex.message ?: ex.toString())
+            handler.complete()
+        } finally {
+            logger.info { "Processing message request finished" }
+        }
     }
 
     private fun parseMessageId(msgId: String): StoredMessageId = try {

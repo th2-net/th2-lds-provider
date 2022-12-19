@@ -108,7 +108,7 @@ class GetMessageById(
             ctx.waitAndWrite(queue) {
                 newMsgId.failureReason(it)
             }
-        } catch (ex: Throwable) {
+        } catch (ex: Exception) {
             logger.error(ex) { "cannot load message $msgId" }
             handler.writeErrorMessage(ex.message ?: ex.toString())
             handler.complete()

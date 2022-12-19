@@ -25,7 +25,6 @@ import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
-import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.exactpro.th2.lwdataprovider.entities.responses.PageInfo
 import com.exactpro.th2.lwdataprovider.failureReason
@@ -107,10 +106,12 @@ class DataIndexer {
     fun nextIndex(): Long = counter.incrementAndGet()
 }
 
-class HttpEventResponseHandler(
+class HttpGenericResponseHandler<T>(
     private val buffer: BlockingQueue<Supplier<SseEvent>>,
     private val builder: SseResponseBuilder,
-) : AbstractCancelableHandler(), ResponseHandler<Event>, KeepAliveListener {
+    private val getId: (T) -> Any,
+    private val createEvent: SseResponseBuilder.(data: T, index: Long) -> SseEvent,
+) : AbstractCancelableHandler(), ResponseHandler<T>, KeepAliveListener {
     private val indexer = DataIndexer()
 
     private val scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
@@ -132,51 +133,15 @@ class HttpEventResponseHandler(
         writeErrorMessage(ExceptionUtils.getMessage(error), id, batchId)
     }
 
-    override fun handleNext(data: Event) {
+    override fun handleNext(data: T) {
         if (!isAlive) return
         val index = indexer.nextIndex()
-        buffer.put { builder.build(data, index) }
-        scannedObjectInfo.update(data.eventId, index)
+        buffer.put { builder.createEvent(data, index) }
+        scannedObjectInfo.update(getId(data).toString(), index)
     }
 
     override fun update() {
         if (!isAlive) return
-        val counter = indexer.nextIndex()
-        buffer.put { builder.build(scannedObjectInfo, counter) }
-    }
-}
-
-//FIXME: it is copy past as HttpEventResponseHandler
-class HttpPageInfoResponseHandler(
-    private val buffer: BlockingQueue<Supplier<SseEvent>>,
-    private val builder: SseResponseBuilder,
-) : AbstractCancelableHandler(), ResponseHandler<PageInfo>, KeepAliveListener {
-    private val indexer = DataIndexer()
-
-    private val scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
-
-    override val lastTimestampMillis: Long
-        get() = scannedObjectInfo.timestamp
-
-    override fun complete() {
-        buffer.put { SseEvent(event = EventType.CLOSE) }
-    }
-
-    override fun writeErrorMessage(text: String, id: String?, batchId: String?) {
-        buffer.put { SseEvent(failureReason(batchId, id, text), EventType.ERROR) }
-    }
-
-    override fun writeErrorMessage(error: Throwable, id: String?, batchId: String?) {
-        writeErrorMessage(ExceptionUtils.getMessage(error), id, batchId)
-    }
-
-    override fun handleNext(data: PageInfo) {
-        val index = indexer.nextIndex()
-        buffer.put { builder.build(data, index) }
-        scannedObjectInfo.update(data.id.toString(), index)
-    }
-
-    override fun update() {
         val counter = indexer.nextIndex()
         buffer.put { builder.build(scannedObjectInfo, counter) }
     }

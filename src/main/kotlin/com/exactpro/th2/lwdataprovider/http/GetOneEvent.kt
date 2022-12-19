@@ -84,7 +84,7 @@ class GetOneEvent(
 
         logger.info { "Received get event request ($eventId)" }
 
-        val reqContext = HttpEventResponseHandler(queue, sseResponseBuilder)
+        val reqContext = HttpGenericResponseHandler(queue, sseResponseBuilder, Event::eventId, SseResponseBuilder::build)
         try {
             val request = GetEventRequest.fromString(eventId)
             searchEventsHandler.loadOneEvent(request, reqContext)

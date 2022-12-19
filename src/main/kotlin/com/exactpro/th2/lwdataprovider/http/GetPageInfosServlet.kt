@@ -93,7 +93,7 @@ class GetPageInfosServlet(
         }
 
         val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
-        val reqContext = HttpPageInfoResponseHandler(queue, sseResponseBuilder)
+        val reqContext = HttpGenericResponseHandler(queue, sseResponseBuilder, PageInfo::id, SseResponseBuilder::build)
         keepAliveHandler.addKeepAliveData(reqContext).use {
             handler.loadPageInfos(request, reqContext)
 

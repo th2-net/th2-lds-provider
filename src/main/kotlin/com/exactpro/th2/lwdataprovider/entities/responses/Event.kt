@@ -26,6 +26,7 @@ import com.exactpro.th2.common.message.toTimestamp
 import com.exactpro.th2.dataprovider.lw.grpc.EventResponse
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.grpc.toGrpcMessageId
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.annotation.JsonRawValue
 import com.fasterxml.jackson.databind.annotation.JsonSerialize
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
@@ -34,8 +35,11 @@ import io.javalin.openapi.OpenApiPropertyType
 import java.time.Instant
 
 data class Event(
+    //** full event id  */
     val eventId: String,
     val batchId: String?,
+    /** last part of event id */
+    @field:JsonProperty(access = JsonProperty.Access.WRITE_ONLY) val shortEventId: String,
     val isBatched: Boolean,
     val eventName: String,
     val eventType: String?,
@@ -56,7 +60,7 @@ data class Event(
 
     fun convertToGrpcEventData(): EventResponse {
         return EventResponse.newBuilder()
-            .setEventId(EventUtils.toEventID(startTimestamp, bookId, scope, eventId))
+            .setEventId(EventUtils.toEventID(startTimestamp, bookId, scope, shortEventId))
             .setIsBatched(isBatched)
             .setEventName(eventName)
             .setStartTimestamp(startTimestamp.toTimestamp())
@@ -75,7 +79,7 @@ data class Event(
         @JvmStatic
         fun convertToEventIdProto(id: ProviderEventId): EventID {
             return with(id.eventId) {
-                EventUtils.toEventID(startTimestamp, bookId.name, scope, id.toString())
+                EventUtils.toEventID(startTimestamp, bookId.name, scope, this.id)
             }
         }
         @JvmStatic

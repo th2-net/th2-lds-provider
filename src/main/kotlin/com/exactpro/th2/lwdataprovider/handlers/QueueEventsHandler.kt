@@ -131,7 +131,7 @@ private class EventQueueDataSink(
 
 private fun Event.toGrpc(): CommonGrpcEvent {
     return CommonGrpcEvent.newBuilder()
-        .setId(EventUtils.toEventID(startTimestamp, bookId, scope, eventId))
+        .setId(EventUtils.toEventID(startTimestamp, bookId, scope, shortEventId))
         .setName(eventName)
         .setType(eventType)
         .setStatus(if (successful) EventStatus.SUCCESS else EventStatus.FAILED)

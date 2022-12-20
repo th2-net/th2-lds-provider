@@ -46,6 +46,10 @@ abstract class AbstractSseRequestHandler : Consumer<SseClient>, JavalinHandler {
             if (event.event == EventType.CLOSE) {
                 close()
                 inProcess = false
+                val size = queue.size
+                if (size > 0) {
+                    K_LOGGER.warn { "There are $size event(s) left in queue" }
+                }
             }
         }
     }

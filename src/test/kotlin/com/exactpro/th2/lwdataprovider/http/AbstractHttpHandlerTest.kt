@@ -142,11 +142,12 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
                 }
             }
         }.build()
-        LOGGER.info { "Notify ${messageListeners.size} listener(s)" }
         val metadata = DeliveryMetadata("test", isRedelivered = false)
+        LOGGER.info { "Await for codec request" }
         Assertions.assertTrue(semaphore.tryAcquire(500, TimeUnit.MILLISECONDS)) {
             "request for decoding was not received during 500 mls"
         }
+        LOGGER.info { "Notify ${messageListeners.size} listener(s)" }
         messageListeners.forEach { it.handle(metadata, batch) }
     }
     abstract fun createHandler(): T

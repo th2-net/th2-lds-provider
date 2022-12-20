@@ -21,6 +21,7 @@ import com.exactpro.th2.lwdataprovider.ProviderStreamInfo
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.ResponseHandler
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import mu.KotlinLogging
 import java.util.concurrent.locks.Condition
 import java.util.concurrent.locks.ReentrantLock
 import javax.annotation.concurrent.GuardedBy
@@ -67,8 +68,10 @@ abstract class MessageResponseHandler(
     }
 
     fun dataLoaded() {
+        LOGGER.trace { "All data is loaded. Message(s) in processing: ${lock.withLock { messagesInProcess }}" }
         allMessagesRequested = true
         if (isDataProcessed) {
+            LOGGER.info { "All data processed when all data is loaded" }
             complete()
         }
     }
@@ -81,6 +84,7 @@ abstract class MessageResponseHandler(
     fun requestReceived() {
         onMessageReceived()
         if (allMessagesRequested && isDataProcessed) {
+            LOGGER.info { "Last message processed" }
             complete()
         }
     }
@@ -100,5 +104,9 @@ abstract class MessageResponseHandler(
                 condition.signal()
             }
         }
+    }
+
+    companion object {
+        private val LOGGER = KotlinLogging.logger { }
     }
 }

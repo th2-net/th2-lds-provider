@@ -96,6 +96,7 @@ class DecodeQueueBuffer(
                     LOGGER.trace { "Requests for message $id were cancelled due to timeout" }
                     details.forEach { it.timeout() }
                 } else {
+                    // Possible cause of timeout thread death
                     val oldestReq = details.minOf { it.time }
                     if (oldestReq < mintime) {
                         mintime = oldestReq

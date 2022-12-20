@@ -49,21 +49,28 @@ class TimerWatcher(
     private fun run() {
 
         logger.debug { "Timeout watcher started" }
-        while (running) {
-            val minTime = decodeBuffer.removeOlderThen(timeout)
+        try {
+            while (running) {
+                val minTime: Long = try {
+                    decodeBuffer.removeOlderThen(timeout)
+                } catch (ex: Exception) {
+                    logger.error(ex) { "cannot remove old elements from buffer" }
+                    System.currentTimeMillis()
+                }
 
-            val sleepTime = timeout - (System.currentTimeMillis() - minTime)
-            if (sleepTime > 0) {
-                try {
-                    Thread.sleep(sleepTime)
-                } catch (e: InterruptedException) {
-                    running = false
-                    logger.warn(e) { "Someone stopped timeout watcher" }
-                    break
+                val sleepTime = timeout - (System.currentTimeMillis() - minTime)
+                if (sleepTime > 0) {
+                    try {
+                        Thread.sleep(sleepTime)
+                    } catch (e: InterruptedException) {
+                        running = false
+                        logger.warn(e) { "Someone stopped timeout watcher" }
+                        break
+                    }
                 }
             }
+        } finally {
+            logger.debug { "Timeout watcher finished" }
         }
-        logger.debug { "Timeout watcher finished" }
-       
-    }    
+    }
 }

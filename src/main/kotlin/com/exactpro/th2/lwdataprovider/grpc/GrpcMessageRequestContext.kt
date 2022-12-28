@@ -34,6 +34,7 @@ class GrpcMessageResponseHandler(
     private val responseFormats: Set<ResponseFormat> = emptySet(),
 ) : MessageResponseHandler(dataMeasurement, maxMessagesPerRequest) {
     override fun handleNextInternal(data: RequestedMessageDetails) {
+        if (!isAlive) return
         val msg = GrpcMessageProducer.createMessage(data, responseFormats)
         buffer.put(GrpcEvent(message = MessageSearchResponse.newBuilder().setMessage(msg).build()))
     }

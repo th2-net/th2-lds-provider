@@ -51,6 +51,11 @@ class GrpcDataProviderBackPressure(
                 return@setOnReadyHandler;
             var inProcess = true
             while (servCallObs.isReady && inProcess) {
+                if (servCallObs.isCancelled) {
+                    logger.warn { "Request is canceled during processing" }
+                    handler.cancel()
+                    return@setOnReadyHandler
+                }
                 val event = buffer.take()
                 if (event.close) {
                     servCallObs.onCompleted()

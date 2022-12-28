@@ -143,6 +143,7 @@ class DecodeQueueBuffer(
         details.forEach {
             it.responseFinished(messages)
         }
+        LOGGER.trace { "Response for message $id submitted" }
     }
 
     companion object {

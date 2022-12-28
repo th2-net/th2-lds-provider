@@ -19,31 +19,25 @@ package com.exactpro.th2.lwdataprovider.workers
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import mu.KotlinLogging
-import java.util.ArrayList
 import java.util.concurrent.locks.ReentrantLock
-import java.util.concurrent.locks.ReentrantReadWriteLock
 import javax.annotation.concurrent.GuardedBy
-import kotlin.concurrent.read
 import kotlin.concurrent.withLock
-import kotlin.concurrent.write
 
 class DecodeQueueBuffer(
     private val maxDecodeQueueSize: Int = -1
 ) : RequestsBuffer, AutoCloseable {
 
-    private val lock = ReentrantReadWriteLock()
+    private val lock = ReentrantLock()
     @GuardedBy("lock")
     private val decodeQueue: MutableMap<String, MutableList<RequestedMessageDetails>> = HashMap()
 
-    private val fullDecodeQueryLock = ReentrantLock()
-    private val fullDecodeQueryCond = fullDecodeQueryLock.newCondition()
-    @GuardedBy("fullDecodeQueryLock")
+    @GuardedBy("lock")
+    private val decodeCond = lock.newCondition()
+    @GuardedBy("lock")
     private var locked: Boolean = false
-    @GuardedBy("fullDecodeQueryLock")
-    private var requests: Int = 0
     
     fun add(details: RequestedMessageDetails) {
-        lock.write {
+        lock.withLock {
             decodeQueue.computeIfAbsent(details.id) { ArrayList(1) }.add(details)
         }
     }
@@ -55,20 +49,20 @@ class DecodeQueueBuffer(
         do {
             LOGGER.trace { "Checking decode queue for available space for $size request(s)" }
             // We need to make sure that there are exactly 'maxDecodeQueueSize' requests or less in the result queue
-            fullDecodeQueryLock.withLock {
-                val newRequests = lock.read { decodeQueue.size } + size
+            lock.withLock {
+                val newRequests = decodeQueue.size + size
                 if (maxDecodeQueueSize < newRequests) {
                     LOGGER.debug { "Cannot fit $size messages. " +
                             "Expected queue size is more than buffer size ($maxDecodeQueueSize < $newRequests) buf and thread will be locked" }
 
                     locked = true
-                    fullDecodeQueryCond.await()
+                    decodeCond.await()
                 } else {
                     submitted = true
-                    requests = newRequests
                 }
             }
         } while (!submitted)
+        LOGGER.trace { "Decode request for $size message(s) is submitted" }
     }
 
     override fun responseReceived(id: String, response: () -> List<Message>) {
@@ -108,7 +102,7 @@ class DecodeQueueBuffer(
     }
 
     override fun close() {
-        lock.write {
+        lock.withLock {
             LOGGER.info { "Closing ${decodeQueue.size} request(s) without response" }
             decodeQueue.forEach { (id, details) ->
                 LOGGER.info { "Canceling request for id $id" }
@@ -118,21 +112,20 @@ class DecodeQueueBuffer(
     }
 
     private inline fun <T> withQueueLockAndRelease(block: () -> T): T = try {
-        lock.write {
+        lock.withLock {
             block()
         }
     } finally {
-        // we must not hold the `lock.write` before taking `fullDecodeQueryLock` lock
         checkAndUnlock()
     }
 
     private fun checkAndUnlock() {
         if (maxDecodeQueueSize <= 0) return
-        fullDecodeQueryLock.withLock {
+        lock.withLock {
             if (!locked) return
-            requests = lock.read { decodeQueue.size }
+            val requests = decodeQueue.size
             if (requests < maxDecodeQueueSize) {
-                fullDecodeQueryCond.signalAll()
+                decodeCond.signalAll()
                 LOGGER.debug { "Buffer is unlocked with size $requests" }
                 locked = false
             }

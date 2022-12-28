@@ -48,7 +48,7 @@ class TimerWatcher(
     
     private fun run() {
 
-        logger.debug { "Timeout watcher started" }
+        logger.info { "Timeout watcher started" }
         try {
             while (running) {
                 val minTime: Long = try {
@@ -70,7 +70,7 @@ class TimerWatcher(
                 }
             }
         } finally {
-            logger.debug { "Timeout watcher finished" }
+            logger.info { "Timeout watcher finished" }
         }
     }
 }

@@ -59,25 +59,29 @@ class KeepAliveHandler(configuration: Configuration) {
     private fun run() {
 
         running.set(true)
-        logger.debug { "Keep alive handler started" }
-        
-        while (running.get()) {
-            
-            data.forEach {
-                if (System.currentTimeMillis() - it.lastTimestampMillis >= timeout)
-                    it.update()
-            }
+        logger.info { "Keep alive handler started" }
 
-            try {
-                Thread.sleep(timeout)
-            } catch (e: InterruptedException) {
-                if (running.get()) {
-                    running.set(false)
-                    logger.warn(e) { "Someone stopped keep alive handler" }
+        try {
+            while (running.get()) {
+
+                data.forEach {
+                    if (System.currentTimeMillis() - it.lastTimestampMillis >= timeout)
+                        it.update()
+                }
+
+                try {
+                    Thread.sleep(timeout)
+                } catch (e: InterruptedException) {
+                    if (running.get()) {
+                        running.set(false)
+                        logger.warn(e) { "Someone stopped keep alive handler" }
+                    }
                 }
             }
+        } catch (ex: Exception) {
+            logger.error(ex) { "unexpected exception in keep alive thread" }
+        } finally {
+            logger.info { "Keep alive handler finished" }
         }
-
-        logger.debug { "Keep alive handler finished" }
     }
 }

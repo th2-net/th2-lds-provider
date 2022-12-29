@@ -36,6 +36,7 @@ class CustomConfigurationClass(
     val grpcBackPressure : Boolean? = null,
     val bufferPerQuery: Int? = null,
     val responseFormats: Set<String>? = null,
+    val grpcBackPressureReadinessTimeoutMls: Long? = null,
 )
 
 class Configuration(customConfiguration: CustomConfigurationClass) {
@@ -56,6 +57,7 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     val responseFormats: Set<ResponseFormat> = VariableBuilder.getVariable(customConfiguration::responseFormats, EnumSet.of(ResponseFormat.BASE_64, ResponseFormat.PROTO_PARSED)) {
         it.mapTo(hashSetOf(), ResponseFormat.Companion::fromString)
     }
+    val grpcBackPressureReadinessTimeoutMls: Long = VariableBuilder.getVariable(customConfiguration::grpcBackPressureReadinessTimeoutMls, decodingTimeout)
     init {
         require(bufferPerQuery <= maxBufferDecodeQueue) {
             "buffer per queue ($bufferPerQuery) must be less or equal to the total buffer size ($maxBufferDecodeQueue)"
@@ -64,8 +66,11 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
         require(batchSize <= batchBoundary) {
             "bath size ($batchSize) must be less or equal to $batchBoundary (${if (batchBoundary == bufferPerQuery) "bufferPerQuery" else "maxBufferDecodeQueue"})"
         }
-        if (mode == Mode.GRPC && grpcBackPressure) {
+        if (mode != Mode.GRPC && grpcBackPressure) {
             LOGGER.warn { "gRPC backpressure works only with ${Mode.GRPC} mode but current mode is $mode" }
+        }
+        require(grpcBackPressureReadinessTimeoutMls > 0) {
+            "grpcBackPressureReadinessTimeoutMls ($grpcBackPressureReadinessTimeoutMls) must be positive"
         }
     }
 }

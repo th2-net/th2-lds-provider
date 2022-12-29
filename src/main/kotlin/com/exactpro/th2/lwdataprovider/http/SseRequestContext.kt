@@ -60,15 +60,18 @@ class HttpMessagesRequestHandler(
         get() = scannedObjectInfo.timestamp
 
     override fun handleNextInternal(data: RequestedMessageDetails) {
+        if (!isAlive) return
         val msg = MessageProducer53.createMessage(data, jsonFormatter, includeRaw)
         buffer.put(builder.build(msg, indexer.nextIndex()))
     }
 
     override fun complete() {
+        if (!isAlive) return
         buffer.put(SseEvent(event = EventType.CLOSE))
     }
 
     override fun writeErrorMessage(text: String) {
+        if (!isAlive) return
         buffer.put(SseEvent(Gson().toJson(Collections.singletonMap("message", text)), EventType.ERROR))
     }
 
@@ -77,6 +80,7 @@ class HttpMessagesRequestHandler(
     }
 
     override fun update() {
+        if (!isAlive) return
         buffer.put(builder.build(scannedObjectInfo, indexer.nextIndex()))
     }
 }
@@ -98,10 +102,12 @@ class HttpEventResponseHandler(
         get() = scannedObjectInfo.timestamp
 
     override fun complete() {
+        if (!isAlive) return
         buffer.put(SseEvent(event = EventType.CLOSE))
     }
 
     override fun writeErrorMessage(text: String) {
+        if (!isAlive) return
         buffer.put(SseEvent(Gson().toJson(Collections.singletonMap("message", text)), EventType.ERROR))
     }
 
@@ -110,12 +116,14 @@ class HttpEventResponseHandler(
     }
 
     override fun handleNext(data: Event) {
+        if (!isAlive) return
         val index = indexer.nextIndex()
         buffer.put(builder.build(data, index))
         scannedObjectInfo.update(data.eventId, index)
     }
 
     override fun update() {
+        if (!isAlive) return
         buffer.put(builder.build(scannedObjectInfo, indexer.nextIndex()))
     }
 

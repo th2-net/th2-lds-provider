@@ -22,16 +22,24 @@ import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
+import io.grpc.Status
 import io.grpc.stub.ServerCallStreamObserver
 import io.grpc.stub.StreamObserver
 import mu.KotlinLogging
 import java.util.concurrent.BlockingQueue
+import java.util.concurrent.Future
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 class GrpcDataProviderBackPressure(
     configuration: Configuration,
     searchMessagesHandler: SearchMessagesHandler,
     searchEventsHandler: SearchEventsHandler,
     dataMeasurement: DataMeasurement,
+    private val scheduler: ScheduledExecutorService,
 ) : GrpcDataProviderImpl(configuration, searchMessagesHandler, searchEventsHandler, dataMeasurement) {
 
     companion object {
@@ -46,9 +54,27 @@ class GrpcDataProviderBackPressure(
         converter: (GrpcEvent) -> T?
     ) {
         val servCallObs = responseObserver as ServerCallStreamObserver<T>
+        val lock = ReentrantLock()
+        var future: Future<*>? = null
+
+        fun cleanBuffer() {
+            while (buffer.poll() != null) {
+                buffer.clear()
+            }
+        }
+        fun cancel() {
+            handler.cancel()
+            onClose(handler)
+            cleanBuffer()
+            onFinished()
+        }
         servCallObs.setOnReadyHandler {
             if (!handler.isAlive)
-                return@setOnReadyHandler;
+                return@setOnReadyHandler
+            lock.withLock {
+                future?.cancel(false)
+                future = null
+            }
             var inProcess = true
             while (servCallObs.isReady && inProcess) {
                 if (servCallObs.isCancelled) {
@@ -73,6 +99,24 @@ class GrpcDataProviderBackPressure(
                     converter.invoke(event)?.let {  servCallObs.onNext(it) }
                 }
             }
+            if (inProcess) {
+                lock.withLock {
+                    future = scheduler.schedule({
+                        runCatching {
+                            logger.error {
+                                "gRPC was not ready more than ${configuration.grpcBackPressureReadinessTimeoutMls} mls. " +
+                                        "In queue ${buffer.size}. Close the connection"
+                            }
+                            servCallObs.onError(
+                                Status.DEADLINE_EXCEEDED
+                                    .withDescription("gRPC was not ready longer than configured timeout")
+                                    .asRuntimeException()
+                            )
+                            cancel()
+                        }
+                    }, configuration.grpcBackPressureReadinessTimeoutMls, TimeUnit.MILLISECONDS)
+                }
+            }
             if (!servCallObs.isReady) {
                 logger.trace { "Suspending processing because the opposite side is not ready to receive more messages. In queue: ${buffer.size}" }
             }
@@ -80,12 +124,11 @@ class GrpcDataProviderBackPressure(
 
         servCallObs.setOnCancelHandler {
             logger.warn{ "Execution cancelled" }
-            handler.cancel()
-            onClose(handler)
-            while (buffer.poll() != null) {
-                buffer.clear()
+            lock.withLock {
+                future?.cancel(true)
+                future = null
             }
-            onFinished()
+            cancel()
         }
 
 

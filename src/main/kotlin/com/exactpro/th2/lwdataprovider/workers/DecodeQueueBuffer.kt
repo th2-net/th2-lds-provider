@@ -66,16 +66,12 @@ class DecodeQueueBuffer(
     }
 
     override fun responseReceived(id: String, response: () -> List<Message>) {
-        withQueueLockAndRelease {
-            processResponse(id, response)
-        }
+        processResponse(id, response)
     }
 
     override fun bulkResponsesReceived(responses: Map<String, () -> List<Message>>) {
-        withQueueLockAndRelease {
-            // TODO: maybe we should use something optimized for bulk removal instead of simple map
-            responses.forEach(this::processResponse)
-        }
+        // TODO: maybe we should use something optimized for bulk removal instead of simple map
+        responses.forEach(this::processResponse)
     }
 
     override fun removeOlderThan(timeout: Long): Long {
@@ -134,9 +130,11 @@ class DecodeQueueBuffer(
     }
 
     private fun processResponse(id: String, response: () -> List<Message>) {
-        val details = decodeQueue.remove(id) ?: run {
-            LOGGER.info { "Received unexpected message $id. There is no request for this message in decode queue" }
-            return
+        val details = withQueueLockAndRelease {
+            decodeQueue.remove(id) ?: run {
+                LOGGER.info { "Received unexpected message $id. There is no request for this message in decode queue" }
+                return
+            }
         }
         val messages = response()
         LOGGER.trace { "Received response for message $id (${messages.size} message(s))" }

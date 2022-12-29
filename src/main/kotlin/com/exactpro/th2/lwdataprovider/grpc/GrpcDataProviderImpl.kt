@@ -46,7 +46,7 @@ import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.BlockingQueue
 
 open class GrpcDataProviderImpl(
-    private val configuration: Configuration,
+    protected val configuration: Configuration,
     private val searchMessagesHandler: SearchMessagesHandler,
     private val searchEventsHandler: SearchEventsHandler,
     private val dataMeasurement: DataMeasurement,

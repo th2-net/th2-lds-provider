@@ -35,14 +35,16 @@ class GrpcMessageResponseHandler(
 ) : MessageResponseHandler(dataMeasurement, maxMessagesPerRequest) {
     override fun handleNextInternal(data: RequestedMessageDetails) {
         if (!isAlive) return
-        val msg = GrpcMessageProducer.createMessage(data, responseFormats)
-        buffer.put(GrpcEvent(message = MessageSearchResponse.newBuilder().setMessage(msg).build()))
+        buffer.put(GrpcEvent(message = {
+            val msg = GrpcMessageProducer.createMessage(data.awaitAndGet(), responseFormats)
+            MessageSearchResponse.newBuilder().setMessage(msg).build()
+        }))
     }
 
     override fun complete() {
         if (!isAlive) return
         val grpcPointers = MessageStreamPointers.newBuilder().addAllMessageStreamPointer(streamInfo.toGrpc());
-        buffer.put(GrpcEvent(message = MessageSearchResponse.newBuilder().setMessageStreamPointers(grpcPointers).build()))
+        buffer.put(GrpcEvent(message = { MessageSearchResponse.newBuilder().setMessageStreamPointers(grpcPointers).build() }))
         buffer.put(GrpcEvent(close = true))
     }
 

@@ -19,18 +19,40 @@ package com.exactpro.th2.lwdataprovider
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.RawMessage
+import java.util.concurrent.CompletableFuture
 
 class RequestedMessageDetails(
     val storedMessage: StoredMessage,
-    private val onResponse: (RequestedMessageDetails) -> Unit = {}
+    private val onResponse: ((RequestedMessageDetails) -> Unit)? = null
 ) {
     val id: String = storedMessage.id.toString()
     val rawMessage: RawMessage = RawMessage.parseFrom(storedMessage.content)
     @Volatile
     var time: Long = 0
     var parsedMessage: List<Message>? = null
+    private val completed = CompletableFuture<RequestedMessage>()
+    init {
+        if (onResponse == null) {
+            // nothing to await
+            complete()
+        }
+    }
 
     fun responseMessage() {
-        onResponse(this)
+        onResponse?.invoke(this)
+        complete()
+    }
+
+    fun awaitAndGet(): RequestedMessage = completed.get()
+
+    private fun complete() {
+        completed.complete(RequestedMessage(id, storedMessage, rawMessage, parsedMessage))
     }
 }
+
+class RequestedMessage(
+    val id: String,
+    val storedMessage: StoredMessage,
+    val rawMessage: RawMessage,
+    val parsedMessage: List<Message>?,
+)

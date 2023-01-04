@@ -22,7 +22,7 @@ import com.exactpro.th2.common.grpc.ConnectionID
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.dataprovider.grpc.MessageGroupItem
 import com.exactpro.th2.dataprovider.grpc.MessageGroupResponse
-import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
+import com.exactpro.th2.lwdataprovider.RequestedMessage
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.google.protobuf.Timestamp
 import java.time.Instant
@@ -31,7 +31,7 @@ class GrpcMessageProducer {
 
     companion object {
 
-        fun createMessage(rawMessage: RequestedMessageDetails, responseFormats: Set<ResponseFormat>): MessageGroupResponse {
+        fun createMessage(rawMessage: RequestedMessage, responseFormats: Set<ResponseFormat>): MessageGroupResponse {
             val storedMessage = rawMessage.storedMessage
 
             return MessageGroupResponse.newBuilder().apply {

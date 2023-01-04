@@ -38,7 +38,7 @@ class NoSseResponseWriter (private val writer: Writer) {
 
     private fun eventWrite(event: SseEvent) {
         lock.withLock {
-            this.writer.write(event.data)
+            this.writer.write(event.data.get())
         }
     }
 }

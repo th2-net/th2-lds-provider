@@ -58,7 +58,7 @@ import strikt.assertions.isNull
 import strikt.assertions.single
 import strikt.assertions.withElementAt
 import java.time.Instant
-import java.util.*
+import java.util.Queue
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
@@ -113,7 +113,6 @@ internal class TestSearchMessagesHandler {
         }
 
         verify(decoder, timeout(200).times(1)).sendBatchMessage(any(), any(), any())
-        verify(handler, never()).handleNext(any())
         verify(handler, never()).complete()
 
         expectThat(decoder.queue.size).isEqualTo(3)
@@ -139,34 +138,44 @@ internal class TestSearchMessagesHandler {
         }
         expectThat(messages.allValues) {
             withElementAt(0) {
-                get { id } isEqualTo "test-stream:first:1"
-                get { parsedMessage }.isNotNull()
-                    .single()
-                    .get { messageType } isEqualTo "Test0"
+                get { awaitAndGet() }.apply {
+                    get { id } isEqualTo "test-stream:first:1"
+                    get { parsedMessage }.isNotNull()
+                        .single()
+                        .get { messageType } isEqualTo "Test0"
+                }
             }
             withElementAt(1) {
-                get { id } isEqualTo "test-stream:first:2"
-                get { parsedMessage }.isNotNull()
-                    .single()
-                    .get { messageType } isEqualTo "Test1"
+                get { awaitAndGet() }.apply {
+                    get { id } isEqualTo "test-stream:first:2"
+                    get { parsedMessage }.isNotNull()
+                        .single()
+                        .get { messageType } isEqualTo "Test1"
+                }
             }
             withElementAt(2) {
-                get { id } isEqualTo "test-stream:first:3"
-                get { parsedMessage }.isNotNull()
-                    .single()
-                    .get { messageType } isEqualTo "Test2"
+                get { awaitAndGet() }.apply {
+                    get { id } isEqualTo "test-stream:first:3"
+                    get { parsedMessage }.isNotNull()
+                        .single()
+                        .get { messageType } isEqualTo "Test2"
+                }
             }
             withElementAt(3) {
-                get { id } isEqualTo "test-stream:first:4"
-                get { parsedMessage }.isNotNull()
-                    .single()
-                    .get { messageType } isEqualTo "Test3"
+                get { awaitAndGet() }.apply {
+                    get { id } isEqualTo "test-stream:first:4"
+                    get { parsedMessage }.isNotNull()
+                        .single()
+                        .get { messageType } isEqualTo "Test3"
+                }
             }
             withElementAt(4) {
-                get { id } isEqualTo "test-stream:first:5"
-                get { parsedMessage }.isNotNull()
-                    .single()
-                    .get { messageType } isEqualTo "Test4"
+                get { awaitAndGet() }.apply {
+                    get { id } isEqualTo "test-stream:first:5"
+                    get { parsedMessage }.isNotNull()
+                        .single()
+                        .get { messageType } isEqualTo "Test4"
+                }
             }
         }
     }
@@ -192,7 +201,6 @@ internal class TestSearchMessagesHandler {
         )
 
         verify(decoder, times(2)).sendBatchMessage(any(), any(), any())
-        verify(handler, never()).handleNext(any())
         verify(handler, never()).complete()
 
         expectThat(decoder.queue.size).isEqualTo(4)
@@ -208,28 +216,36 @@ internal class TestSearchMessagesHandler {
         }
         expectThat(messages.allValues) {
             withElementAt(0) {
-                get { id } isEqualTo "test-stream:first:1"
-                get { parsedMessage }.isNotNull()
-                    .single()
-                    .get { messageType } isEqualTo "Test0"
+                get { awaitAndGet() }.apply {
+                    get { id } isEqualTo "test-stream:first:1"
+                    get { parsedMessage }.isNotNull()
+                        .single()
+                        .get { messageType } isEqualTo "Test0"
+                }
             }
             withElementAt(1) {
-                get { id } isEqualTo "test-stream:first:2"
-                get { parsedMessage }.isNotNull()
-                    .single()
-                    .get { messageType } isEqualTo "Test1"
+                get { awaitAndGet() }.apply {
+                    get { id } isEqualTo "test-stream:first:2"
+                    get { parsedMessage }.isNotNull()
+                        .single()
+                        .get { messageType } isEqualTo "Test1"
+                }
             }
             withElementAt(2) {
-                get { id } isEqualTo "test-stream:first:3"
-                get { parsedMessage }.isNotNull()
-                    .single()
-                    .get { messageType } isEqualTo "Test2"
+                get { awaitAndGet() }.apply {
+                    get { id } isEqualTo "test-stream:first:3"
+                    get { parsedMessage }.isNotNull()
+                        .single()
+                        .get { messageType } isEqualTo "Test2"
+                }
             }
             withElementAt(3) {
-                get { id } isEqualTo "test-stream:first:4"
-                get { parsedMessage }.isNotNull()
-                    .single()
-                    .get { messageType } isEqualTo "Test3"
+                get { awaitAndGet() }.apply {
+                    get { id } isEqualTo "test-stream:first:4"
+                    get { parsedMessage }.isNotNull()
+                        .single()
+                        .get { messageType } isEqualTo "Test3"
+                }
             }
         }
     }
@@ -257,11 +273,11 @@ internal class TestSearchMessagesHandler {
             verify(handler).complete()
         }
         expectThat(messages.allValues) {
-            get(0).apply {
+            get(0).get { awaitAndGet() }.apply {
                 get { id } isEqualTo "test-stream:first:1"
                 get { parsedMessage }.isNull()
             }
-            get(1).apply {
+            get(1).get { awaitAndGet() }.apply {
                 get { id } isEqualTo "test-stream:first:2"
                 get { parsedMessage }.isNull()
             }
@@ -287,7 +303,6 @@ internal class TestSearchMessagesHandler {
             measurement,
         )
 
-        verify(handler, never()).handleNext(any())
         verify(handler, never()).complete()
 
         expectThat(decoder.queue.size).isEqualTo(2)
@@ -298,22 +313,26 @@ internal class TestSearchMessagesHandler {
 
         val messages = argumentCaptor<RequestedMessageDetails>()
         inOrder(handler, decoder) {
-            verify(decoder).sendBatchMessage(any(), any(), any())
             verify(handler, times(2)).handleNext(messages.capture())
+            verify(decoder).sendBatchMessage(any(), any(), any())
             verify(handler).complete()
         }
         expectThat(messages.allValues) {
             withElementAt(0) {
-                get { id } isEqualTo "test-stream:first:1"
-                get { parsedMessage }.isNotNull()
-                    .single()
-                    .get { messageType } isEqualTo "Test0"
+                get { awaitAndGet() }.apply {
+                    get { id } isEqualTo "test-stream:first:1"
+                    get { parsedMessage }.isNotNull()
+                        .single()
+                        .get { messageType } isEqualTo "Test0"
+                }
             }
             withElementAt(1) {
-                get { id } isEqualTo "test-stream:first:2"
-                get { parsedMessage }.isNotNull()
-                    .single()
-                    .get { messageType } isEqualTo "Test1"
+                get { awaitAndGet() }.apply {
+                    get { id } isEqualTo "test-stream:first:2"
+                    get { parsedMessage }.isNotNull()
+                        .single()
+                        .get { messageType } isEqualTo "Test1"
+                }
             }
         }
     }
@@ -338,7 +357,6 @@ internal class TestSearchMessagesHandler {
             measurement,
         )
 
-        verify(handler, never()).handleNext(any())
         verify(handler, never()).complete()
 
         expectThat(decoder.queue.size).isEqualTo(1)
@@ -349,10 +367,10 @@ internal class TestSearchMessagesHandler {
 
         val messages = argumentCaptor<RequestedMessageDetails>()
         inOrder(handler) {
-            verify(handler, times(1)).handleNext(messages.capture())
+            verify(handler).handleNext(messages.capture())
             verify(handler).complete()
         }
-        expectThat(messages.allValues).single().apply {
+        expectThat(messages.allValues).single().get { awaitAndGet() }.apply {
             get { id } isEqualTo "test-stream:first:1"
             get { parsedMessage }.isNotNull()
                 .single()
@@ -377,7 +395,7 @@ internal class TestSearchMessagesHandler {
             verify(handler, times(1)).handleNext(messages.capture())
             verify(handler).complete()
         }
-        expectThat(messages.allValues).single().apply {
+        expectThat(messages.allValues).single().get { awaitAndGet() }.apply {
             get { id } isEqualTo "test-stream:first:1"
             get { parsedMessage }.isNull()
         }

@@ -74,13 +74,13 @@ abstract class MessageResponseHandler(
 
     override fun handleNext(data: RequestedMessageDetails) {
         streamInfo.registerMessage(data.storedMessage.id)
-        try {
-            handleNextInternal(data)
-        } finally {
-            onMessageReceived()
-            if (allMessagesRequested && isDataProcessed) {
-                complete()
-            }
+        handleNextInternal(data)
+    }
+
+    fun requestReceived() {
+        onMessageReceived()
+        if (allMessagesRequested && isDataProcessed) {
+            complete()
         }
     }
 

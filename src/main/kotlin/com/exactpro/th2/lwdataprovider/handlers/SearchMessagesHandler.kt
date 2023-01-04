@@ -230,9 +230,10 @@ private class ParsedStoredMessageHandler(
         val step = measurement.start("decoding")
         val detail = RequestedMessageDetails(data) {
             step.stop()
-            handler.handleNext(it)
+            handler.requestReceived()
         }
         details += detail
+        handler.handleNext(detail)
         if (details.size >= batchSize) {
             processBatch(details)
         }

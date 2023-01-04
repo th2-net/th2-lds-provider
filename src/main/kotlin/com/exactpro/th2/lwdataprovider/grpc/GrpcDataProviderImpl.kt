@@ -80,8 +80,9 @@ open class GrpcDataProviderImpl(
         val handler = GrpcMessageResponseHandler(queue, dataMeasurement)
         searchMessagesHandler.loadOneMessage(requestParams, handler, dataMeasurement)
         processSingle(responseObserver, handler, queue) {
-            if (it.message != null && it.message.hasMessage()) {
-                responseObserver.onNext(it.message.message)
+            val message = it.message?.get()
+            if (message != null && message.hasMessage()) {
+                responseObserver.onNext(message.message)
             }
         }
     }
@@ -142,7 +143,7 @@ open class GrpcDataProviderImpl(
 //        val loadingStep = context.startStep("messages_loading")
         searchMessagesHandler.loadMessages(requestParams, handler, dataMeasurement)
         try {
-            processResponse(responseObserver, queue, handler, { /*finish step*/ }) { it.message }
+            processResponse(responseObserver, queue, handler, { /*finish step*/ }) { it.message?.get() }
         } catch (ex: Exception) {
 //            loadingStep.finish()
             throw ex

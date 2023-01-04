@@ -20,6 +20,7 @@ import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.message.addFields
 import com.exactpro.th2.common.message.messageType
 import com.exactpro.th2.lwdataprovider.CustomProtoJsonFormatter
+import com.exactpro.th2.lwdataprovider.RequestedMessage
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
@@ -31,7 +32,7 @@ class MessageProducer53 {
     companion object {
 
         fun createMessage(
-            rawMessage: RequestedMessageDetails,
+            rawMessage: RequestedMessage,
             formatter: JsonFormatter?,
             includeRaw: Boolean,
         ): ProviderMessage53 {

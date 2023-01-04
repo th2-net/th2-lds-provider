@@ -22,7 +22,7 @@ import java.io.Writer
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
-class SseResponseWriter (private val srcWriter: Writer){
+class SseResponseWriter (srcWriter: Writer){
     
     private val writer: SseBufferedWriter = SseBufferedWriter(srcWriter)
     
@@ -43,7 +43,7 @@ class SseResponseWriter (private val srcWriter: Writer){
         lock.withLock {
             this.writer.write("event: ", event.event.typeName, "\n")
 
-            this.writer.write("data: ", event.data, "\n")
+            this.writer.write("data: ", event.data.get(), "\n")
             
             if (event.metadata != null) {
                 this.writer.write("id: ", event.metadata, "\n")

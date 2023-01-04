@@ -35,7 +35,7 @@ class SseResponseBuilder(
         return SseEvent.build(jacksonMapper, event, counter)
     }
 
-    fun build(message: ResponseMessage, counter: Long): SseEvent {
+    fun build(message: () -> ResponseMessage, counter: Long): SseEvent {
         return SseEvent.build(jacksonMapper, message, counter)
     }
 

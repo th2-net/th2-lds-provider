@@ -22,6 +22,7 @@ import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.google.gson.Gson
 import java.util.Collections
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.function.Supplier
 
 interface ResponseHandler<T> {
     val isAlive: Boolean
@@ -41,4 +42,4 @@ interface KeepAliveListener {
     val lastTimestampMillis: Long
 }
 
-data class GrpcEvent(val message: MessageSearchResponse? = null, val event: EventResponse? = null, val error: Throwable? = null, val close: Boolean = false)
+data class GrpcEvent(val message: Supplier<MessageSearchResponse>? = null, val event: EventResponse? = null, val error: Throwable? = null, val close: Boolean = false)

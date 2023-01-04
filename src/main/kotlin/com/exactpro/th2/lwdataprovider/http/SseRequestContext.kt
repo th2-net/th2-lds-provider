@@ -61,8 +61,9 @@ class HttpMessagesRequestHandler(
 
     override fun handleNextInternal(data: RequestedMessageDetails) {
         if (!isAlive) return
-        val msg = MessageProducer53.createMessage(data, jsonFormatter, includeRaw)
-        buffer.put(builder.build(msg, indexer.nextIndex()))
+        buffer.put(builder.build({
+            MessageProducer53.createMessage(data.awaitAndGet(), jsonFormatter, includeRaw)
+        }, indexer.nextIndex()))
     }
 
     override fun complete() {
@@ -72,7 +73,7 @@ class HttpMessagesRequestHandler(
 
     override fun writeErrorMessage(text: String) {
         if (!isAlive) return
-        buffer.put(SseEvent(Gson().toJson(Collections.singletonMap("message", text)), EventType.ERROR))
+        buffer.put(SseEvent({ Gson().toJson(Collections.singletonMap("message", text)) }, EventType.ERROR))
     }
 
     override fun writeErrorMessage(error: Throwable) {
@@ -108,7 +109,7 @@ class HttpEventResponseHandler(
 
     override fun writeErrorMessage(text: String) {
         if (!isAlive) return
-        buffer.put(SseEvent(Gson().toJson(Collections.singletonMap("message", text)), EventType.ERROR))
+        buffer.put(SseEvent({ Gson().toJson(Collections.singletonMap("message", text)) }, EventType.ERROR))
     }
 
     override fun writeErrorMessage(error: Throwable) {

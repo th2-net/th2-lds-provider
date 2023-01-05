@@ -83,9 +83,10 @@ abstract class MessageResponseHandler(
 
     fun requestReceived() {
         onMessageReceived()
-        if (allMessagesRequested && isDataProcessed) {
-            LOGGER.info { "Last message processed" }
-            complete()
+            if (allMessagesRequested && isDataProcessed) {
+                LOGGER.info { "Last message processed" }
+                complete()
+
         }
     }
 

@@ -22,10 +22,11 @@ import com.exactpro.th2.dataprovider.grpc.MessageStream
 import com.exactpro.th2.dataprovider.grpc.MessageStreamPointer
 import com.exactpro.th2.lwdataprovider.grpc.toGrpcDirection
 import com.exactpro.th2.lwdataprovider.grpc.toGrpcMessageId
+import java.util.concurrent.ConcurrentHashMap
 
 class ProviderStreamInfo {
 
-    private val streams: MutableMap<String, StreamDetails> = LinkedHashMap()
+    private val streams: MutableMap<String, StreamDetails> = ConcurrentHashMap()
 
     fun registerMessage(msg: StoredMessageId?) {
         if (msg == null)

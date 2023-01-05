@@ -40,6 +40,10 @@ message MessageGroupsQueueSearchRequest {
   Enables sending raw batches directly to external_queue. Sends raw directly first then sends raw to pins
    */
   bool send_raw_directly = 8;
+  /**
+  If enabled the message won't be sent to codecs
+   */
+  bool raw_only = 9;
 }
 
 message MessageLoadedStatistic {

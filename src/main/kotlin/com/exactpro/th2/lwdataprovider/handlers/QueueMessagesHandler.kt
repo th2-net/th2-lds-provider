@@ -66,6 +66,9 @@ class QueueMessagesHandler(
                 if (request.sendRawDirectly) {
                     router.sendExclusive(request.externalQueue, toSend)
                 }
+                if (request.rawOnly) {
+                    return@createSink
+                }
                 if (useAttributes) {
                     router.send(toSend, attribute, QueueAttribute.RAW.value)
                 } else {

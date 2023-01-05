@@ -29,6 +29,7 @@ data class QueueMessageGroupsRequest(
     val keepAlive: Boolean,
     val externalQueue: String?,
     val sendRawDirectly: Boolean,
+    val rawOnly: Boolean,
 ) {
     init {
         require(startTimestamp < endTimestamp) {
@@ -43,6 +44,9 @@ data class QueueMessageGroupsRequest(
         require(!sendRawDirectly || isNotBlank(externalQueue)) {
             "'$externalQueue' external queue must not be blank when $sendRawDirectly send raw directly"
         }
+        if (rawOnly) {
+            require(sendRawDirectly) { "rawOnly parameter can be used only with sendRawDirectly enabled" }
+        }
     }
     companion object {
         @JvmStatic
@@ -53,7 +57,8 @@ data class QueueMessageGroupsRequest(
             syncInterval: Duration?,
             keepAlive: Boolean?,
             externalQueue: String?,
-            sendRawDirectly: Boolean?
+            sendRawDirectly: Boolean?,
+            rawOnly: Boolean?,
         ): QueueMessageGroupsRequest = QueueMessageGroupsRequest(
             requireNotNull(groupsByBook) { "groupsByBook must be set" },
             requireNotNull(startTimestamp) { "start timestamp must be set" },
@@ -62,6 +67,7 @@ data class QueueMessageGroupsRequest(
             keepAlive ?: false,
             externalQueue,
             sendRawDirectly ?: false,
+            rawOnly ?: false,
         )
     }
 }

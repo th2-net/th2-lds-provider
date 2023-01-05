@@ -58,6 +58,7 @@ class QueueGrpcProvider(
                     keepAlive,
                     externalQueue,
                     sendRawDirectly,
+                    rawOnly,
                 )
             }
             messagesHandler.requestMessageGroups(

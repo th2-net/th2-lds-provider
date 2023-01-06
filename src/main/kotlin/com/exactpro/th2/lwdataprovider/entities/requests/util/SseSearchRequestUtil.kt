@@ -17,19 +17,13 @@
 package com.exactpro.th2.lwdataprovider.entities.requests.util
 
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
-import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import java.time.Instant
 
-fun getInitEndTimestamp(passedEndTimestamp: Instant?, resultCountLimit: Int?,
-                        searchDirection: SearchDirection) : Instant {
-    return if (resultCountLimit != null && passedEndTimestamp == null){
-        if(searchDirection == SearchDirection.next){
-            Instant.MAX
-        } else {
-            Instant.MIN
-        }
+fun getInitEndTimestamp(passedEndTimestamp: Instant?, resultCountLimit: Int?) : Instant? {
+    return if (resultCountLimit == null && passedEndTimestamp == null){
+        invalidRequest("either end timestamp or count limit should be set")
     } else {
-        passedEndTimestamp ?: throw InvalidRequestException("If limit is not set, passed end timestamp must be not null")
+        passedEndTimestamp
     }
 }
 

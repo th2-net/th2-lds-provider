@@ -16,7 +16,6 @@
 
 package com.exactpro.th2.lwdataprovider
 
-import com.exactpro.cradle.TimeRelation
 import com.exactpro.cradle.utils.TimeUtils
 import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.dataprovider.lw.grpc.BookId
@@ -69,7 +68,7 @@ class TestSseMessageSearchRequest {
             Assertions.assertEquals(SearchDirection.next, messageSearchReq.searchDirection, "search direction must be AFTER")
             Assertions.assertNotNull(messageSearchReq.startTimestamp, "start timestamp must be not null")
             Assertions.assertNotNull(messageSearchReq.endTimestamp, "end time stamp must be not null")
-            Assertions.assertTrue(messageSearchReq.endTimestamp > messageSearchReq.startTimestamp!!){
+            Assertions.assertTrue(messageSearchReq.endTimestamp!! > messageSearchReq.startTimestamp!!){
                 "end timestamp: " + messageSearchReq.endTimestamp + " must be after start timestamp: " + messageSearchReq.startTimestamp
             }
         }
@@ -91,7 +90,7 @@ class TestSseMessageSearchRequest {
             Assertions.assertEquals(SearchDirection.previous, messageSearchReq.searchDirection, "search direction must be BEFORE")
             Assertions.assertNotNull(messageSearchReq.startTimestamp, "start timestamp must be not null")
             Assertions.assertNotNull(messageSearchReq.endTimestamp, "end timestamp must be not null")
-            Assertions.assertTrue(messageSearchReq.endTimestamp < messageSearchReq.startTimestamp!!){
+            Assertions.assertTrue(messageSearchReq.endTimestamp!! < messageSearchReq.startTimestamp!!){
                 "end timestamp: " + messageSearchReq.endTimestamp + " must be after before timestamp: " + messageSearchReq.startTimestamp
             }
         }
@@ -110,20 +109,6 @@ class TestSseMessageSearchRequest {
             assertThrows<InvalidRequestException>("must throw invalidRequestException"){
                 SseMessageSearchRequest(params("startTimestamp" to listOf("1")))
             }
-        }
-
-        @Test
-        fun testLimitSetEndTimestampNotSetDirAfter(){
-            val messageSearchReq = SseMessageSearchRequest(params("startTimestamp" to listOf("1"),
-                "resultCountLimit" to listOf("5")))
-            Assertions.assertEquals(Instant.MAX, messageSearchReq.endTimestamp)
-        }
-
-        @Test
-        fun testLimitSetEndTimestampNotSetDirBefore(){
-            val messageSearchReq = SseMessageSearchRequest(params("startTimestamp" to listOf("2"),
-                "resultCountLimit" to listOf("5"), "searchDirection" to listOf("previous")))
-            Assertions.assertEquals(Instant.MIN, messageSearchReq.endTimestamp)
         }
 
         @Test
@@ -165,7 +150,7 @@ class TestSseMessageSearchRequest {
             Assertions.assertEquals(SearchDirection.next, messageSearchReq.searchDirection, "search direction must be AFTER")
             Assertions.assertNotNull(messageSearchReq.startTimestamp, "start timestamp must be not null")
             Assertions.assertNotNull(messageSearchReq.endTimestamp, "end timestamp must be not null")
-            Assertions.assertTrue(messageSearchReq.endTimestamp > messageSearchReq.startTimestamp!!){
+            Assertions.assertTrue(messageSearchReq.endTimestamp!! > messageSearchReq.startTimestamp!!){
                 "end timestamp: " + messageSearchReq.endTimestamp + " must be after start timestamp: " + messageSearchReq.startTimestamp
             }
         }
@@ -193,7 +178,7 @@ class TestSseMessageSearchRequest {
             Assertions.assertEquals(SearchDirection.previous, messageSearchReq.searchDirection, "search direction must be BEFORE")
             Assertions.assertNotNull(messageSearchReq.startTimestamp, "start timestamp must be not null")
             Assertions.assertNotNull(messageSearchReq.endTimestamp, "end timestamp must be not null")
-            Assertions.assertTrue(messageSearchReq.endTimestamp < messageSearchReq.startTimestamp!!){
+            Assertions.assertTrue(messageSearchReq.endTimestamp!! < messageSearchReq.startTimestamp!!){
                 "end timestamp: " + messageSearchReq.endTimestamp + " must be before start timestamp: " + messageSearchReq.startTimestamp
             }
         }
@@ -216,25 +201,6 @@ class TestSseMessageSearchRequest {
                 val startTimestamp = Timestamp.newBuilder().setNanos(1).build()
                 SseMessageSearchRequest(createBuilder().setStartTimestamp(startTimestamp).build())
             }
-        }
-
-        @Test
-        fun testLimitSetEndTimestampNotSetDirAfter(){
-            val startTimestamp = Timestamp.newBuilder().setNanos(1).build()
-            val resultCountLimit = Int32Value.newBuilder().setValue(5).build()
-            val grpcRequest = createBuilder().setStartTimestamp(startTimestamp).setResultCountLimit(resultCountLimit).build()
-            val messageSearchReq = SseMessageSearchRequest(grpcRequest)
-            Assertions.assertEquals(Instant.MAX, messageSearchReq.endTimestamp)
-        }
-
-        @Test
-        fun testLimitSetEndTimestampNotSetDirBefore(){
-            val startTimestamp = Timestamp.newBuilder().setNanos(2).build()
-            val resultCountLimit = Int32Value.newBuilder().setValue(5).build()
-            val grpcRequest = createBuilder().setStartTimestamp(startTimestamp).setResultCountLimit(resultCountLimit).
-            setSearchDirection(GrpcTimeRelation.PREVIOUS).build()
-            val messageSearchReq = SseMessageSearchRequest(grpcRequest)
-            Assertions.assertEquals(Instant.MIN, messageSearchReq.endTimestamp)
         }
 
         @Test

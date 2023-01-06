@@ -17,10 +17,8 @@
 package com.exactpro.th2.lwdataprovider.entities.requests
 
 import com.exactpro.cradle.BookId
-import com.exactpro.cradle.TimeRelation
 import com.exactpro.th2.dataprovider.lw.grpc.EventSearchRequest
 import com.exactpro.th2.dataprovider.lw.grpc.TimeRelation.*
-import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.converter.GrpcFilterConverter
 import com.exactpro.th2.lwdataprovider.entities.requests.converter.HttpFilterConverter
@@ -44,11 +42,11 @@ class SseEventSearchRequest(
 ) {
 
     val startTimestamp: Instant
-    val endTimestamp : Instant
+    val endTimestamp : Instant?
 
     init {
         this.startTimestamp = startTimestamp ?: invalidRequest("start timestamp is not set")
-        this.endTimestamp = getInitEndTimestamp(endTimestamp, resultCountLimit, searchDirection)
+        this.endTimestamp = getInitEndTimestamp(endTimestamp, resultCountLimit)
         checkRequest()
     }
 

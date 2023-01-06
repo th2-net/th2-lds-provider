@@ -18,7 +18,6 @@ package com.exactpro.th2.lwdataprovider.entities.requests
 
 import com.exactpro.cradle.BookId
 import com.exactpro.cradle.Direction
-import com.exactpro.cradle.TimeRelation
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.dataprovider.lw.grpc.MessageSearchRequest
 import com.exactpro.th2.dataprovider.lw.grpc.MessageStreamPointer
@@ -54,10 +53,10 @@ class SseMessageSearchRequest(
         }
     }
 
-    val endTimestamp : Instant
+    val endTimestamp : Instant?
 
     init {
-        this.endTimestamp = getInitEndTimestamp(endTimestamp, resultCountLimit, searchDirection)
+        this.endTimestamp = getInitEndTimestamp(endTimestamp, resultCountLimit)
         checkRequest()
         if (resumeFromIdsList.isNullOrEmpty() && stream.isNullOrEmpty()) {
             invalidRequest("either stream or IDs to resume must be set")
@@ -131,7 +130,7 @@ class SseMessageSearchRequest(
     )
 
     private fun checkEndTimestamp() {
-        if (startTimestamp == null) return
+        if (startTimestamp == null || endTimestamp == null) return
 
         if (searchDirection == SearchDirection.next) {
             if (startTimestamp.isAfter(endTimestamp))

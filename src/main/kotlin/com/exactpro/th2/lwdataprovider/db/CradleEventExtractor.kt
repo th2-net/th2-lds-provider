@@ -53,10 +53,12 @@ class CradleEventExtractor(
     }
 
     fun getEvents(filter: SseEventSearchRequest, sink: EventDataSink<Event>) {
-        val commonFilterSupplier: (start: Instant, end: Instant) -> TestEventFilterBuilder = { start, end ->
+        val commonFilterSupplier: (start: Instant, end: Instant?) -> TestEventFilterBuilder = { start, end ->
             TestEventFilter.builder()
                 .startTimestampFrom().isGreaterThanOrEqualTo(start)
-                .startTimestampTo().isLessThan(end)
+                .apply {
+                    end?.also { startTimestampTo().isLessThan(it) }
+                }
                 .order(when (filter.searchDirection) {
                     SearchDirection.previous -> Order.REVERSE
                     SearchDirection.next -> Order.DIRECT
@@ -159,10 +161,10 @@ class CradleEventExtractor(
 
     private fun getEventByDates(
         startTimestamp: Instant,
-        endTimestamp: Instant,
+        endTimestamp: Instant?,
         sink: EventDataSink<Event>,
         filter: DataFilter<BaseEventEntity>,
-        filterSupplier: (Instant, Instant) -> TestEventFilter,
+        filterSupplier: (Instant, Instant?) -> TestEventFilter,
     ) {
         val counter = ProcessingInfo()
         val startTime = System.currentTimeMillis()

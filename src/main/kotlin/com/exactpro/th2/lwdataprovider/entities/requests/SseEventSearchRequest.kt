@@ -95,6 +95,7 @@ class SseEventSearchRequest(
     )
 
     private fun checkEndTimestamp() {
+        if (endTimestamp == null) return
 
         if (searchDirection == SearchDirection.next) {
             if (startTimestamp.isAfter(endTimestamp))

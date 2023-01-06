@@ -66,7 +66,7 @@ class GetEventsServlet(
     @OpenApi(
         methods = [HttpMethod.GET],
         path = ROUTE,
-        // todo: description
+        description = "returns stream of events that matches the specified parameters",
         queryParams = [
             OpenApiParam("startTimestamp", type = Int::class, required = true,
                 description = "start timestamp for search", example = "1669990000000"),
@@ -83,7 +83,7 @@ class GetEventsServlet(
             OpenApiParam("scope", type = String::class, required = true,
                 description = "scope for events", example = "scope123"),
             OpenApiParam("filters", type = Array<String>::class, isRepeatable = true,
-                description = "list of filters", example = "type"),
+                description = "list of filters. Available filters are: type, name", example = "type"),
             // for type filter
             OpenApiParam("type-value", type = Array<String>::class, isRepeatable = true,
                 description = "values for type filter", example = "test"),

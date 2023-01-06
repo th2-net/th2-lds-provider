@@ -21,6 +21,8 @@ import com.exactpro.cradle.BookInfo
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
 import com.exactpro.cradle.PageInfo
+import mu.KotlinLogging
+import java.time.Instant
 
 class GeneralCradleExtractor(
     cradleManager: CradleManager,
@@ -30,7 +32,29 @@ class GeneralCradleExtractor(
     fun getBookIDs(): Set<BookId> = storage.listBooks().mapTo(hashSetOf()) { BookId(it.name) }
 
     //FIXME: use another cradle API to get pages by book id and time interval
-    fun getPageInfos(bookId: BookId): Collection<PageInfo> = storage.getAllPages(bookId)
+    fun getPageInfos(bookId: BookId, from: Instant, to: Instant, sink: GenericDataSink<PageInfo>) {
+        require(!to.isBefore(from)) { "from ($from) must be <= to ($to)" }
+        //        WHERE T.start <= R.end AND T.end >= Q.start
+        val predicate: (PageInfo) -> Boolean = {
+                pageInfo -> pageInfo.started <= to && ( pageInfo.ended == null || pageInfo.ended >= from)
+        }
+        storage.getAllPages(bookId)
+            .asSequence()
+            .filter { pageInfo -> pageInfo.started != null }
+            .dropWhile { pageInfo -> !predicate.invoke(pageInfo) }
+            .takeWhile(predicate)
+            .forEach { pageInfo ->
+                sink.onNext(pageInfo)
+                sink.canceled?.apply {
+                    LOGGER.info { "page info processing canceled: $message" }
+                    return
+                }
+            }
+    }
 
     fun getCachedBooks(): Collection<BookInfo> = storage.books
+
+    companion object {
+        private val LOGGER = KotlinLogging.logger { }
+    }
 }

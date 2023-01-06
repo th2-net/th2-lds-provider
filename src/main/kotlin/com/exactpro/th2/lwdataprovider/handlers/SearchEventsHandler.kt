@@ -24,6 +24,7 @@ import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import mu.KotlinLogging
 import java.util.concurrent.Executor
+import java.util.function.Function
 
 private val logger = KotlinLogging.logger { }
 class SearchEventsHandler(
@@ -35,7 +36,7 @@ class SearchEventsHandler(
 
     fun loadEvents(request: SseEventSearchRequest, requestContext: ResponseHandler<Event>) {
         threadPool.execute {
-            ResponseHandlerDataSink(requestContext, request.resultCountLimit).use {
+            SingleTypeDataSink(requestContext, request.resultCountLimit).use {
                 try {
                     cradle.getEvents(request, it)
                 } catch (e: Exception) {
@@ -49,7 +50,7 @@ class SearchEventsHandler(
     fun loadOneEvent(request: GetEventRequest, requestContext: ResponseHandler<Event>) {
 
         threadPool.execute {
-            ResponseHandlerDataSink(requestContext, limit = null).use {
+            SingleTypeDataSink(requestContext, limit = null).use {
                 try {
                     cradle.getSingleEvents(request, it)
                 } catch (e: Exception) {

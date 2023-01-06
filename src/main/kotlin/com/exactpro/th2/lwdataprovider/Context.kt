@@ -31,7 +31,6 @@ import com.exactpro.th2.lwdataprovider.handlers.QueueMessagesHandler
 import com.exactpro.th2.lwdataprovider.entities.responses.ser.InstantBackwardCompatibilitySerializer
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
-import com.exactpro.th2.lwdataprovider.handlers.SearchPageInfosHandler
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import com.exactpro.th2.lwdataprovider.workers.TimerWatcher
 import com.fasterxml.jackson.databind.DeserializationFeature
@@ -42,7 +41,6 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import java.time.Instant
 import java.util.concurrent.Executor
-import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 @Suppress("MemberVisibilityCanBePrivate")
@@ -84,8 +82,7 @@ class Context(
         configuration.batchSize,
         pool,
     ),
-    val generalCradleHandler: GeneralCradleHandler = GeneralCradleHandler(generalCradleExtractor),
-    val searchPageInfosHandler: SearchPageInfosHandler = SearchPageInfosHandler(generalCradleHandler, pool),
+    val generalCradleHandler: GeneralCradleHandler = GeneralCradleHandler(generalCradleExtractor, pool),
 ) {
     companion object {
         @JvmStatic

@@ -18,6 +18,7 @@ package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.th2.dataprovider.lw.grpc.EventResponse
 import com.exactpro.th2.dataprovider.lw.grpc.MessageSearchResponse
+import com.exactpro.th2.dataprovider.lw.grpc.PageInfoResponse
 import org.apache.commons.lang3.exception.ExceptionUtils
 import java.util.function.Supplier
 
@@ -42,4 +43,5 @@ interface KeepAliveListener {
     val lastTimestampMillis: Long
 }
 
-data class GrpcEvent(val message: Supplier<MessageSearchResponse>? = null, val event: EventResponse? = null, val error: Throwable? = null, val close: Boolean = false)
+data class GrpcEvent(val message: Supplier<MessageSearchResponse>? = null, val event: EventResponse? = null, val error: Throwable? = null, val close: Boolean = false,
+                     val pageInfo: PageInfoResponse? = null)

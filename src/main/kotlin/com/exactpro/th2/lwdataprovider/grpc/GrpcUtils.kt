@@ -24,15 +24,18 @@ import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.message.toTimestamp
 import com.exactpro.th2.common.grpc.RawMessage
-import com.exactpro.th2.common.message.toTimestamp
 import com.exactpro.th2.dataprovider.lw.grpc.MessageStream
+import com.exactpro.th2.dataprovider.lw.grpc.PageInfoResponse
 import com.exactpro.th2.dataprovider.lw.grpc.TimeRelation
 import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
-import com.google.protobuf.ByteString
+import com.exactpro.th2.lwdataprovider.entities.responses.PageId
+import com.exactpro.th2.lwdataprovider.entities.responses.PageInfo
+import com.google.protobuf.StringValue
 import com.google.protobuf.Timestamp
 import com.google.protobuf.UnsafeByteOperations
 import java.time.Instant
+import com.exactpro.th2.dataprovider.lw.grpc.PageId as GrpcPageId
 
 fun Timestamp.toInstant() : Instant = Instant.ofEpochSecond(this.seconds, this.nanos.toLong())
 
@@ -88,7 +91,28 @@ fun StoredMessage.toRawMessage(): RawMessage {
 }
 
 fun BookId.toGrpc(): com.exactpro.th2.dataprovider.lw.grpc.BookId {
-    return com.exactpro.th2.dataprovider.lw.grpc.BookId.newBuilder()
-        .setName(name)
+    return grpcBookId(name)
+}
+
+fun PageInfo.toGrpc(): PageInfoResponse {
+    return PageInfoResponse.newBuilder()
+        .setId(id.toGrpc())
+        .setStarted(started.toTimestamp())
+        .also { builder ->
+            ended?.also { builder.ended = it.toTimestamp() }
+            updated?.also { builder.updated = it.toTimestamp() }
+            removed?.also { builder.removed = it.toTimestamp() }
+            comment?.also { builder.comment = StringValue.of(it) }
+        }
         .build()
 }
+
+private fun PageId.toGrpc(): GrpcPageId {
+    return GrpcPageId.newBuilder()
+        .setName(name)
+        .setBookId(grpcBookId(book))
+        .build()
+}
+
+private fun grpcBookId(name: String): com.exactpro.th2.dataprovider.lw.grpc.BookId =
+    com.exactpro.th2.dataprovider.lw.grpc.BookId.newBuilder().setName(name).build()

@@ -51,6 +51,8 @@ service DataProvider {
 
   // Returns the set of books stored in cradle cache
   rpc GetBooks(BooksRequest) returns (BooksResponse);
+
+  rpc GetPageInfo(PageInfoRequest) returns (stream PageInfoResponse);
 }
 
 // The scope for events to request
@@ -197,4 +199,25 @@ message BooksRequest {
 
 message BooksResponse {
   repeated BookId book_ids = 1;
+}
+
+message PageInfoRequest {
+  BookId book_id = 1;
+  google.protobuf.Timestamp start_timestamp = 2;
+  google.protobuf.Timestamp end_timestamp = 3;
+  google.protobuf.Int32Value result_limit = 4;
+}
+
+message PageInfoResponse {
+  PageId id = 1;
+  google.protobuf.StringValue comment = 2;
+  google.protobuf.Timestamp started = 3;
+  google.protobuf.Timestamp ended = 4;
+  google.protobuf.Timestamp updated = 5;
+  google.protobuf.Timestamp removed = 6;
+}
+
+message PageId {
+  BookId book_id = 1;
+  string name = 2;
 }

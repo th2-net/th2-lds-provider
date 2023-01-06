@@ -20,6 +20,7 @@ import com.exactpro.cradle.BookId
 import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageID
+import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.dataprovider.lw.grpc.BooksRequest
 import com.exactpro.th2.dataprovider.lw.grpc.BooksResponse
 import com.exactpro.th2.dataprovider.lw.grpc.DataProviderGrpc
@@ -33,16 +34,21 @@ import com.exactpro.th2.dataprovider.lw.grpc.MessageSearchResponse
 import com.exactpro.th2.dataprovider.lw.grpc.MessageStream
 import com.exactpro.th2.dataprovider.lw.grpc.MessageStreamsRequest
 import com.exactpro.th2.dataprovider.lw.grpc.MessageStreamsResponse
+import com.exactpro.th2.dataprovider.lw.grpc.PageInfoRequest
+import com.exactpro.th2.dataprovider.lw.grpc.PageInfoResponse
 import com.exactpro.th2.lwdataprovider.CancelableResponseHandler
 import com.exactpro.th2.lwdataprovider.GrpcEvent
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
+import com.exactpro.th2.lwdataprovider.entities.requests.SsePageInfosSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
+import com.exactpro.th2.lwdataprovider.entities.responses.PageInfo
 import com.exactpro.th2.lwdataprovider.handlers.GeneralCradleHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
@@ -50,6 +56,7 @@ import com.exactpro.th2.lwdataprovider.toCradle
 import io.grpc.Status
 import io.grpc.stub.StreamObserver
 import mu.KotlinLogging
+import org.apache.commons.lang3.exception.ExceptionUtils
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.BlockingQueue
 
@@ -190,6 +197,34 @@ open class GrpcDataProviderImpl(
         } catch (ex: Exception) {
 //            loadingStep.finish()
             throw ex
+        }
+    }
+
+    override fun getPageInfo(request: PageInfoRequest, responseObserver: StreamObserver<PageInfoResponse>) {
+        val queue = ArrayBlockingQueue<GrpcEvent>(configuration.responseQueueSize)
+        try {
+            val internalRequest = request.run {
+                SsePageInfosSearchRequest(
+                    if (hasBookId()) bookId.toCradle() else null,
+                    if (hasStartTimestamp()) startTimestamp.toInstant() else null,
+                    if (hasEndTimestamp()) endTimestamp.toInstant() else null,
+                    if (hasResultLimit()) resultLimit.value else null,
+                )
+            }
+            val handler = GrpcHandler<PageInfo>(queue) { GrpcEvent(pageInfo = it.toGrpc()) }
+            generalCradleHandler.getPageInfos(
+                internalRequest,
+                handler
+            )
+            processResponse(responseObserver, queue, handler) {
+                it.pageInfo
+            }
+        } catch (ex: InvalidRequestException) {
+            LOGGER.error(ex) { "invalid request ${request.toJson()}" }
+            responseObserver.onError(Status.INVALID_ARGUMENT.withDescription(ex.message).asRuntimeException())
+        } catch (ex: Exception) {
+            LOGGER.error(ex) { "cannot load pages for request ${request.toJson()}" }
+            responseObserver.onError(Status.INTERNAL.withDescription(ExceptionUtils.getMessage(ex)).asRuntimeException())
         }
     }
 

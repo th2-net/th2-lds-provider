@@ -16,8 +16,10 @@
 
 package com.exactpro.th2.lwdataprovider.db
 
-interface EventDataSink<T> : BaseDataSink {
+interface GenericDataSink<T> : BaseDataSink {
     fun onNext(data: T)
+}
+interface EventDataSink<T> : GenericDataSink<T> {
     fun onNext(listData: Collection<T>): Unit = listData.forEach(::onNext)
 }
 

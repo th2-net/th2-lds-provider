@@ -22,7 +22,7 @@ import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.entities.requests.SsePageInfosSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.PageInfo
-import com.exactpro.th2.lwdataprovider.handlers.SearchPageInfosHandler
+import com.exactpro.th2.lwdataprovider.handlers.GeneralCradleHandler
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import io.javalin.Javalin
 import io.javalin.http.Context
@@ -42,7 +42,7 @@ class GetPageInfosServlet(
     private val configuration: Configuration,
     private val sseResponseBuilder: SseResponseBuilder,
     private val keepAliveHandler: KeepAliveHandler,
-    private val handler: SearchPageInfosHandler,
+    private val handler: GeneralCradleHandler,
 ) : AbstractSseRequestHandler() {
 
     override fun setup(app: Javalin) {
@@ -95,7 +95,7 @@ class GetPageInfosServlet(
         val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
         val reqContext = HttpGenericResponseHandler(queue, sseResponseBuilder, PageInfo::id, SseResponseBuilder::build)
         keepAliveHandler.addKeepAliveData(reqContext).use {
-            handler.loadPageInfos(request, reqContext)
+            handler.getPageInfos(request, reqContext)
 
             sseClient.waitAndWrite(queue)
             K_LOGGER.info { "Processing search sse page infos request finished" }

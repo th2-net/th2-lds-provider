@@ -19,6 +19,7 @@ package com.exactpro.th2.lwdataprovider.util
 import com.exactpro.cradle.BookId
 import com.exactpro.cradle.Direction
 import com.exactpro.cradle.PageId
+import com.exactpro.cradle.PageInfo
 import com.exactpro.cradle.messages.MessageToStoreBuilder
 import com.exactpro.cradle.messages.StoredGroupedMessageBatch
 import com.exactpro.cradle.messages.StoredMessage
@@ -27,8 +28,6 @@ import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.cradle.testevents.StoredTestEventSingle
 import com.exactpro.cradle.testevents.TestEventSingleToStore
 import com.exactpro.cradle.testevents.TestEventToStore
-import com.exactpro.th2.lwdataprovider.handlers.CradlePageId
-import com.exactpro.th2.lwdataprovider.handlers.CradlePageInfo
 import java.time.Instant
 
 fun createCradleStoredMessage(
@@ -56,8 +55,8 @@ fun createPageInfo(
     ended: Instant,
     updated: Boolean = false,
     removed: Boolean = false,
-): CradlePageInfo = CradlePageInfo(
-    CradlePageId(BookId("test"), pageName),
+): PageInfo = PageInfo(
+    PageId(BookId("test"), pageName),
     started,
     ended,
     "test comment for $pageName",

@@ -84,7 +84,6 @@ class GetPageInfosServlet(
             )
         ]
     )
-
     override fun accept(sseClient: SseClient) {
         val ctx = sseClient.ctx()
         K_LOGGER.info { "Received search sse page info(s) request with parameters: ${ctx.queryParamMap()}" }

@@ -16,15 +16,13 @@
 
 package com.exactpro.th2.lwdataprovider.http
 
-import com.exactpro.cradle.BookId
-import com.exactpro.cradle.PageId
-import com.exactpro.cradle.PageInfo
+import com.exactpro.cradle.counters.Interval
 import com.exactpro.th2.lwdataprovider.util.createPageInfo
 import io.javalin.http.HttpStatus
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doReturn
-import org.mockito.kotlin.mock
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.whenever
 import strikt.api.expectThat
 import strikt.assertions.first
@@ -49,49 +47,7 @@ internal class TestGetPageInfosServlet : AbstractHttpHandlerTest<GetPageInfosSer
     }
 
     @Test
-    fun `returns page infos before after`() {
-        val start = Instant.parse("2020-10-31T00:00:00Z")
-        val end = start.plus(1, ChronoUnit.HOURS)
-        // -a-|---|---
-        val pageA = createPageInfo("a", start.minusSeconds(15), start.minusSeconds(10))
-        // --b|---|---
-        val pageB = createPageInfo("b", start.minusSeconds(5), start)
-        // ---|---|c--
-        val pageC = createPageInfo("c", end, end.plusSeconds(5))
-        // ---|---|-d-
-        val pageD = createPageInfo("d", end.plusSeconds(10), end.plusSeconds(15))
-
-        doReturn(listOf(pageA, pageB, pageC, pageD))
-            .whenever(storage).getAllPages(any())
-        startTest { _, client ->
-            client.sse(
-                "/search/sse/page-infos" +
-                        "?startTimestamp=${start.toEpochMilli()}" +
-                        "&endTimestamp=${end.toEpochMilli()}" +
-                        "&bookId=test"
-            ).also { response ->
-                expectThat(response.body?.bytes()?.toString(Charsets.UTF_8))
-                    .isNotNull()
-                    .isEqualTo("""
-                        id: 1
-                        event: page_info
-                        data: {"id":{"book":"test","name":"b"},"comment":"test comment for b","started":{"epochSecond":1604102395,"nano":0},"ended":{"epochSecond":1604102400,"nano":0},"updated":null,"removed":null}
-                        
-                        id: 2
-                        event: page_info
-                        data: {"id":{"book":"test","name":"c"},"comment":"test comment for c","started":{"epochSecond":1604106000,"nano":0},"ended":{"epochSecond":1604106005,"nano":0},"updated":null,"removed":null}
-                    
-                        event: close
-                        data: empty data
-                      
-                      
-                    """.trimIndent())
-            }
-        }
-    }
-
-    @Test
-    fun `returns page infos between`() {
+    fun `returns page infos from cradle`() {
         val start = Instant.parse("2020-10-31T00:00:00Z")
         val end = start.plus(1, ChronoUnit.HOURS)
         // ---|a--|---
@@ -101,8 +57,8 @@ internal class TestGetPageInfosServlet : AbstractHttpHandlerTest<GetPageInfosSer
         // ---|--c|---
         val pageC = createPageInfo("c", end.minusSeconds(5), end)
 
-        doReturn(listOf(pageA, pageB, pageC))
-            .whenever(storage).getAllPages(any())
+        doReturn(listOf(pageA, pageB, pageC).iterator())
+            .whenever(storage).getPages(any(), eq(Interval(start, end)))
         startTest { _, client ->
             client.sse(
                 "/search/sse/page-infos" +
@@ -135,76 +91,6 @@ internal class TestGetPageInfosServlet : AbstractHttpHandlerTest<GetPageInfosSer
     }
 
     @Test
-    fun `returns page infos cover start or end`() {
-        val start = Instant.parse("2020-10-31T00:00:00Z")
-        val end = start.plus(1, ChronoUnit.HOURS)
-        // -a-|-a-|---
-        val pageA = createPageInfo("a", start.minusSeconds(5), start.plusSeconds(5))
-        // ---|-b-|-b-
-        val pageB = createPageInfo("b", end.minusSeconds(5), end.plusSeconds(5))
-
-        doReturn(listOf(pageA, pageB))
-            .whenever(storage).getAllPages(any())
-        startTest { _, client ->
-            client.sse(
-                "/search/sse/page-infos" +
-                        "?startTimestamp=${start.toEpochMilli()}" +
-                        "&endTimestamp=${end.toEpochMilli()}" +
-                        "&bookId=test"
-            ).also { response ->
-                expectThat(response.body?.bytes()?.toString(Charsets.UTF_8))
-                    .isNotNull()
-                    .isEqualTo("""
-                        id: 1
-                        event: page_info
-                        data: {"id":{"book":"test","name":"a"},"comment":"test comment for a","started":{"epochSecond":1604102395,"nano":0},"ended":{"epochSecond":1604102405,"nano":0},"updated":null,"removed":null}
-                        
-                        id: 2
-                        event: page_info
-                        data: {"id":{"book":"test","name":"b"},"comment":"test comment for b","started":{"epochSecond":1604105995,"nano":0},"ended":{"epochSecond":1604106005,"nano":0},"updated":null,"removed":null}
-                    
-                        event: close
-                        data: empty data
-                      
-                      
-                    """.trimIndent())
-            }
-        }
-    }
-
-    @Test
-    fun `returns page infos cover start and end`() {
-        val start = Instant.parse("2020-10-31T00:00:00Z")
-        val end = start.plus(1, ChronoUnit.HOURS)
-        // -a-|---|-a-
-        val pageA = createPageInfo("a", start.minusSeconds(5), end.plusSeconds(5))
-
-        doReturn(listOf(pageA))
-            .whenever(storage).getAllPages(any())
-        startTest { _, client ->
-            client.sse(
-                "/search/sse/page-infos" +
-                        "?startTimestamp=${start.toEpochMilli()}" +
-                        "&endTimestamp=${end.toEpochMilli()}" +
-                        "&bookId=test"
-            ).also { response ->
-                expectThat(response.body?.bytes()?.toString(Charsets.UTF_8))
-                    .isNotNull()
-                    .isEqualTo("""
-                        id: 1
-                        event: page_info
-                        data: {"id":{"book":"test","name":"a"},"comment":"test comment for a","started":{"epochSecond":1604102395,"nano":0},"ended":{"epochSecond":1604106005,"nano":0},"updated":null,"removed":null}
-                    
-                        event: close
-                        data: empty data
-                      
-                      
-                    """.trimIndent())
-            }
-        }
-    }
-
-    @Test
     fun `returns page infos with limit`() {
         val start = Instant.parse("2020-10-31T00:00:00Z")
         val end = start.plus(1, ChronoUnit.HOURS)
@@ -215,8 +101,8 @@ internal class TestGetPageInfosServlet : AbstractHttpHandlerTest<GetPageInfosSer
         // ---|--c|---
         val pageC = createPageInfo("c", end.minusSeconds(5), end)
 
-        doReturn(listOf(pageA, pageB, pageC))
-            .whenever(storage).getAllPages(any())
+        doReturn(listOf(pageA, pageB, pageC).iterator())
+            .whenever(storage).getPages(any(), eq(Interval(start, end)))
         startTest { _, client ->
             client.sse(
                 "/search/sse/page-infos" +
@@ -236,39 +122,6 @@ internal class TestGetPageInfosServlet : AbstractHttpHandlerTest<GetPageInfosSer
                         event: page_info
                         data: {"id":{"book":"test","name":"b"},"comment":"test comment for b","started":{"epochSecond":1604102410,"nano":0},"ended":{"epochSecond":1604105990,"nano":0},"updated":null,"removed":null}
                     
-                        event: close
-                        data: empty data
-                      
-                      
-                    """.trimIndent())
-            }
-        }
-    }
-
-    @Test
-    fun `skip empty page`() {
-        val start = Instant.parse("2020-10-31T00:00:00Z")
-        val end = start.plus(1, ChronoUnit.HOURS)
-
-        doReturn(listOf(
-            mock { },
-            PageInfo(PageId(BookId("book"), "page"), end, null, null, null, null),
-        )).whenever(storage).getAllPages(any())
-        startTest { _, client ->
-            client.sse(
-                "/search/sse/page-infos" +
-                        "?startTimestamp=${start.toEpochMilli()}" +
-                        "&endTimestamp=${end.toEpochMilli()}" +
-                        "&resultCountLimit=2" +
-                        "&bookId=test"
-            ).also { response ->
-                expectThat(response.body?.bytes()?.toString(Charsets.UTF_8))
-                    .isNotNull()
-                    .isEqualTo("""
-                        id: 1
-                        event: page_info
-                        data: {"id":{"book":"book","name":"page"},"comment":null,"started":{"epochSecond":1604106000,"nano":0},"ended":null,"updated":null,"removed":null}
-                        
                         event: close
                         data: empty data
                       

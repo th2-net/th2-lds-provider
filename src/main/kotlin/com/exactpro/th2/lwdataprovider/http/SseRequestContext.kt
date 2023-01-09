@@ -138,6 +138,7 @@ class HttpGenericResponseHandler<T>(
     override fun update() {
         if (!isAlive) return
         val counter = indexer.nextIndex()
+        // FIXME: use snapshot of the current state
         buffer.put { builder.build(scannedObjectInfo, counter) }
     }
 }

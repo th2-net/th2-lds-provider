@@ -53,8 +53,10 @@ import org.mockito.kotlin.doAnswer
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.reset
+import org.mockito.kotlin.whenever
 import strikt.api.Assertion
 import strikt.assertions.isNotNull
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executor
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
@@ -76,8 +78,8 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
         semaphore.release()
     }
 
-    private val messageListeners = arrayListOf<MessageListener<MessageGroupBatch>>()
-    private val messageRouter: MessageRouter<MessageGroupBatch> = mock {
+    private val messageListeners = ConcurrentHashMap.newKeySet<MessageListener<MessageGroupBatch>>()
+    protected val messageRouter: MessageRouter<MessageGroupBatch> = mock {
         on { subscribeAll(any(), anyVararg()) } doAnswer {
             val listener = it.getArgument<MessageListener<MessageGroupBatch>>(0)
             messageListeners += listener
@@ -116,7 +118,23 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
 
     @BeforeEach
     fun cleanup() {
-        reset(storage)
+        semaphore.drainPermits()
+        reset(storage, messageRouter, eventRouter)
+        configureMessageRouter()
+    }
+
+    protected fun configureMessageRouter() {
+        whenever(messageRouter.subscribeAll(any(), anyVararg())) doAnswer {
+            val listener = it.getArgument<MessageListener<MessageGroupBatch>>(0)
+            messageListeners += listener
+            mock {
+                on { unsubscribe() } doAnswer {
+                    messageListeners -= listener
+                }
+            }
+        }
+        whenever(messageRouter.send(any(), anyVararg())) doAnswer { receivedRequest(it) }
+        whenever(messageRouter.sendAll(any(), anyVararg())) doAnswer { receivedRequest(it) }
     }
 
     protected fun startTest(testConfig: TestConfig = TestConfig(

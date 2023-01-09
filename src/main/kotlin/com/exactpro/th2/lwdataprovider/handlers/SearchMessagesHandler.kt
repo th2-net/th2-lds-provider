@@ -377,6 +377,12 @@ private class RootMessagesDataSink(
     override fun onNextData(marker: String, data: StoredMessage) {
         streamInfo.registerMessage(data.id, data.timestamp, if (markerAsGroup) marker else null)
     }
+
+    override fun onError(message: String, id: String?, batchId: String?) {
+        super.onError(message, id, batchId)
+        messageHandler.complete()
+        messageHandler.cancel()
+    }
 }
 
 private class SubMessagesDataSink(
@@ -465,10 +471,13 @@ private class ParsedStoredMessageHandler(
         if (details.isEmpty()) {
             return
         }
-        handler.checkAndWaitForRequestLimit(details.size)
-        decoder.sendBatchMessage(batch, details, details.first().storedMessage.sessionAlias)
-        details.clear()
-        batch.clear()
+        try {
+            handler.checkAndWaitForRequestLimit(details.size)
+            decoder.sendBatchMessage(batch, details, details.first().storedMessage.sessionAlias)
+        } finally {
+            details.clear()
+            batch.clear()
+        }
     }
 }
 

@@ -28,8 +28,11 @@ import com.exactpro.th2.lwdataprovider.util.createCradleStoredMessage
 import io.javalin.http.HttpStatus
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyVararg
 import org.mockito.kotlin.argThat
 import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.doThrow
+import org.mockito.kotlin.reset
 import org.mockito.kotlin.whenever
 import strikt.api.expectThat
 import strikt.assertions.first
@@ -204,6 +207,55 @@ internal class TestGetMessagesServlet : AbstractHttpHandlerTest<GetMessagesServl
                       id: 1
                       event: error
                       data: {"id":"test:test:1:${StoredMessageIdUtils.timestampToString(messageTimestamp)}:1","error":"Codec response wasn\u0027t received during timeout"}
+                    
+                      event: close
+                      data: empty data
+
+
+                      """.trimIndent())
+            }
+        }
+    }
+
+    @Test
+    fun `finishes the request if error happened during sending a batch`() {
+        val start = Instant.now().truncatedTo(ChronoUnit.MILLIS)
+        val end = start.plus(1, ChronoUnit.HOURS)
+        val messageTimestamp = start.plus(30, ChronoUnit.MINUTES)
+        val message = createCradleStoredMessage(
+            streamName = "test",
+            direction = Direction.FIRST,
+            index = 1,
+            content = "test content",
+            timestamp = messageTimestamp,
+        )
+        doReturn(ImmutableListCradleResult(emptyList<StoredMessage>())).whenever(storage).getMessages(any())
+        doReturn(ImmutableListCradleResult(listOf(message)))
+            .whenever(storage).getMessages(argThat {
+                sessionAlias == "test" && bookId.name == "test"
+                        && timestampFrom.value == start && timestampTo.value == end
+                        && direction == Direction.FIRST
+            })
+        whenever(messageRouter.send(any(), anyVararg())).doThrow(IllegalStateException("fake"))
+
+        startTest { _, client ->
+            val response = client.sse(
+                "/search/sse/messages?" +
+                        "startTimestamp=${start.toEpochMilli()}" +
+                        "&endTimestamp=${end.toEpochMilli()}" +
+                        "&bookId=test" +
+                        "&stream=test" +
+                        "&responseFormat=BASE_64" +
+                        "&responseFormat=JSON_PARSED"
+            )
+
+            expectThat(response) {
+                get { code } isEqualTo HttpStatus.OK.code
+                get { body?.bytes()?.toString(Charsets.UTF_8) }
+                    .isNotNull()
+                    .isEqualTo("""
+                      event: error
+                      data: {"error":"fake"}
                     
                       event: close
                       data: empty data

@@ -49,24 +49,22 @@ class GetMessageById(
 
 
         val handler = HttpMessagesRequestHandler(queue, sseResponseBuilder, dataMeasurement)
-        keepAliveHandler.addKeepAliveData(handler).use {
-            try {
-                val newMsgId = checkId(msgId)
-                val queryParametersMap = getParameters(req)
-                logger.info { "Received search sse event request with parameters: $queryParametersMap" }
+        try {
+            val newMsgId = checkId(msgId)
+            val queryParametersMap = getParameters(req)
+            logger.info { "Received search sse event request with parameters: $queryParametersMap" }
 
-                val request = GetMessageRequest(newMsgId, queryParametersMap)
+            val request = GetMessageRequest(newMsgId, queryParametersMap)
 
-                searchMessagesHandler.loadOneMessage(request, handler, dataMeasurement)
-            } catch (ex: Exception) {
-                logger.error(ex) { "cannot load message $msgId" }
-                handler.writeErrorMessage(ex.message ?: ex.toString())
-                handler.complete()
-            }
-
-            this.waitAndWrite(queue, resp)
-            logger.info { "Processing search sse messages request finished" }
+            searchMessagesHandler.loadOneMessage(request, handler, dataMeasurement)
+        } catch (ex: Exception) {
+            logger.error(ex) { "cannot load message $msgId" }
+            handler.writeErrorMessage(ex.message ?: ex.toString())
+            handler.complete()
         }
+
+        this.waitAndWrite(queue, resp)
+        logger.info { "Processing search sse messages request finished" }
     }
 
     private fun checkId(msgId: String): String {

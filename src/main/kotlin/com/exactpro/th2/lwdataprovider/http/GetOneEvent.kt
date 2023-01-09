@@ -50,20 +50,18 @@ class GetOneEvent(
         logger.info { "Received get message request (${req.pathInfo}) with parameters: $queryParametersMap" }
 
         val reqContext = HttpEventResponseHandler(queue, sseResponseBuilder)
-        keepAliveHandler.addKeepAliveData(reqContext).use {
-            try {
-                val toEventIds = toEventIds(eventId)
-                val request = GetEventRequest(toEventIds.first, toEventIds.second)
+        try {
+            val toEventIds = toEventIds(eventId)
+            val request = GetEventRequest(toEventIds.first, toEventIds.second)
 
-                searchEventsHandler.loadOneEvent(request, reqContext)
-            } catch (ex: Exception) {
-                logger.error(ex) { "error getting event $eventId" }
-                reqContext.writeErrorMessage(ex.message ?: ex.toString())
-                reqContext.complete()
-            }
-
-            this.waitAndWrite(queue, resp)
+            searchEventsHandler.loadOneEvent(request, reqContext)
+        } catch (ex: Exception) {
+            logger.error(ex) { "error getting event $eventId" }
+            reqContext.writeErrorMessage(ex.message ?: ex.toString())
+            reqContext.complete()
         }
+
+        this.waitAndWrite(queue, resp)
         logger.info { "Processing search sse events request finished" }
     }
 

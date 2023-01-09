@@ -19,6 +19,7 @@ package com.exactpro.th2.lwdataprovider.handlers
 import com.exactpro.cradle.BookId
 import com.exactpro.th2.lwdataprovider.ResponseHandler
 import com.exactpro.th2.lwdataprovider.db.GeneralCradleExtractor
+import com.exactpro.th2.lwdataprovider.entities.requests.AllPageInfoRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SsePageInfosSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.PageId
 import com.exactpro.th2.lwdataprovider.entities.responses.PageInfo
@@ -52,6 +53,29 @@ class GeneralCradleHandler(
                         sink,
                     )
                 } catch (ex: Exception) {
+                    K_LOGGER.error(ex) { "error during getting pages for request $request" }
+                    sink.onError(ex)
+                }
+            }
+            K_LOGGER.info { "All pages loaded for request $request" }
+        }
+    }
+
+    fun getAllPageInfos(
+        request: AllPageInfoRequest,
+        handler: ResponseHandler<PageInfo>,
+    ) {
+        executor.execute {
+            K_LOGGER.info { "Starting loading pages for $request" }
+            GenericDataSink(
+                handler,
+                limit = request.limit,
+                CradlePageInfo::convert,
+            ).use { sink ->
+                try {
+                    extractor.getAllPageInfos(request.bookId, sink)
+                } catch (ex: Exception) {
+                    K_LOGGER.error(ex) { "error during getting all pages for request $request" }
                     sink.onError(ex)
                 }
             }

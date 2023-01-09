@@ -76,6 +76,8 @@ class HttpServer(private val context: Context) {
             GetMessageGroups(context.searchMessagesHandler),
             GetPageInfosServlet(configuration, sseResponseBuilder,
                 keepAliveHandler, context.generalCradleHandler),
+            GetAllPageInfosServlet(configuration, sseResponseBuilder,
+                keepAliveHandler, context.generalCradleHandler),
         )
 
         app = Javalin.create {

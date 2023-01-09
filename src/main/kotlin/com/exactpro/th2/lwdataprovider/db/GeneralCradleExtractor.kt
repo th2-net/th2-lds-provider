@@ -45,6 +45,19 @@ class GeneralCradleExtractor(
             }
     }
 
+    fun getAllPageInfos(bookId: BookId, sink: GenericDataSink<PageInfo>) {
+        storage.getAllPages(bookId)
+            .asSequence()
+            .filter { pageInfo -> pageInfo.started != null } // only started pages
+            .forEach { pageInfo ->
+                sink.onNext(pageInfo)
+                sink.canceled?.apply {
+                    LOGGER.info { "all page info processing canceled: $message" }
+                    return
+                }
+            }
+    }
+
     fun getCachedBooks(): Collection<BookInfo> = storage.books
 
     companion object {

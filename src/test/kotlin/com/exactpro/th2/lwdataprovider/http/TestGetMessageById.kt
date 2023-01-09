@@ -51,7 +51,7 @@ internal class TestGetMessageById : AbstractHttpHandlerTest<GetMessageById>() {
     }
 
     @Test
-    fun `returns message by id`() {
+    fun `reports error if response from codec was not received`() {
         val timestamp = Instant.parse("2020-10-31T01:02:03.123456789Z")
         val message = createCradleStoredMessage(
             streamName = "test",
@@ -69,6 +69,29 @@ internal class TestGetMessageById : AbstractHttpHandlerTest<GetMessageById>() {
                 expectThat(response.body?.bytes()?.toString(Charsets.UTF_8))
                     .isNotNull()
                     .isEqualTo("{\"id\":\"test:test:2:20201031010203123456789:1\",\"error\":\"Codec response wasn\\u0027t received during timeout\"}")
+            }
+        }
+    }
+
+    @Test
+    fun `returns raw message`() {
+        val timestamp = Instant.parse("2020-10-31T01:02:03.123456789Z")
+        val message = createCradleStoredMessage(
+            streamName = "test",
+            direction = Direction.SECOND,
+            index = 1,
+            content = "test content",
+            timestamp = timestamp,
+        )
+        doReturn(message)
+            .whenever(storage).getMessage(eq(message.id))
+        startTest { _, client ->
+            client.sse(
+                "/message/test:test:2:20201031010203123456789:1?onlyRaw=true"
+            ).also { response ->
+                expectThat(response.body?.bytes()?.toString(Charsets.UTF_8))
+                    .isNotNull()
+                    .isEqualTo("{\"timestamp\":{\"epochSecond\":1604106123,\"nano\":123456789},\"direction\":\"OUT\",\"sessionId\":\"test\",\"messageType\":\"\",\"attachedEventIds\":[],\"body\":{},\"bodyBase64\":\"dGVzdCBjb250ZW50\",\"messageId\":\"test:test:2:20201031010203123456789:1\"}")
             }
         }
     }

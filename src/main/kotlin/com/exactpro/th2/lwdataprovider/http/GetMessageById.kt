@@ -22,6 +22,7 @@ import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.failureReason
@@ -36,6 +37,7 @@ import io.javalin.openapi.OpenApiContent
 import io.javalin.openapi.OpenApiParam
 import io.javalin.openapi.OpenApiResponse
 import mu.KotlinLogging
+import java.util.EnumSet
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.function.Supplier
 
@@ -96,7 +98,8 @@ class GetMessageById(
             .getOrDefault(false)
 
 
-        val handler = HttpMessagesRequestHandler(queue, sseResponseBuilder, dataMeasurement)
+        val handler = HttpMessagesRequestHandler(queue, sseResponseBuilder, dataMeasurement,
+            responseFormats = if (onlyRaw) EnumSet.of(ResponseFormat.BASE_64) else configuration.responseFormats)
         try {
             val newMsgId = parseMessageId(msgId)
             logger.info { "Received message request with id $msgId (onlyRaw: $onlyRaw)" }

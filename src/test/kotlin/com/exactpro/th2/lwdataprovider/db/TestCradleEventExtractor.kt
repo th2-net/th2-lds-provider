@@ -103,6 +103,36 @@ internal class TestCradleEventExtractor {
     }
 
     @Test
+    fun `filters events from batch if start timestamp is not in the range`() {
+        val start = Instant.parse("2022-11-14T00:00:00Z")
+        val end = Instant.parse("2022-11-14T23:59:59.999999999Z")
+        val outRange = createEventStoredEvent("test", start.minusSeconds(20), end, parentEventId = createEventId("batchParent", timestamp = start))
+        val inRange = createEventStoredEvent("test", start.plusSeconds(20), end, parentEventId = createEventId("batchParent", timestamp = start))
+        val batchId = createEventId("batch", timestamp = start.minusSeconds(60))
+        doReturn(
+            ListCradleResult(arrayListOf(
+                TestEventToStore.batchBuilder(10_000)
+                    .id(batchId)
+                    .parentId(createEventId("batchParent", timestamp = start))
+                    .build().apply {
+                        addTestEvent(outRange)
+                        addTestEvent(inRange)
+                    }.let {
+                        StoredTestEventBatch(it, null)
+                    }
+            ))
+        ).whenever(storage).getTestEvents(argThat {
+            startTimestampFrom.value == start && startTimestampTo.value == end
+        })
+
+        val sink: EventDataSink<Event> = mock { }
+        extractor.getEvents(createRequest(start, end), sink)
+        val event = argumentCaptor<Event>()
+        verify(sink).onNext(event.capture())
+        expectThat(event.lastValue).isEqualTo(inRange, batchId)
+    }
+
+    @Test
     fun `splits requests if more than one day covered`() {
         val start = Instant.parse("2022-11-14T00:00:00Z")
         val end = Instant.parse("2022-11-15T23:59:59.999999999Z")

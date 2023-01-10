@@ -169,7 +169,9 @@ class CradleEventExtractor(
         val counter = ProcessingInfo()
         val startTime = System.currentTimeMillis()
         val testEvents = storage.getTestEvents(filterSupplier(startTimestamp, endTimestamp))
-        processEvents(testEvents.asIterable(), sink, counter, filter)
+        processEvents(testEvents.asIterable(), sink, counter) { event ->
+            event.startTimestamp.let { it >= startTimestamp && it < endTimestamp } && filter.match(event)
+        }
         logger.info { "Events for this period loaded. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms" }
         sink.canceled?.apply {
             logger.info { "Loading events stopped: $message" }

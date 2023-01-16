@@ -34,6 +34,7 @@ import io.javalin.openapi.OpenApiServer
 import io.javalin.openapi.OpenApiServerVariable
 import io.javalin.openapi.plugin.OpenApiConfiguration
 import io.javalin.openapi.plugin.OpenApiPlugin
+import io.javalin.openapi.plugin.OpenApiPluginConfiguration
 import io.javalin.openapi.plugin.redoc.ReDocConfiguration
 import io.javalin.openapi.plugin.redoc.ReDocPlugin
 import io.javalin.openapi.plugin.swagger.SwaggerConfiguration
@@ -120,36 +121,29 @@ class HttpServer(private val context: Context) {
     }
 
     private fun setupOpenApi(it: JavalinConfig) {
-        val openApiContact = OpenApiContact()
-        openApiContact.name = "Exactpro DEV"
-        openApiContact.email = "dev@exactprosystems.com"
 
-        val openApiLicense = OpenApiLicense()
-        openApiLicense.name = "Apache 2.0"
-        openApiLicense.identifier = "Apache-2.0"
+        val openApiConfiguration = OpenApiPluginConfiguration()
+            .withDefinitionConfiguration { _, definition ->
+                definition.withOpenApiInfo { openApiInfo ->
+                    val openApiContact = OpenApiContact()
+                    openApiContact.name = "Exactpro DEV"
+                    openApiContact.email = "dev@exactprosystems.com"
 
-        val openApiInfo = OpenApiInfo()
-        openApiInfo.title = "Light Weight Data Provider"
-        openApiInfo.summary = "API for getting data from Cradle"
-        openApiInfo.description = "Light Weight Data Provider provides you with fast access to data in Cradle"
-        openApiInfo.contact = openApiContact
-        openApiInfo.license = openApiLicense
-        openApiInfo.version = "2.0.0"
+                    val openApiLicense = OpenApiLicense()
+                    openApiLicense.name = "Apache 2.0"
+                    openApiLicense.identifier = "Apache-2.0"
 
-        val portServerVariable = OpenApiServerVariable()
-        portServerVariable.values = arrayOf("8080")
-        portServerVariable.default = "8080"
-        portServerVariable.description = "Port of the server"
-
-        val openApiServer = OpenApiServer()
-        openApiServer.url = "http://localhost:{port}"
-        openApiServer.addVariable("port", portServerVariable)
-
-        val servers = arrayOf(openApiServer)
-
-        val openApiConfiguration = OpenApiConfiguration()
-        openApiConfiguration.info = openApiInfo
-        openApiConfiguration.servers = servers
+                    openApiInfo.title = "Light Weight Data Provider"
+                    openApiInfo.summary = "API for getting data from Cradle"
+                    openApiInfo.description = "Light Weight Data Provider provides you with fast access to data in Cradle"
+                    openApiInfo.contact = openApiContact
+                    openApiInfo.license = openApiLicense
+                    openApiInfo.version = "2.0.0"
+                }.withServer { openApiServer ->
+                    openApiServer.url = "http://localhost:{port}"
+                    openApiServer.addVariable("port", "8080", arrayOf("8080"), "Port of the server")
+                }
+            }
         it.plugins.register(OpenApiPlugin(openApiConfiguration))
     }
 

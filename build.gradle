@@ -29,7 +29,7 @@ ext {
 }
 
 dependencies {
-    implementation('com.exactpro.th2:common:5.0.0-dev-version-5-3838510969-SNAPSHOT') {
+    implementation('com.exactpro.th2:common:5.1.0-dev-version-5-3912124941-SNAPSHOT') {
         exclude group: 'org.apache.logging.log4j', module: 'log4j-slf4j-impl'
         exclude group: 'com.exactpro.th2', module: 'cradle-core'
         exclude group: 'com.exactpro.th2', module: 'cradle-cassandra'

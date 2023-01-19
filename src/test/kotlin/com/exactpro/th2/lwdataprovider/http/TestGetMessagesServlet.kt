@@ -254,6 +254,10 @@ internal class TestGetMessagesServlet : AbstractHttpHandlerTest<GetMessagesServl
                 get { body?.bytes()?.toString(Charsets.UTF_8) }
                     .isNotNull()
                     .isEqualTo("""
+                      id: 1
+                      event: error
+                      data: {"id":"test:test:1:${StoredMessageIdUtils.timestampToString(messageTimestamp)}:1","error":"Codec response wasn\u0027t received during timeout"}
+
                       event: error
                       data: {"error":"fake"}
                     

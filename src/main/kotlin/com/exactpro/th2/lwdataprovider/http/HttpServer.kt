@@ -28,11 +28,7 @@ import io.javalin.http.BadRequestResponse
 import io.javalin.json.JavalinJackson
 import io.javalin.micrometer.MicrometerPlugin
 import io.javalin.openapi.OpenApiContact
-import io.javalin.openapi.OpenApiInfo
 import io.javalin.openapi.OpenApiLicense
-import io.javalin.openapi.OpenApiServer
-import io.javalin.openapi.OpenApiServerVariable
-import io.javalin.openapi.plugin.OpenApiConfiguration
 import io.javalin.openapi.plugin.OpenApiPlugin
 import io.javalin.openapi.plugin.OpenApiPluginConfiguration
 import io.javalin.openapi.plugin.redoc.ReDocConfiguration

@@ -31,7 +31,7 @@ import java.util.function.Supplier
  */
 
 enum class EventType {
-    MESSAGE, EVENT, CLOSE, ERROR, KEEP_ALIVE, MESSAGE_IDS, PAGE_INFO, TIMEOUT;
+    MESSAGE, EVENT, CLOSE, ERROR, KEEP_ALIVE, MESSAGE_IDS, PAGE_INFO;
 
     val typeName: String = name.lowercase(Locale.getDefault())
 

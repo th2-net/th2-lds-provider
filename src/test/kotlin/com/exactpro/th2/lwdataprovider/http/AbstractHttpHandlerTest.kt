@@ -30,6 +30,7 @@ import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.configuration.CustomConfigurationClass
 import com.fasterxml.jackson.databind.JsonNode
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import io.javalin.Javalin
 import io.javalin.http.Header
 import io.javalin.json.JavalinJackson
@@ -57,7 +58,7 @@ import org.mockito.kotlin.whenever
 import strikt.api.Assertion
 import strikt.assertions.isNotNull
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.Executor
+import java.util.concurrent.Executors
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 
@@ -67,7 +68,9 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
     private val manager: CradleManager = mock {
         on { storage } doReturn storage
     }
-    private val inPlaceExecutor = Executor { it.run() }
+    private val executor = Executors.newSingleThreadExecutor(ThreadFactoryBuilder()
+        .setNameFormat("test-executor-%d")
+        .build())
     protected val configuration = Configuration(CustomConfigurationClass(
         decodingTimeout = 100,
     ))
@@ -100,7 +103,7 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
         cradleManager = manager,
         messageRouter = messageRouter,
         eventRouter = eventRouter,
-        pool = inPlaceExecutor,
+        pool = executor,
     )
     protected val sseResponseBuilder = SseResponseBuilder(context.jacksonMapper)
 

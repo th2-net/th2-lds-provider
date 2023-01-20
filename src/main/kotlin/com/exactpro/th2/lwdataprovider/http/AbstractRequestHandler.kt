@@ -34,7 +34,7 @@ abstract class AbstractRequestHandler : Handler, JavalinHandler {
         contentType(ContentType.APPLICATION_JSON)
 
         try {
-            val supplier = checkNotNull(queue.poll()) { "queue returned null event" }
+            val supplier = checkNotNull(queue.take()) { "queue returned null event" }
             val event = supplier.get()
             status(statusFromEventType(event))
                 .result(event.data)

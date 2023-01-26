@@ -51,10 +51,10 @@ repositories {
 }
 
 dependencies {
-    api platform('com.exactpro.th2:bom:3.2.0')
+    api platform('com.exactpro.th2:bom:4.1.0')
 
 
-    implementation 'com.exactpro.th2:common:3.39.3'
+    implementation 'com.exactpro.th2:common:3.44.0'
 
     implementation 'org.eclipse.jetty:jetty-server:9.4.44.v20210927'
     implementation 'org.eclipse.jetty:jetty-servlet:9.4.44.v20210927'

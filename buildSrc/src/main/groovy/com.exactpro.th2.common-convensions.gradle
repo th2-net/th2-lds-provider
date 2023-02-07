@@ -20,7 +20,7 @@ configurations.all {
 }
 
 dependencies {
-    implementation platform('com.exactpro.th2:bom:4.0.2')
+    implementation platform('com.exactpro.th2:bom:4.1.0')
     implementation 'org.slf4j:slf4j-api'
     implementation 'io.github.microutils:kotlin-logging:2.1.23'
 

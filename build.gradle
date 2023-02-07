@@ -20,6 +20,7 @@ plugins {
     id 'com.palantir.docker' version '0.25.0'
     id "io.github.gradle-nexus.publish-plugin" version "1.1.0"
     id 'org.jetbrains.kotlin.kapt'
+    id "org.owasp.dependencycheck" version "7.4.4"
 }
 
 ext {
@@ -99,5 +100,13 @@ nexusPublishing {
             nexusUrl.set(uri("https://s01.oss.sonatype.org/service/local/"))
             snapshotRepositoryUrl.set(uri("https://s01.oss.sonatype.org/content/repositories/snapshots/"))
         }
+    }
+}
+
+allprojects {
+    apply plugin: 'org.owasp.dependencycheck'
+
+    dependencyCheck {
+        formats=['SARIF']
     }
 }

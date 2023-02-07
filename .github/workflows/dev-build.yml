@@ -146,3 +146,14 @@ jobs:
           context: .
           tags: ghcr.io/${{ github.repository }}:${{ needs.metadata.outputs.release_ver }}
           labels: com.exactpro.th2.${{ steps.meta.outputs.REPOSITORY_NAME }}=${{ needs.metadata.outputs.release_ver }}
+  owasp-scan-job:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Run OWASP scanning
+        run: ./gradlew dependencyCheckAggregate
+      - name: Upload OWASP scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: './build/reports/dependency-check-report.sarif'

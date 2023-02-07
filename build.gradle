@@ -30,7 +30,7 @@ ext {
 }
 
 dependencies {
-    api platform('com.exactpro.th2:bom:4.1.0')
+    
     implementation('com.exactpro.th2:common:5.1.0-dev-version-5-4085018593-8adee33-SNAPSHOT') {
         exclude group: 'org.apache.logging.log4j', module: 'log4j-slf4j-impl'
         exclude group: 'com.exactpro.th2', module: 'cradle-core'

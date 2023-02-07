@@ -26,12 +26,18 @@ data class QueueEventsScopeRequest(
     val endTimestamp: Instant,
     val syncInterval: Duration,
     val keepAlive: Boolean,
-    val externalQueue: String,
+    val externalQueue: String?,
 ) {
     init {
-        require(startTimestamp < endTimestamp) { "$startTimestamp must be less than $endTimestamp" }
-        require(!syncInterval.isNegative && !syncInterval.isZero) { "$syncInterval must be greater than 0" }
-        require(externalQueue.isNotBlank()) { "external queue '$externalQueue' cannot be blank" }
+        require(startTimestamp < endTimestamp) {
+            "$startTimestamp start timestamp must be less than $endTimestamp end timestamp"
+        }
+        require(!syncInterval.isNegative && !syncInterval.isZero) {
+            "$syncInterval sync interval must be greater than 0"
+        }
+        require(externalQueue == null || externalQueue.isNotBlank()) {
+            "'$externalQueue' external queue must be null or not blank"
+        }
     }
     companion object {
         @JvmStatic
@@ -48,7 +54,7 @@ data class QueueEventsScopeRequest(
             requireNotNull(endTimestamp) { "end timestamp must be set" },
             requireNotNull(syncInterval) { "sync interval must be set" },
             keepAlive ?: false,
-            requireNotNull(externalQueue) { "external queue must be set" },
+            externalQueue,
         )
     }
 }

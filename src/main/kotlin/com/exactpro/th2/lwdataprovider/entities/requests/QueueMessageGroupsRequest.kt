@@ -17,6 +17,7 @@
 package com.exactpro.th2.lwdataprovider.entities.requests
 
 import com.exactpro.cradle.BookId
+import org.apache.commons.lang3.StringUtils.isNotBlank
 import java.time.Duration
 import java.time.Instant
 
@@ -26,12 +27,26 @@ data class QueueMessageGroupsRequest(
     val endTimestamp: Instant,
     val syncInterval: Duration,
     val keepAlive: Boolean,
-    val externalQueue: String,
+    val externalQueue: String?,
+    val sendRawDirectly: Boolean,
+    val rawOnly: Boolean,
 ) {
     init {
-        require(startTimestamp < endTimestamp) { "$startTimestamp must be less than $endTimestamp" }
-        require(!syncInterval.isNegative && !syncInterval.isZero) { "$syncInterval must be greater than 0" }
-        require(externalQueue.isNotBlank()) { "external queue '$externalQueue' cannot be blank" }
+        require(startTimestamp < endTimestamp) {
+            "$startTimestamp start timestamp must be less than $endTimestamp end timestamp"
+        }
+        require(!syncInterval.isNegative && !syncInterval.isZero) {
+            "$syncInterval sync interval must be greater than 0"
+        }
+        require(externalQueue == null || externalQueue.isNotBlank()) {
+            "'$externalQueue' external queue must be null or not blank"
+        }
+        require(!sendRawDirectly || isNotBlank(externalQueue)) {
+            "'$externalQueue' external queue must not be blank when $sendRawDirectly send raw directly"
+        }
+        if (rawOnly) {
+            require(sendRawDirectly) { "rawOnly parameter can be used only with sendRawDirectly enabled" }
+        }
     }
     companion object {
         @JvmStatic
@@ -42,13 +57,17 @@ data class QueueMessageGroupsRequest(
             syncInterval: Duration?,
             keepAlive: Boolean?,
             externalQueue: String?,
+            sendRawDirectly: Boolean?,
+            rawOnly: Boolean?,
         ): QueueMessageGroupsRequest = QueueMessageGroupsRequest(
             requireNotNull(groupsByBook) { "groupsByBook must be set" },
             requireNotNull(startTimestamp) { "start timestamp must be set" },
             requireNotNull(endTimestamp) { "end timestamp must be set" },
             requireNotNull(syncInterval) { "sync interval must be set" },
             keepAlive ?: false,
-            requireNotNull(externalQueue) { "external queue must be set" },
+            externalQueue,
+            sendRawDirectly ?: false,
+            rawOnly ?: false,
         )
     }
 }

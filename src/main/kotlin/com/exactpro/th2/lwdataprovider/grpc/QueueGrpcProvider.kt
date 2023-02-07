@@ -57,6 +57,8 @@ class QueueGrpcProvider(
                     if (hasSyncInterval()) syncInterval.toJavaDuration() else null,
                     keepAlive,
                     externalQueue,
+                    sendRawDirectly,
+                    rawOnly,
                 )
             }
             messagesHandler.requestMessageGroups(

@@ -17,7 +17,6 @@
 package com.exactpro.th2.lwdataprovider.entities.responses
 
 import java.time.Instant
-import java.util.concurrent.atomic.AtomicLong
 
 data class LastScannedObjectInfo(var id: String = "", var timestamp: Long = 0, var scanCounter: Long = 0) {
 
@@ -26,7 +25,7 @@ data class LastScannedObjectInfo(var id: String = "", var timestamp: Long = 0, v
     }
 
     fun update(event: BaseEventEntity, scanCnt: Long) {
-        update(event.id.toString(), event.startTimestamp, scanCnt)
+        update(event.fullEventId.toString(), event.startTimestamp, scanCnt)
     }
 
     fun update(message: ProviderMessage, scanCnt: Long) {

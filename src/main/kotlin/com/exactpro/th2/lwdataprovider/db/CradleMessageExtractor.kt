@@ -121,11 +121,16 @@ class CradleMessageExtractor(
             messages.preFilter()
         }
 
+        fun StoredGroupedMessageBatch.log() {
+            logger.trace { "Processing batch for group $group ($batchSize message(s)). First: ${firstMessage.id}; Last: ${lastMessage.id}" }
+        }
+
         var prev: StoredGroupedMessageBatch? = null
         var currentBatch: StoredGroupedMessageBatch = iterator.next()
         val buffer: LinkedList<StoredMessage> = LinkedList()
         val remaining: LinkedList<StoredMessage> = LinkedList()
         while (iterator.hasNext()) {
+            currentBatch.log()
             prev = currentBatch
             currentBatch = iterator.next()
             check(prev.firstTimestamp <= currentBatch.firstTimestamp) {
@@ -162,6 +167,7 @@ class CradleMessageExtractor(
             }
         }
         val remainingMessages = currentBatch.filterIfRequired()
+        currentBatch.log()
 
         if (prev == null) {
             // Only single batch was extracted

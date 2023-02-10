@@ -25,10 +25,11 @@ import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.entities.responses.ResponseMessage
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import java.util.concurrent.atomic.AtomicLong
 
 class SseResponseBuilder(
-    private val jacksonMapper: ObjectMapper = ObjectMapper(),
+    private val jacksonMapper: ObjectMapper = ObjectMapper().registerModule(JavaTimeModule()),
 ) {
 
     fun build(event: EventTreeNode, counter: Long): SseEvent {

@@ -86,7 +86,7 @@ class HttpServer(private val context: Context) {
             ServletHolder(
                 GetSessionAliases(searchMessagesHandler, jacksonMapper),
             ),
-            "/aliases",
+            "/messageStreams",
         )
 
         server.start()

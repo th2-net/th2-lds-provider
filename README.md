@@ -8,7 +8,7 @@ This component is similar to [rpt-data-provider](https://github.com/th2-net/th2-
 
 ### REST
 
-`http://localhost:8080/aliases` - returns the list of session aliases from the Cradle
+`http://localhost:8080/messageStreams` - returns the list of session aliases from the Cradle
 
 `http://localhost:8080/event/{id}` - returns a single event with the specified id
 

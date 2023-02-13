@@ -60,13 +60,11 @@ data class EventTreeNode(
         nonBatchedEvent: StoredTestEventMetadata?,
         batchedEvent: BatchedStoredTestEventMetadata?
     ) : this(
-        batch = batch,
         batchedEvent = nonBatchedEvent,
         nonBatchedEvent = batchedEvent,
         providerEventId = ProviderEventId(
             batch?.id, nonBatchedEvent?.id ?: batchedEvent?.id ?: throw ParseEventTreeNodeException(error)
         ),
-
         parentEventId = (nonBatchedEvent?.parentId ?: batchedEvent?.parentId)?.let {
             if (batch?.getTestEvent(it) != null) {
                 ProviderEventId(batch.id, it)
@@ -77,7 +75,6 @@ data class EventTreeNode(
     )
 
     constructor(
-        batch: StoredTestEventBatchMetadata?,
         batchedEvent: StoredTestEventMetadata?,
         nonBatchedEvent: BatchedStoredTestEventMetadata?,
         providerEventId: ProviderEventId,

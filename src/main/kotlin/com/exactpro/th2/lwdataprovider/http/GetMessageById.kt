@@ -17,64 +17,57 @@
 package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.cradle.Direction
-import com.exactpro.th2.lwdataprovider.*
-import com.exactpro.th2.lwdataprovider.configuration.Configuration
+import com.exactpro.th2.lwdataprovider.SseEvent
+import com.exactpro.th2.lwdataprovider.SseResponseBuilder
+import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.google.gson.Gson
 import mu.KotlinLogging
 import java.util.*
 import java.util.concurrent.ArrayBlockingQueue
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
 
-class GetMessageById (
-    private val configuration: Configuration, private val jacksonMapper: ObjectMapper,
+class GetMessageById(
+    private val sseResponseBuilder: SseResponseBuilder,
     private val keepAliveHandler: KeepAliveHandler,
-    private val searchMessagesHandler: SearchMessagesHandler
-)
-    : NoSseServlet() {
-
-    private val customJsonFormatter = CustomJsonFormatter()
+    private val searchMessagesHandler: SearchMessagesHandler,
+    private val dataMeasurement: DataMeasurement,
+) : NoSseServlet() {
 
     companion object {
         private val logger = KotlinLogging.logger { }
     }
-    
 
-    override fun doGet(req: HttpServletRequest?, resp: HttpServletResponse?) {
 
-        checkNotNull(req)
-        checkNotNull(resp)
-
+    override fun doGet(req: HttpServletRequest, resp: HttpServletResponse) {
         val queue = ArrayBlockingQueue<SseEvent>(2)
         var msgId = req.pathInfo
         if (msgId.startsWith('/'))
             msgId = msgId.substring(1)
 
-        var reqContext: MessageRequestContext? = null
-        val newMsgId = checkId(msgId, queue)
-        if (newMsgId != null) {
+
+        val handler = HttpMessagesRequestHandler(queue, sseResponseBuilder, dataMeasurement)
+        try {
+            val newMsgId = checkId(msgId)
             val queryParametersMap = getParameters(req)
             logger.info { "Received search sse event request with parameters: $queryParametersMap" }
 
             val request = GetMessageRequest(newMsgId, queryParametersMap)
 
-            val sseResponseBuilder = SseResponseBuilder(jacksonMapper)
-            val sseResponse = SseResponseHandler(queue, sseResponseBuilder)
-            reqContext = MessageSseRequestContext(sseResponse, queryParametersMap)
-            keepAliveHandler.addKeepAliveData(reqContext)
-            searchMessagesHandler.loadOneMessage(request, reqContext)
+            searchMessagesHandler.loadOneMessage(request, handler, dataMeasurement)
+        } catch (ex: Exception) {
+            logger.error(ex) { "cannot load message $msgId" }
+            handler.writeErrorMessage(ex.message ?: ex.toString())
+            handler.complete()
         }
 
         this.waitAndWrite(queue, resp)
-        reqContext?.let { keepAliveHandler.removeKeepAliveData(it) }
         logger.info { "Processing search sse messages request finished" }
     }
-    
-    private fun checkId (msgId: String, out: ArrayBlockingQueue<SseEvent>) : String? {
+
+    private fun checkId(msgId: String): String {
 
         if (!msgId.contains('/') && !msgId.contains('?')) {
             val split = msgId.split(':')
@@ -85,12 +78,8 @@ class GetMessageById (
                     return split[0] + ":" + split[1].lowercase(Locale.getDefault()) + ":" + split[2]
             }
         }
-        
-        logger.error("Invalid message id: $msgId")
-        out.put(SseEvent(Gson().toJson(Collections.singletonMap("message",
-            "Invalid message id: $msgId")), EventType.ERROR))
-        out.put(SseEvent(event = EventType.CLOSE))
-        return null
+
+        throw IllegalArgumentException("Invalid message id: $msgId")
     }
 
 

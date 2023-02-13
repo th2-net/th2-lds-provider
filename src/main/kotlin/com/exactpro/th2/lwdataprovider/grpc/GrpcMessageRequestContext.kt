@@ -16,56 +16,44 @@
 
 package com.exactpro.th2.lwdataprovider.grpc
 
-import com.exactpro.cradle.messages.StoredMessage
-import com.exactpro.th2.common.grpc.Message
-import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.dataprovider.grpc.MessageSearchResponse
 import com.exactpro.th2.dataprovider.grpc.MessageStreamPointers
-import com.exactpro.th2.lwdataprovider.GrpcResponseHandler
-import com.exactpro.th2.lwdataprovider.MessageRequestContext
+import com.exactpro.th2.lwdataprovider.GrpcEvent
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
-import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
+import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.entities.exceptions.HandleDataException
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
+import com.exactpro.th2.lwdataprovider.handlers.MessageResponseHandler
 import com.exactpro.th2.lwdataprovider.producers.GrpcMessageProducer
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.BlockingQueue
 
-
-class GrpcMessageRequestContext (
-    override val channelMessages: GrpcResponseHandler,
-    requestParameters: Map<String, Any> = emptyMap(),
-    counter: AtomicLong = AtomicLong(0L),
-
-    scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo(),
-    requestedMessages: MutableMap<String, RequestedMessageDetails> = ConcurrentHashMap(),
-    maxMessagesPerRequest: Int = 0
-) : MessageRequestContext(channelMessages, requestParameters, counter, scannedObjectInfo, requestedMessages,
-    maxMessagesPerRequest = maxMessagesPerRequest) {
-
-
-    override fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage, onResponse: () -> Unit): GrpcRequestedMessageDetails {
-        return GrpcRequestedMessageDetails(id, time, storedMessage, this, onResponse)
+class GrpcMessageResponseHandler(
+    private val buffer: BlockingQueue<GrpcEvent>,
+    dataMeasurement: DataMeasurement,
+    maxMessagesPerRequest: Int = 0,
+    private val responseFormats: Set<ResponseFormat> = emptySet(),
+) : MessageResponseHandler(dataMeasurement, maxMessagesPerRequest) {
+    override fun handleNextInternal(data: RequestedMessageDetails) {
+        if (!isAlive) return
+        buffer.put(GrpcEvent(message = {
+            val msg = GrpcMessageProducer.createMessage(data.awaitAndGet(), responseFormats)
+            MessageSearchResponse.newBuilder().setMessage(msg).build()
+        }))
     }
 
-    override fun addStreamInfo() {
-        val grpcPointers = MessageStreamPointers.newBuilder().addAllMessageStreamPointer(this.streamInfo.toGrpc());
-        return channelMessages.addMessage(MessageSearchResponse.newBuilder().setMessageStreamPointers(grpcPointers).build())
+    override fun complete() {
+        if (!isAlive) return
+        val grpcPointers = MessageStreamPointers.newBuilder().addAllMessageStreamPointer(streamInfo.toGrpc());
+        buffer.put(GrpcEvent(message = { MessageSearchResponse.newBuilder().setMessageStreamPointers(grpcPointers).build() }))
+        buffer.put(GrpcEvent(close = true))
     }
 
-}
+    override fun writeErrorMessage(text: String) {
+        writeErrorMessage(HandleDataException(text))
+    }
 
-class GrpcRequestedMessageDetails(
-    id: String,
-    time: Long,
-    storedMessage: StoredMessage,
-    override val context: GrpcMessageRequestContext,
-    onResponse: () -> Unit,
-    parsedMessage: List<Message>? = null,
-    rawMessage: RawMessage? = null
-) : RequestedMessageDetails(id, time, storedMessage, context, parsedMessage, rawMessage, onResponse) {
-
-    override fun responseMessageInternal() {
-        val msg = GrpcMessageProducer.createMessage(this)
-        context.channelMessages.addMessage(MessageSearchResponse.newBuilder().setMessage(msg).build())
+    override fun writeErrorMessage(error: Throwable) {
+        buffer.put(GrpcEvent(error = error))
     }
 
 }

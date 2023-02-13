@@ -16,42 +16,61 @@
 
 package com.exactpro.th2.lwdataprovider.handlers
 
+import com.exactpro.th2.lwdataprovider.ResponseHandler
 import com.exactpro.th2.lwdataprovider.db.CradleEventExtractor
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
-import com.exactpro.th2.lwdataprovider.http.EventRequestContext
+import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import mu.KotlinLogging
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.Executor
 
+private val logger = KotlinLogging.logger { }
 class SearchEventsHandler(
     private val cradle: CradleEventExtractor,
-    private val threadPool: ExecutorService
+    private val threadPool: Executor,
 ) {
-    companion object {
-        private val logger = KotlinLogging.logger { }
-    }
-    
-    fun loadEvents(request: SseEventSearchRequest, requestContext: EventRequestContext) {
+
+    fun loadEvents(request: SseEventSearchRequest, requestContext: ResponseHandler<Event>) {
         threadPool.execute {
-            try {
-                cradle.getEvents(request, requestContext)
-            } catch (e: Exception) {
-                requestContext.writeErrorMessage(e.message?:"")
-                requestContext.finishStream()
+            EventDataSink(requestContext, request.resultCountLimit).use {
+                try {
+                    cradle.getEvents(request, it)
+                } catch (e: Exception) {
+                    logger.error(e) { "error during loading events $request" }
+                    it.onError(e)
+                }
             }
         }
     }
 
-    fun loadOneEvent(request: GetEventRequest, requestContext: EventRequestContext) {
+    fun loadOneEvent(request: GetEventRequest, requestContext: ResponseHandler<Event>) {
 
         threadPool.execute {
-            try {
-                cradle.getSingleEvents(request, requestContext)
-            } catch (e: Exception) {
-                requestContext.writeErrorMessage(e.message?:"")
-                requestContext.finishStream()
+            EventDataSink(requestContext, limit = null).use {
+                try {
+                    cradle.getSingleEvents(request, it)
+                } catch (e: Exception) {
+                    logger.error(e) { "error during loading singe event $request" }
+                    it.onError(e)
+                }
             }
+        }
+    }
+}
+
+private class EventDataSink(
+    override val handler: ResponseHandler<Event>,
+    limit: Int? = null,
+) : AbstractDataSink<Event>(handler, limit) {
+
+    override fun completed() {
+        handler.complete()
+    }
+
+    override fun onNext(data: Event) {
+        if (limit == null || loadedData < limit) {
+            loadedData++
+            handler.handleNext(data)
         }
     }
 }

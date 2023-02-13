@@ -17,9 +17,11 @@
 package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.th2.lwdataprovider.Context
+import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import mu.KotlinLogging
 import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.server.ServerConnector
+import org.eclipse.jetty.server.handler.gzip.GzipHandler
 import org.eclipse.jetty.servlet.ServletHandler
 import org.eclipse.jetty.servlet.ServletHolder
 
@@ -49,20 +51,24 @@ class HttpServer(private val context: Context) {
         server.connectors = arrayOf(connector)
         val servletHandler = ServletHandler()
         server.handler = servletHandler
+        server.insertHandler(GzipHandler())
+
+        val sseResponseBuilder = SseResponseBuilder(jacksonMapper)
 
         servletHandler.addServletWithMapping(ServletHolder(
-            GetMessagesServlet(configuration, jacksonMapper, keepAliveHandler,
-            searchMessagesHandler)
+            GetMessagesServlet(configuration, sseResponseBuilder, keepAliveHandler,
+            searchMessagesHandler, context.dataMeasurement)
         ), "/search/sse/messages")
 
         servletHandler.addServletWithMapping(ServletHolder(
-            GetMessageById(configuration, jacksonMapper, keepAliveHandler,
-                searchMessagesHandler)
+            GetMessageById(
+                sseResponseBuilder, keepAliveHandler, searchMessagesHandler,
+                context.dataMeasurement
+            )
         ), "/message/*")
 
         servletHandler.addServletWithMapping(ServletHolder(
-            GetOneEvent(configuration, jacksonMapper, keepAliveHandler,
-                this.context.searchEventsHandler)
+            GetOneEvent(sseResponseBuilder, keepAliveHandler, this.context.searchEventsHandler)
         ), "/event/*")
         
         servletHandler.addServletWithMapping(ServletHolder(
@@ -72,7 +78,7 @@ class HttpServer(private val context: Context) {
             GetTestSpeedServlet2()
         ), "/search/sse/test2")
         servletHandler.addServletWithMapping(ServletHolder(
-            GetEventsServlet(configuration, jacksonMapper, keepAliveHandler,
+            GetEventsServlet(configuration, sseResponseBuilder, keepAliveHandler,
             this.context.searchEventsHandler)
         ), "/search/sse/events")
 

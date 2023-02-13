@@ -22,25 +22,42 @@ import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest
 import com.exactpro.th2.dataprovider.grpc.MessageStreamPointer
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.grpc.toInstant
 import com.exactpro.th2.lwdataprovider.grpc.toProviderMessageStreams
 import com.exactpro.th2.lwdataprovider.grpc.toProviderRelation
 import com.exactpro.th2.lwdataprovider.grpc.toStoredMessageId
 import java.time.Instant
-import kotlin.streams.toList
 
-data class SseMessageSearchRequest(
+class SseMessageSearchRequest(
     val startTimestamp: Instant?,
     val stream: List<ProviderMessageStream>?,
     val searchDirection: TimeRelation,
-    val endTimestamp: Instant?,
     val resultCountLimit: Int?,
     val keepOpen: Boolean,
     val attachedEvents: Boolean,
     val lookupLimitDays: Int?,
     val resumeFromIdsList: List<StoredMessageId>?,
-    val onlyRaw: Boolean
+
+    endTimestamp: Instant?,
+    val responseFormats: Set<ResponseFormat>? = null
 ) {
+    init {
+        if (keepOpen) {
+            requireNotNull(startTimestamp) { "the start timestamp must be specified if keep open is used" }
+            requireNotNull(endTimestamp) { "the end timestamp must be specified if keep open is used" }
+        }
+        if (!responseFormats.isNullOrEmpty()) {
+            ResponseFormat.validate(responseFormats)
+        }
+    }
+
+    val endTimestamp : Instant
+
+    init {
+        this.endTimestamp = getInitEndTimestamp(endTimestamp, resultCountLimit, searchDirection)
+        checkRequest()
+    }
 
     companion object {
         private fun asCradleTimeRelation(value: String): TimeRelation {
@@ -53,12 +70,20 @@ data class SseMessageSearchRequest(
         private fun toStreams(streams: List<String>?): List<ProviderMessageStream>? {
             if (streams == null)
                 return null;
-            val providerStreams = ArrayList<ProviderMessageStream>(streams.size * 2)
-            streams.forEach {
-                providerStreams.add(ProviderMessageStream(it, Direction.SECOND))
-                providerStreams.add(ProviderMessageStream(it, Direction.FIRST))
-            }
-            return providerStreams
+            return streams.asSequence().flatMap {
+                if (it.contains(':')) {
+                    val parts = it.split(':')
+                    when (parts.size) {
+                        2 -> {
+                            val (alias, direction) = parts
+                            sequenceOf(ProviderMessageStream(alias, requireNotNull(Direction.byLabel(direction)) { "incorrect direction $direction" }))
+                        }
+                        else -> error("incorrect stream '$it'")
+                    }
+                } else {
+                    sequenceOf(ProviderMessageStream(it, Direction.SECOND), ProviderMessageStream(it, Direction.FIRST))
+                }
+            }.toList()
         }
 
         private fun toMessageIds(streamsPointers: List<MessageStreamPointer>?): List<StoredMessageId>? {
@@ -86,24 +111,31 @@ data class SseMessageSearchRequest(
         keepOpen = parameters["keepOpen"]?.firstOrNull()?.toBoolean() ?: false,
         attachedEvents = parameters["attachedEvents"]?.firstOrNull()?.toBoolean() ?: false,
         lookupLimitDays = parameters["lookupLimitDays"]?.firstOrNull()?.toInt(),
-        onlyRaw = parameters["onlyRaw"]?.firstOrNull()?.toBoolean() ?: false
+        responseFormats = parameters["responseFormats"]?.mapTo(hashSetOf(), ResponseFormat.Companion::fromString),
     )
 
+
     constructor(grpcRequest: MessageSearchRequest) : this(
-        startTimestamp = grpcRequest.startTimestamp?.toInstant(),
+        startTimestamp = if (grpcRequest.hasStartTimestamp()){
+            grpcRequest.startTimestamp.toInstant()
+        } else null,
         stream = grpcRequest.streamList.map { it.toProviderMessageStreams() },
         searchDirection = grpcRequest.searchDirection.toProviderRelation(),
-        endTimestamp = grpcRequest.endTimestamp?.toInstant(),
-        resumeFromIdsList = toMessageIds(grpcRequest.streamPointerList),
+        endTimestamp = if (grpcRequest.hasEndTimestamp()){
+            grpcRequest.endTimestamp.toInstant()
+        } else null,
+        resumeFromIdsList = if (grpcRequest.streamPointerList.isNotEmpty()){
+            toMessageIds(grpcRequest.streamPointerList)
+        } else null,
         resultCountLimit = if (grpcRequest.hasResultCountLimit()) grpcRequest.resultCountLimit.value else null,
         keepOpen = if (grpcRequest.hasKeepOpen()) grpcRequest.keepOpen.value else false,
         attachedEvents = false, // disabled
         lookupLimitDays = null,
-        onlyRaw = false // NOT SUPPORTED in GRPC
+        responseFormats = grpcRequest.responseFormatsList.takeIf { it.isNotEmpty() }?.mapTo(hashSetOf(), ResponseFormat.Companion::fromString),
     )
 
     private fun checkEndTimestamp() {
-        if (endTimestamp == null || startTimestamp == null) return
+        if (startTimestamp == null) return
 
         if (searchDirection == TimeRelation.AFTER) {
             if (startTimestamp.isAfter(endTimestamp))
@@ -119,9 +151,22 @@ data class SseMessageSearchRequest(
             throw InvalidRequestException("One of the 'startTimestamp' or 'resumeFromId' or 'messageId' must not be null")
     }
 
-    fun checkRequest() {
+    private fun checkRequest() {
         checkStartPoint()
         checkEndTimestamp()
+    }
+
+    override fun toString(): String {
+        return "SseMessageSearchRequest(" +
+                "startTimestamp=$startTimestamp, " +
+                "endTimestamp=$endTimestamp" +
+                "stream=$stream, " +
+                "searchDirection=$searchDirection, " +
+                "resultCountLimit=$resultCountLimit, " +
+                "keepOpen=$keepOpen, " +
+                "resumeFromIdsList=$resumeFromIdsList, " +
+                "responseFormats=$responseFormats, " +
+                ")"
     }
 }
 

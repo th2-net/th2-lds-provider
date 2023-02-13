@@ -16,54 +16,49 @@
 
 package com.exactpro.th2.lwdataprovider.http
 
-import com.exactpro.th2.lwdataprovider.*
-import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
+import com.exactpro.th2.lwdataprovider.SseEvent
+import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
+import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
+import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import com.fasterxml.jackson.databind.ObjectMapper
 import mu.KotlinLogging
 import java.util.concurrent.ArrayBlockingQueue
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
 
-class GetMessagesServlet (
-    private val configuration: Configuration, private val jacksonMapper: ObjectMapper, 
-    private val keepAliveHandler: KeepAliveHandler, 
-    private val searchMessagesHandler: SearchMessagesHandler
-    )
-    : SseServlet() {
-
-    private val customJsonFormatter = CustomJsonFormatter()
+class GetMessagesServlet(
+    private val configuration: Configuration,
+    private val sseResponseBuilder: SseResponseBuilder,
+    private val keepAliveHandler: KeepAliveHandler,
+    private val searchMessagesHandler: SearchMessagesHandler,
+    private val dataMeasurement: DataMeasurement,
+) : SseServlet() {
 
     companion object {
         private val logger = KotlinLogging.logger { }
     }
-    
-    override fun doGet(req: HttpServletRequest?, resp: HttpServletResponse?) {
-        
-        checkNotNull(req)
-        checkNotNull(resp)
-        
+
+    override fun doGet(req: HttpServletRequest, resp: HttpServletResponse) {
         val queryParametersMap = getParameters(req)
         logger.info { "Received search sse event request with parameters: $queryParametersMap" }
-        
-        val request = SseMessageSearchRequest(queryParametersMap)
-        request.checkRequest()
-        
-        val queue = ArrayBlockingQueue<SseEvent>(configuration.responseQueueSize)
-        val sseResponseBuilder = SseResponseBuilder(jacksonMapper)
-        val sseResponse = SseResponseHandler(queue, sseResponseBuilder)
-        val reqContext = MessageSseRequestContext(sseResponse, queryParametersMap, maxMessagesPerRequest = configuration.bufferPerQuery)
-        reqContext.startStep("messages_loading").use {
-            keepAliveHandler.addKeepAliveData(reqContext)
-            searchMessagesHandler.loadMessages(request, reqContext)
 
-            this.waitAndWrite(queue, resp, reqContext)
-            keepAliveHandler.removeKeepAliveData(reqContext)
-            logger.info { "Processing search sse messages request finished" }
-        }
+        val request = SseMessageSearchRequest(queryParametersMap)
+
+        val queue = ArrayBlockingQueue<SseEvent>(configuration.responseQueueSize)
+        val handler = HttpMessagesRequestHandler(queue, sseResponseBuilder, dataMeasurement, maxMessagesPerRequest = configuration.bufferPerQuery,
+            responseFormats = request.responseFormats ?: configuration.responseFormats)
+//        dataMeasurement.start("messages_loading").use {
+            keepAliveHandler.addKeepAliveData(handler).use {
+                searchMessagesHandler.loadMessages(request, handler, dataMeasurement)
+
+                this.waitAndWrite(queue, resp)
+                logger.info { "Processing search sse messages request finished" }
+            }
+//        }
     }
-    
+
 
 }

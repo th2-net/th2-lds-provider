@@ -18,28 +18,36 @@ package com.exactpro.th2.lwdataprovider.grpc
 
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter
 import com.exactpro.th2.lwdataprovider.Context
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import io.grpc.BindableService
 import io.grpc.Server
 import mu.KotlinLogging
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 
 
-class GrpcServer (server: Server) {
+class GrpcServer(server: Server, private val onStop: () -> Unit) {
 
     companion object {
         private val logger = KotlinLogging.logger { }
 
         fun createGrpc(context: Context, grpcRouter: GrpcRouter): GrpcServer {
+            var executor: ScheduledExecutorService? = null
             val bindableService: BindableService = if (context.configuration.grpcBackPressure) {
                 logger.info { "Creating grpc provider with back pressure" }
-                GrpcDataProviderBackPressure(context.configuration, context.searchMessagesHandler, context.searchEventsHandler)
+                executor = Executors.newSingleThreadScheduledExecutor(ThreadFactoryBuilder()
+                    .setNameFormat("grpc-backpressure-readiness-checker-%d")
+                    .build())
+                GrpcDataProviderBackPressure(context.configuration, context.searchMessagesHandler, context.searchEventsHandler, context.dataMeasurement,
+                    requireNotNull(executor) { "executor cannot be null" } )
             } else {
                 logger.info { "Creating grpc provider" }
-                GrpcDataProviderImpl(context.configuration, context.searchMessagesHandler, context.searchEventsHandler)
+                GrpcDataProviderImpl(context.configuration, context.searchMessagesHandler, context.searchEventsHandler, context.dataMeasurement)
             }
             val server = grpcRouter.startServer(bindableService)
             logger.info { "grpc server started" }
-            return GrpcServer(server)
+            return GrpcServer(server) { executor?.shutdown() }
         }
     }
 
@@ -58,6 +66,7 @@ class GrpcServer (server: Server) {
             logger.warn {"Server isn't stopped gracefully" }
             server.shutdownNow()
         }
+        onStop()
     }
 
     /**

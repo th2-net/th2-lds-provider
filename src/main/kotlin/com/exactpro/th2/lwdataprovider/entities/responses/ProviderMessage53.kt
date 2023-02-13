@@ -45,7 +45,7 @@ data class ProviderMessage53 (
 
     @JsonIgnore
     val message: Message?
-) {
+) : ResponseMessage {
 
     val messageId: String
         get() = id.toString()
@@ -53,14 +53,14 @@ data class ProviderMessage53 (
 
     constructor(
         rawStoredMessage: StoredMessage,
-        jsonBody: String = "{}",
+        jsonBody: String?,
         message: Message?,
         base64Body: String?,
         messageType: String,
         events: Set<String> = Collections.emptySet()
     ) : this(
         bodyBase64 = base64Body,
-        body = jsonBody,
+        body = jsonBody ?: "{}",
         messageType = messageType,
         id = rawStoredMessage.id,
         direction = Direction.fromStored(rawStoredMessage.direction ?: com.exactpro.cradle.Direction.FIRST),

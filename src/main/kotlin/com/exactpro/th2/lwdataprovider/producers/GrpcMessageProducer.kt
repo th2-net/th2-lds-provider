@@ -22,7 +22,8 @@ import com.exactpro.th2.common.grpc.ConnectionID
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.dataprovider.grpc.MessageGroupItem
 import com.exactpro.th2.dataprovider.grpc.MessageGroupResponse
-import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
+import com.exactpro.th2.lwdataprovider.RequestedMessage
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.google.protobuf.Timestamp
 import java.time.Instant
 
@@ -30,16 +31,20 @@ class GrpcMessageProducer {
 
     companion object {
 
-        fun createMessage(rawMessage: RequestedMessageDetails): MessageGroupResponse {
+        fun createMessage(rawMessage: RequestedMessage, responseFormats: Set<ResponseFormat>): MessageGroupResponse {
             val storedMessage = rawMessage.storedMessage
 
             return MessageGroupResponse.newBuilder().apply {
                 messageId = convertMessageId(storedMessage.id)
                 timestamp = convertTimestamp(storedMessage.timestamp)
-                bodyRaw = rawMessage.rawMessage?.body
 
-                rawMessage.parsedMessage?.forEach {
-                    addMessageItem(MessageGroupItem.newBuilder().setMessage(it).build())
+                if (responseFormats.isEmpty() || ResponseFormat.BASE_64 in responseFormats) {
+                    bodyRaw = rawMessage.rawMessage.body
+                }
+                if (responseFormats.isEmpty() || ResponseFormat.PROTO_PARSED in responseFormats) {
+                    rawMessage.parsedMessage?.forEach {
+                        addMessageItem(MessageGroupItem.newBuilder().setMessage(it).build())
+                    }
                 }
             }.build()
         }

@@ -16,20 +16,31 @@
 
 package com.exactpro.th2.lwdataprovider.grpc
 
+import com.exactpro.th2.lwdataprovider.CancelableResponseHandler
 import com.exactpro.th2.lwdataprovider.GrpcEvent
-import com.exactpro.th2.lwdataprovider.GrpcResponseHandler
-import com.exactpro.th2.lwdataprovider.RequestContext
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
+import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
+import io.grpc.Status
 import io.grpc.stub.ServerCallStreamObserver
 import io.grpc.stub.StreamObserver
 import mu.KotlinLogging
+import java.util.concurrent.BlockingQueue
+import java.util.concurrent.Future
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
-class GrpcDataProviderBackPressure(configuration: Configuration, searchMessagesHandler: SearchMessagesHandler,
-    searchEventsHandler: SearchEventsHandler
-) :
-    GrpcDataProviderImpl(configuration, searchMessagesHandler, searchEventsHandler) {
+class GrpcDataProviderBackPressure(
+    configuration: Configuration,
+    searchMessagesHandler: SearchMessagesHandler,
+    searchEventsHandler: SearchEventsHandler,
+    dataMeasurement: DataMeasurement,
+    private val scheduler: ScheduledExecutorService,
+) : GrpcDataProviderImpl(configuration, searchMessagesHandler, searchEventsHandler, dataMeasurement) {
 
     companion object {
         private val logger = KotlinLogging.logger { }
@@ -37,36 +48,73 @@ class GrpcDataProviderBackPressure(configuration: Configuration, searchMessagesH
 
     override fun <T> processResponse(
         responseObserver: StreamObserver<T>,
-        grpcResponseHandler: GrpcResponseHandler,
-        context: RequestContext,
+        buffer: BlockingQueue<GrpcEvent>,
+        handler: CancelableResponseHandler<*>,
         onFinished: () -> Unit,
         converter: (GrpcEvent) -> T?
     ) {
         val servCallObs = responseObserver as ServerCallStreamObserver<T>
+        val lock = ReentrantLock()
+        var future: Future<*>? = null
+
+        fun cleanBuffer() {
+            while (buffer.poll() != null) {
+                buffer.clear()
+            }
+        }
+        fun cancel() {
+            handler.cancel()
+            onClose(handler)
+            cleanBuffer()
+            onFinished()
+        }
         servCallObs.setOnReadyHandler {
-            if (grpcResponseHandler.streamClosed)
-                return@setOnReadyHandler;
-            val buffer = grpcResponseHandler.buffer
+            if (!handler.isAlive)
+                return@setOnReadyHandler
+            lock.withLock {
+                future?.cancel(false)
+                future = null
+            }
             var inProcess = true
             while (servCallObs.isReady && inProcess) {
+                if (servCallObs.isCancelled) {
+                    logger.warn { "Request is canceled during processing" }
+                    handler.cancel()
+                    return@setOnReadyHandler
+                }
                 val event = buffer.take()
                 if (event.close) {
                     servCallObs.onCompleted()
                     inProcess = false
-                    grpcResponseHandler.streamClosed = true
                     onFinished()
-                    onCloseContext(context)
+                    onClose(handler)
                     logger.info { "Executing finished successfully" }
                 } else if (event.error != null) {
                     servCallObs.onError(event.error)
                     inProcess = false
-                    grpcResponseHandler.streamClosed = true
                     onFinished()
-                    onCloseContext(context)
+                    handler.complete()
                     logger.warn(event.error) { "Executing finished with error" }
                 } else {
                     converter.invoke(event)?.let {  servCallObs.onNext(it) }
-                    context.onMessageSent()
+                }
+            }
+            if (inProcess) {
+                lock.withLock {
+                    future = scheduler.schedule({
+                        runCatching {
+                            logger.error {
+                                "gRPC was not ready more than ${configuration.grpcBackPressureReadinessTimeoutMls} mls. " +
+                                        "In queue ${buffer.size}. Close the connection"
+                            }
+                            servCallObs.onError(
+                                Status.DEADLINE_EXCEEDED
+                                    .withDescription("gRPC was not ready longer than configured timeout")
+                                    .asRuntimeException()
+                            )
+                            cancel()
+                        }
+                    }, configuration.grpcBackPressureReadinessTimeoutMls, TimeUnit.MILLISECONDS)
                 }
             }
             if (!servCallObs.isReady) {
@@ -76,11 +124,11 @@ class GrpcDataProviderBackPressure(configuration: Configuration, searchMessagesH
 
         servCallObs.setOnCancelHandler {
             logger.warn{ "Execution cancelled" }
-            grpcResponseHandler.streamClosed = true
-            onCloseContext(context)
-            val buffer = grpcResponseHandler.buffer
-            while (buffer.poll() != null);
-            onFinished()
+            lock.withLock {
+                future?.cancel(true)
+                future = null
+            }
+            cancel()
         }
 
 

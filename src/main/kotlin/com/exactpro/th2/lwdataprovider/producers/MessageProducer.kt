@@ -16,37 +16,33 @@
 
 package com.exactpro.th2.lwdataprovider.producers
 
-import com.exactpro.th2.lwdataprovider.CustomJsonFormatter
+import com.exactpro.th2.lwdataprovider.CustomProtoJsonFormatter
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderParsedMessage
 import java.util.Base64
-import java.util.Collections
-import kotlin.streams.toList
 
 class MessageProducer {
 
     companion object {
 
-        public fun createMessage(rawMessage: RequestedMessageDetails, formatter: CustomJsonFormatter): ProviderMessage {
+        fun createMessage(rawMessage: RequestedMessageDetails, formatter: CustomProtoJsonFormatter): ProviderMessage {
             return ProviderMessage(
                 rawMessage.storedMessage,
-                rawMessage.parsedMessage?.let {
-                    it.stream().map { msg ->
-                        ProviderParsedMessage(msg.metadata.id, formatter.print(msg))
-                    }.toList() 
-                } ?: Collections.emptyList<ProviderParsedMessage>(),
-                rawMessage.rawMessage?.let {
+                rawMessage.parsedMessage?.asSequence()?.map { msg ->
+                    ProviderParsedMessage(msg.metadata.id, formatter.print(msg))
+                }?.toList() ?: emptyList(),
+                rawMessage.rawMessage.let {
                     Base64.getEncoder().encodeToString(it.body.toByteArray())
                 }
             )
         }
 
-        public fun createOnlyRawMessage(rawMessage: RequestedMessageDetails): ProviderMessage {
+        fun createOnlyRawMessage(rawMessage: RequestedMessageDetails): ProviderMessage {
             return ProviderMessage(
                 rawMessage.storedMessage,
-                Collections.emptyList<ProviderParsedMessage>(),
-                rawMessage.rawMessage?.let {
+                emptyList(),
+                rawMessage.rawMessage.let {
                     Base64.getEncoder().encodeToString(it.body.toByteArray())
                 }
             )

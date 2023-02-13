@@ -23,29 +23,24 @@ import com.exactpro.th2.lwdataprovider.entities.responses.EventTreeNode
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
+import com.exactpro.th2.lwdataprovider.entities.responses.ResponseMessage
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import java.util.concurrent.atomic.AtomicLong
 
-class SseResponseBuilder (private val jacksonMapper: ObjectMapper = ObjectMapper()) {
+class SseResponseBuilder(
+    private val jacksonMapper: ObjectMapper = ObjectMapper().registerModule(JavaTimeModule()),
+) {
 
-    fun build(event: EventTreeNode, counter: AtomicLong): SseEvent {
+    fun build(event: EventTreeNode, counter: Long): SseEvent {
         return SseEvent.build(jacksonMapper, event, counter)
     }
 
-    fun build(message: ProviderMessage, counter: AtomicLong): SseEvent {
+    fun build(message: () -> ResponseMessage, counter: Long): SseEvent {
         return SseEvent.build(jacksonMapper, message, counter)
     }
 
-    @Deprecated("5.3 version")
-    fun build(message: ProviderMessage53, counter: AtomicLong): SseEvent {
-        return SseEvent(
-            jacksonMapper.writeValueAsString(message),
-            EventType.MESSAGE,
-            counter.incrementAndGet().toString()
-        )
-    }
-
-    fun build(lastScannedObjectInfo: LastScannedObjectInfo, counter: AtomicLong): SseEvent {
+    fun build(lastScannedObjectInfo: LastScannedObjectInfo, counter: Long): SseEvent {
         return SseEvent.build(jacksonMapper, lastScannedObjectInfo, counter)
     }
 
@@ -53,7 +48,7 @@ class SseResponseBuilder (private val jacksonMapper: ObjectMapper = ObjectMapper
         return SseEvent.build(jacksonMapper, lastIdInStream)
     }
 
-    fun build(event: Event, lastEventId: AtomicLong): SseEvent {
+    fun build(event: Event, lastEventId: Long): SseEvent {
         return SseEvent.build(jacksonMapper, event, lastEventId)
     }
 

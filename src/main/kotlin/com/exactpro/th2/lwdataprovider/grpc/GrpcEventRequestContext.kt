@@ -16,23 +16,33 @@
 
 package com.exactpro.th2.lwdataprovider.grpc
 
-import com.exactpro.th2.lwdataprovider.GrpcResponseHandler
-import com.exactpro.th2.lwdataprovider.entities.responses.Event
-import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
-import com.exactpro.th2.lwdataprovider.http.EventRequestContext
-import com.exactpro.th2.lwdataprovider.producers.GrpcEventProducer
-import java.util.concurrent.atomic.AtomicLong
+import com.exactpro.th2.lwdataprovider.GrpcEvent
+import com.exactpro.th2.lwdataprovider.entities.exceptions.HandleDataException
+import com.exactpro.th2.lwdataprovider.handlers.AbstractCancelableHandler
+import java.util.concurrent.BlockingQueue
 
-class GrpcEventRequestContext (
-    override val channelMessages: GrpcResponseHandler,
-    requestParameters: Map<String, Any> = emptyMap(),
-    counter: AtomicLong = AtomicLong(0L),
-    scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
-) : EventRequestContext(channelMessages, requestParameters, counter, scannedObjectInfo) {
+class GrpcHandler<IN>(
+    private val buffer: BlockingQueue<GrpcEvent>,
+    private val transform: (IN) -> GrpcEvent,
+) : AbstractCancelableHandler<IN>() {
 
-    override fun processEvent(event: Event) {
-        val strResp = GrpcEventProducer.createEvent(event)
-        channelMessages.addEvent(strResp)
-        scannedObjectInfo.update(event.eventId, System.currentTimeMillis(), counter)
+    override fun complete() {
+        if (!isAlive) return
+        buffer.put(GrpcEvent(close = true))
     }
+
+    override fun writeErrorMessage(text: String) {
+        writeErrorMessage(HandleDataException(text))
+    }
+
+    override fun writeErrorMessage(error: Throwable) {
+        if (!isAlive) return
+        buffer.put(GrpcEvent(error = error))
+    }
+
+    override fun handleNext(data: IN) {
+        if (!isAlive) return
+        buffer.put(transform.invoke(data))
+    }
+
 }

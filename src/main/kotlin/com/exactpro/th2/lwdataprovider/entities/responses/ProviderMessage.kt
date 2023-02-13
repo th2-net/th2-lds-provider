@@ -34,7 +34,7 @@ data class ProviderMessage(
 
     @JsonIgnore
     val msgId: StoredMessageId
-) {
+) : ResponseMessage {
 
     val type: String = "message"
     

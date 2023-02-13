@@ -22,9 +22,11 @@ import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.EventTreeNode
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage
+import com.exactpro.th2.lwdataprovider.entities.responses.ResponseMessage
 import com.fasterxml.jackson.databind.ObjectMapper
 import java.util.*
 import java.util.concurrent.atomic.AtomicLong
+import java.util.function.Supplier
 
 /**
  * The data class representing an SSE Event that will be sent to the client.
@@ -33,46 +35,46 @@ import java.util.concurrent.atomic.AtomicLong
 enum class EventType {
     MESSAGE, EVENT, CLOSE, ERROR, KEEP_ALIVE, MESSAGE_IDS;
 
-    override fun toString(): String {
-        return super.toString().lowercase(Locale.getDefault())
-    }
+    val typeName: String = name.lowercase(Locale.getDefault())
+
+    override fun toString(): String = typeName
 }
 
-data class SseEvent(val data: String = "empty data", val event: EventType, val metadata: String? = null) {
+data class SseEvent(val data: Supplier<String> = Supplier { "empty data" }, val event: EventType, val metadata: String? = null) {
     companion object {
-        fun build(jacksonMapper: ObjectMapper, event: EventTreeNode, counter: AtomicLong): SseEvent {
+        fun build(jacksonMapper: ObjectMapper, event: EventTreeNode, counter: Long): SseEvent {
             return SseEvent(
-                jacksonMapper.writeValueAsString(event),
+                { jacksonMapper.writeValueAsString(event) },
                 EventType.EVENT,
-                counter.incrementAndGet().toString()
+                counter.toString()
             )
         }
 
-        fun build(jacksonMapper: ObjectMapper, event: Event, counter: AtomicLong): SseEvent {
+        fun build(jacksonMapper: ObjectMapper, event: Event, counter: Long): SseEvent {
             return SseEvent(
-                jacksonMapper.writeValueAsString(event),
+                { jacksonMapper.writeValueAsString(event) },
                 EventType.EVENT,
-                counter.incrementAndGet().toString()
+                counter.toString()
             )
         }
 
-        fun build(jacksonMapper: ObjectMapper, message: ProviderMessage, counter: AtomicLong): SseEvent {
+        fun build(jacksonMapper: ObjectMapper, message: () -> ResponseMessage, counter: Long): SseEvent {
             return SseEvent(
-                jacksonMapper.writeValueAsString(message),
+                { jacksonMapper.writeValueAsString(message()) },
                 EventType.MESSAGE,
-                counter.incrementAndGet().toString()
+                counter.toString()
             )
         }
 
         fun build(
             jacksonMapper: ObjectMapper,
             lastScannedObjectInfo: LastScannedObjectInfo,
-            counter: AtomicLong
+            counter: Long
         ): SseEvent {
             return SseEvent(
-                data = jacksonMapper.writeValueAsString(lastScannedObjectInfo),
+                data = { jacksonMapper.writeValueAsString(lastScannedObjectInfo) },
                 event = EventType.KEEP_ALIVE,
-                metadata = counter.incrementAndGet().toString()
+                metadata = counter.toString()
             )
         }
         
@@ -82,7 +84,7 @@ data class SseEvent(val data: String = "empty data", val event: EventType, val m
                 rootCause = rootCause.cause
             }
             return SseEvent(
-                jacksonMapper.writeValueAsString(ExceptionInfo(e.javaClass.name,rootCause?.message ?: e.toString())),
+                { jacksonMapper.writeValueAsString(ExceptionInfo(e.javaClass.name,rootCause?.message ?: e.toString())) },
                 event = EventType.ERROR
             )
         }
@@ -92,11 +94,13 @@ data class SseEvent(val data: String = "empty data", val event: EventType, val m
             lastIdInStream: Map<Pair<String, Direction>, StoredMessageId?>
         ): SseEvent {
             return SseEvent(
-                jacksonMapper.writeValueAsString(
-                    mapOf(
-                        "messageIds" to lastIdInStream.entries.associate { it.key to it.value?.toString() }
+                {
+                    jacksonMapper.writeValueAsString(
+                        mapOf(
+                            "messageIds" to lastIdInStream.entries.associate { it.key to it.value?.toString() }
+                        )
                     )
-                ),
+                },
                 event = EventType.MESSAGE_IDS
             )
         }

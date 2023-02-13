@@ -1,5 +1,5 @@
-/*******************************************************************************
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+/*
+ * Copyright 2022 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,30 +12,28 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ */
 
 package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.MessageMetadata
 import com.exactpro.th2.common.grpc.Value
+import com.exactpro.th2.lwdataprovider.producers.JsonFormatter
 import com.google.gson.Gson
 
-class CustomJsonFormatter  {
-    
-    private val sb1 : StringBuilder = StringBuilder()
-    
-    companion object {
-        private const val QUOTE_CHAR = '"'.code
-    }
-    
-    fun print(msg : Message) : String {
+abstract class AbstractJsonFormatter : JsonFormatter {
+    private val sb1: StringBuilder = StringBuilder()
+    private val gson = Gson()
+    override fun print(message: Message): String {
         sb1.setLength(0)
-        printM(msg, sb1)
+        printM(message, sb1)
         return sb1.toString()
     }
 
-    private fun printM (msg: Message, sb: StringBuilder) {
+    protected abstract fun printV(value: Value, sb: StringBuilder)
+
+    protected fun printM (msg: Message, sb: StringBuilder) {
         sb.append("{")
         if (msg.hasMetadata()) {
             printMetadata(msg.metadata, sb)
@@ -52,49 +50,15 @@ class CustomJsonFormatter  {
             sb.setLength(sb.length - 1)
         }
         sb.append('}').append('}')
-        
+
     }
 
-    private val gson = Gson()
-    
-    private fun printV (value: Value, sb: StringBuilder) {
-        when (value.kindCase) {
-            Value.KindCase.SIMPLE_VALUE -> {
-                sb.append("{\"simpleValue\":")
-                convertStringToJson(value.simpleValue, sb)
-                sb.append('}')
-            }
-            Value.KindCase.LIST_VALUE -> {
-                sb.append("{\"listValue\":{\"values\":[")
-                val valuesList = value.listValue.valuesList
-                if (valuesList.isNotEmpty()) {
-                    valuesList.forEach {
-                        printV(it, sb)
-                        sb.append(',')
-                    }
-                    sb.setLength(sb.length - 1)
-                }
-                sb.append("]}}")
-            }
-            Value.KindCase.MESSAGE_VALUE -> {
-                sb.append("{\"messageValue\":")
-                printM(value.messageValue, sb)
-                sb.append('}')
-            }
-            Value.KindCase.NULL_VALUE -> {
-                sb.append("{\"nullValue\": {}")
-            }
-            else -> {
-            }
-        }
-    }
-
-    private fun isNeedToEscape(s: String) : Boolean {
+    private fun isNeedToEscape(s: String): Boolean {
         // ascii 32 is space, all chars below should be escaped
-        return s.chars().anyMatch { it < 32 || it == QUOTE_CHAR }
+        return s.chars().anyMatch { it < 32 || it == CustomProtoJsonFormatter.QUOTE_CHAR || it == CustomProtoJsonFormatter.BACK_SLASH }
     }
-    
-    private fun convertStringToJson(s: String, builder: StringBuilder) {
+
+    protected fun convertStringToJson(s: String, builder: StringBuilder) {
         if (isNeedToEscape(s)) {
             gson.toJson(s, builder)
         } else {
@@ -102,7 +66,7 @@ class CustomJsonFormatter  {
         }
     }
 
-    private fun printMetadata (msg: MessageMetadata, sb: StringBuilder) {
+    private fun printMetadata(msg: MessageMetadata, sb: StringBuilder) {
         sb.append("\"metadata\":{")
         var first = true
         if (msg.hasId()) {

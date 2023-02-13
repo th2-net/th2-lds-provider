@@ -22,70 +22,24 @@ import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.google.gson.Gson
 import java.util.Collections
 import java.util.concurrent.ArrayBlockingQueue
-import java.util.concurrent.atomic.AtomicLong
+import java.util.function.Supplier
 
-interface ResponseHandler {
-
-    fun finishStream()
-    fun keepAliveEvent(obj: LastScannedObjectInfo, counter: AtomicLong)
+interface ResponseHandler<T> {
+    val isAlive: Boolean
+    fun complete()
     fun writeErrorMessage(text: String)
     fun writeErrorMessage(error: Throwable)
+
+    fun handleNext(data: T)
 }
 
-class SseResponseHandler (val buffer: ArrayBlockingQueue<SseEvent>,
-                          val responseBuilder: SseResponseBuilder) : ResponseHandler {
-
-    override fun finishStream() {
-        buffer.put(SseEvent(event = EventType.CLOSE))
-    }
-
-    override fun keepAliveEvent(obj: LastScannedObjectInfo, counter: AtomicLong) {
-        buffer.put(responseBuilder.build(obj, counter))
-    }
-
-    override fun writeErrorMessage(text: String) {
-        buffer.put(SseEvent(Gson().toJson(Collections.singletonMap("message", text)), EventType.ERROR))
-    }
-
-    override fun writeErrorMessage(error: Throwable) {
-        this.writeErrorMessage("${error.javaClass.simpleName} : ${error.message}")
-    }
-
+interface CancelableResponseHandler<T> : ResponseHandler<T> {
+    fun cancel()
 }
 
-class GrpcResponseHandler(val buffer: ArrayBlockingQueue<GrpcEvent>) : ResponseHandler {
-
-    @Volatile var streamClosed = false
-
-    override fun finishStream() {
-        if (!streamClosed)
-            buffer.put(GrpcEvent(close = true))
-    }
-
-    override fun keepAliveEvent(obj: LastScannedObjectInfo, counter: AtomicLong) {
-
-    }
-
-    override fun writeErrorMessage(text: String) {
-        if (!streamClosed)
-            buffer.put(GrpcEvent(error = LwDataProviderException(text)))
-    }
-
-    override fun writeErrorMessage(error: Throwable) {
-        if (!streamClosed)
-            buffer.put(GrpcEvent(error = error))
-    }
-
-    fun addMessage(resp: MessageSearchResponse) {
-        if (!streamClosed)
-            buffer.put(GrpcEvent(message = resp))
-    }
-
-    fun addEvent(resp: EventResponse) {
-        if (!streamClosed)
-            buffer.put(GrpcEvent(event = resp))
-    }
-
+interface KeepAliveListener {
+    fun update()
+    val lastTimestampMillis: Long
 }
 
-data class GrpcEvent(val message: MessageSearchResponse? = null, val event: EventResponse? = null, val error: Throwable? = null, val close: Boolean = false)
+data class GrpcEvent(val message: Supplier<MessageSearchResponse>? = null, val event: EventResponse? = null, val error: Throwable? = null, val close: Boolean = false)

@@ -17,88 +17,88 @@
 package com.exactpro.th2.lwdataprovider.db
 
 import com.exactpro.cradle.CradleManager
+import com.exactpro.cradle.CradleStorage
 import com.exactpro.cradle.cassandra.CassandraCradleStorage
-import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.cradle.testevents.StoredTestEventWrapper
-import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
-import com.exactpro.th2.lwdataprovider.http.EventRequestContext
+import com.exactpro.th2.lwdataprovider.entities.responses.BaseEventEntity
+import com.exactpro.th2.lwdataprovider.filter.DataFilter
+import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.producers.EventProducer
 import mu.KotlinLogging
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.temporal.ChronoUnit
-import java.util.Collections
-import java.util.stream.Collectors
+import java.util.*
 
 
-class CradleEventExtractor (private val cradleManager: CradleManager) {
-
-    private val storage = cradleManager.storage
+class CradleEventExtractor(
+    cradleManager: CradleManager
+) {
+    private val storage: CradleStorage = cradleManager.storage
 
     companion object {
         private val logger = KotlinLogging.logger { }
     }
 
-    fun getEvents(filter: SseEventSearchRequest, requestContext: EventRequestContext) {
-        var dates = splitByDates(filter.startTimestamp, filter.endTimestamp)
-        if (filter.resultCountLimit != null && filter.resultCountLimit > 0) {
-            requestContext.eventsLimit = filter.resultCountLimit
-        }
+    fun getEvents(filter: SseEventSearchRequest, sink: DataSink<Event>) {
+        val dates = splitByDates(
+            requireNotNull(filter.startTimestamp) { "start timestamp is not set" },
+            requireNotNull(filter.endTimestamp) { "end timestamp is not set" }
+        )
 
         if (filter.parentEvent == null) {
-            getEventByDates(dates, requestContext)
+            getEventByDates(dates, sink, filter.filter) { start, end ->
+                logger.info { "Extracting events from $start to $end processed." }
+                storage.getTestEvents(start, end)
+            }
         } else {
-            getEventByIds(filter.parentEvent, dates, requestContext)
+            val parentId: StoredTestEventId = filter.parentEvent.eventId
+            getEventByDates(dates, sink, filter.filter) { start, end ->
+                logger.info { "Extracting events from $start to $end with parent $parentId processed." }
+                storage.getTestEvents(parentId, start, end)
+            }
         }
-        requestContext.finishStream()
     }
 
-    fun getSingleEvents(filter: GetEventRequest, requestContext: EventRequestContext) {
+    fun getSingleEvents(filter: GetEventRequest, sink: DataSink<Event>) {
+        logger.info { "Extracting single event $filter" }
         val batchId = filter.batchId
         val eventId = StoredTestEventId(filter.eventId)
         if (batchId != null) {
             val testBatch = storage.getTestEvent(StoredTestEventId(batchId))
             if (testBatch == null) {
-                requestContext.writeErrorMessage("Event batch is not found with id: $batchId")
-                requestContext.finishStream()
+                sink.onError("Event batch is not found with id: $batchId")
                 return
             }
             if (testBatch.isSingle) {
-                requestContext.writeErrorMessage("Event with id: $batchId is not a batch. (single event)")
-                requestContext.finishStream()
+                sink.onError("Event with id: $batchId is not a batch. (single event)")
                 return
             }
             val batch = testBatch.asBatch()
             val testEvent = batch.getTestEvent(eventId)
             if (testEvent == null) {
-                requestContext.writeErrorMessage("Event with id: $eventId is not found in batch $batchId")
-                requestContext.finishStream()
+                sink.onError("Event with id: $eventId is not found in batch $batchId")
                 return
             }
             val batchEventBody = EventProducer.fromBatchEvent(testEvent, batch)
-            batchEventBody.body = String(testEvent.content)
-            batchEventBody.attachedMessageIds = loadAttachedMessages(testEvent.messageIds)
 
-            requestContext.processEvent(batchEventBody.convertToEvent())
+            sink.onNext(batchEventBody.convertToEvent())
         } else {
             val testBatch = storage.getTestEvent(eventId)
             if (testBatch == null) {
-                requestContext.writeErrorMessage("Event is not found with id: $eventId")
-                requestContext.finishStream()
+                sink.onError("Event is not found with id: $eventId")
                 return
             }
             if (testBatch.isBatch) {
-                requestContext.writeErrorMessage("Event with id: $eventId is a batch. (not single event)")
-                requestContext.finishStream()
+                sink.onError("Event with id: $eventId is a batch. (not single event)")
                 return
             }
-            processEvents(Collections.singleton(testBatch), requestContext, LongCounter())
+            processEvents(Collections.singleton(testBatch), sink, ProcessingInfo(), DataFilter.acceptAll())
         }
-        requestContext.finishStream()
     }
 
     private fun toLocal(timestamp: Instant?): LocalDateTime {
@@ -110,9 +110,7 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
     }
 
 
-    private fun splitByDates(from: Instant?, to: Instant?): Collection<Pair<Instant, Instant>> {
-        checkNotNull(from)
-        checkNotNull(to)
+    private fun splitByDates(from: Instant, to: Instant): Collection<Pair<Instant, Instant>> {
         require(!from.isAfter(to)) { "Lower boundary should specify timestamp before upper boundary, but got $from > $to" }
         var localFrom: LocalDateTime = toLocal(from)
         val localTo: LocalDateTime = toLocal(to)
@@ -128,89 +126,71 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
         } while (true)
     }
 
-    private fun getEventByDates(dates: Collection<Pair<Instant, Instant>>, requestContext: EventRequestContext) {
+    private fun getEventByDates(
+        dates: Collection<Pair<Instant, Instant>>,
+        sink: DataSink<Event>,
+        filter: DataFilter<BaseEventEntity>,
+        eventSupplier: (Instant, Instant) -> Iterable<StoredTestEventWrapper>,
+    ) {
         for (splitByDate in dates) {
-            val counter = LongCounter()
+            val counter = ProcessingInfo()
             val startTime = System.currentTimeMillis()
-            logger.info { "Extracting events from ${splitByDate.first} to ${splitByDate.second} processed."}
-            val testEvents = storage.getTestEvents(splitByDate.first, splitByDate.second)
-            processEvents(testEvents, requestContext, counter)
-            logger.info { "Events for this period loaded. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms"}
-            if (requestContext.isLimitReached()) {
-                logger.info { "Loading events stopped: Reached events limit" }
-                break
-            }
-            if (!requestContext.contextAlive) {
-                logger.info { "Loading events stopped: Context was killed" }
-                break
+            val testEvents = eventSupplier(splitByDate.first, splitByDate.second)
+            processEvents(testEvents, sink, counter, filter)
+            logger.info { "Events for this period loaded. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms" }
+            sink.canceled?.apply {
+                logger.info { "Loading events stopped: $message" }
+                return
             }
         }
     }
 
-    private fun getEventByIds(id: ProviderEventId, dates: Collection<Pair<Instant, Instant>>, requestContext: EventRequestContext) {
-        for (splitByDate in dates) {
-            val counter = LongCounter()
-            val startTime = System.currentTimeMillis()
-            logger.info { "Extracting events from ${splitByDate.first} to ${splitByDate.second} with parent ${id.eventId} processed."}
-            val testEvents = storage.getTestEvents(id.eventId, splitByDate.first, splitByDate.second)
-            processEvents(testEvents, requestContext, counter)
-            logger.info { "Events for this period loaded. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms"}
-            if (requestContext.isLimitReached()) {
-                logger.info { "Loading events stopped: Reached events limit" }
-                break
-            }
-            if (!requestContext.contextAlive) {
-                logger.info { "Loading events stopped: Context was killed" }
-                break
-            }
-        }
-    }
-    
-    private fun loadAttachedMessages(messageIds: Collection<StoredMessageId>?): Set<String> {
-        return if (messageIds != null) {
-            messageIds.stream().map { t -> t.toString() }.collect(Collectors.toSet())
-        } else {
-            Collections.emptySet()
-        }
-    }
-    
     private fun processEvents(
         testEvents: Iterable<StoredTestEventWrapper>,
-        requestContext: EventRequestContext, count: LongCounter
+        sink: DataSink<Event>,
+        count: ProcessingInfo,
+        filter: DataFilter<BaseEventEntity>,
     ) {
         for (testEvent in testEvents) {
             if (testEvent.isSingle) {
                 val singleEv = testEvent.asSingle()
                 val event = EventProducer.fromSingleEvent(singleEv)
-                event.body = String(singleEv.content)
-                event.attachedMessageIds = loadAttachedMessages(singleEv.messageIds)
-                count.value++
-                requestContext.processEvent(event.convertToEvent())
-                requestContext.addProcessedEvents(1)
+                count.total++;
+                if (!filter.match(event)) {
+                    continue
+                }
+                count.singleEvents++
+                count.events++
+                count.totalContentSize += singleEv.content.size + event.attachedMessageIds.sumOf { it.length }
+                sink.onNext(event.convertToEvent())
             } else if (testEvent.isBatch) {
+                count.batches++
                 val batch = testEvent.asBatch()
                 val eventsList = batch.testEvents
                 for (batchEvent in eventsList) {
                     val batchEventBody = EventProducer.fromBatchEvent(batchEvent, batch)
-                    batchEventBody.body = String(batchEvent.content)
-                    batchEventBody.attachedMessageIds = loadAttachedMessages(batchEvent.messageIds)
+                    count.total++
+                    if (!filter.match(batchEventBody)) {
+                        continue
+                    }
 
-                    requestContext.processEvent(batchEventBody.convertToEvent())
-                    count.value++
+                    count.events++
+                    count.totalContentSize += batchEvent.content.size + batchEventBody.attachedMessageIds.sumOf { it.length }
+                    sink.onNext(batchEventBody.convertToEvent())
                 }
-                requestContext.addProcessedEvents(eventsList.size)
             }
-            if (requestContext.isLimitReached() || !requestContext.contextAlive) {
+            sink.canceled?.apply {
+                logger.info { "events processing canceled: $message" }
                 return
             }
         }
     }
 }
 
-class LongCounter {
-    var value: Long = 0;
-    
-    override fun toString(): String {
-        return value.toString()
-    }
-}
+class ProcessingInfo(
+    var total: Long = 0,
+    var events: Long = 0,
+    var singleEvents: Long = 0,
+    var batches: Long = 0,
+    var totalContentSize: Long = 0,
+)

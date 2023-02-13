@@ -82,6 +82,13 @@ class HttpServer(private val context: Context) {
             this.context.searchEventsHandler)
         ), "/search/sse/events")
 
+        servletHandler.addServletWithMapping(
+            ServletHolder(
+                GetSessionAliases(searchMessagesHandler, jacksonMapper),
+            ),
+            "/aliases",
+        )
+
         server.start()
 
         logger.info { "serving on: http://${configuration.hostname}:${configuration.port}" }

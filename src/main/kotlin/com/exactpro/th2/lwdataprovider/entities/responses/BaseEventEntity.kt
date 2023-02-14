@@ -24,7 +24,7 @@ import java.time.Instant
 
 data class BaseEventEntity(
     val type: String = "event",
-    val id: ProviderEventId,
+    val fullEventId: ProviderEventId,
     val batchId: StoredTestEventId?,
     val isBatched: Boolean,
     val eventName: String,
@@ -59,8 +59,9 @@ data class BaseEventEntity(
     fun convertToEvent(): Event {
         return Event(
             batchId = batchId?.toString(),
+            shortEventId = fullEventId.eventId.id,
             isBatched = batchId != null,
-            eventId = id.toString(),
+            eventId = fullEventId.toString(),
             eventName = eventName,
             eventType = eventType,
             startTimestamp = startTimestamp,

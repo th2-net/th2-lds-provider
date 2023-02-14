@@ -13,7 +13,7 @@ ext {
 }
 
 dependencies {
-    api "com.exactpro.th2:grpc-common:4.0.0-th2-2150-books-pages-1606698156-SNAPSHOT"
+    api "com.exactpro.th2:grpc-common:4.1.0-th2-2150-books-pages-3871780258-SNAPSHOT"
     api "com.google.protobuf:protobuf-java-util"
     api "io.grpc:grpc-stub"
     implementation "io.grpc:grpc-protobuf"

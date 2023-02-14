@@ -20,6 +20,7 @@ import com.exactpro.cradle.BookId
 import com.exactpro.cradle.messages.GroupedMessageFilter
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.grpc.MessageGroupBatchMetadata
 import com.exactpro.th2.common.message.plusAssign
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.QueueAttribute
@@ -44,6 +45,7 @@ class QueueMessagesHandler(
     private val dataMeasurement: DataMeasurement,
     private val router: MessageRouter<MessageGroupBatch>,
     private val batchMaxSize: Int,
+    private val useAttributes: Boolean,
     private val executor: Executor,
 ) {
     fun requestMessageGroups(
@@ -57,8 +59,21 @@ class QueueMessagesHandler(
         executor.execute {
             val param = CradleGroupRequest(false)
             val streamInfo = ProviderStreamInfo()
-            createSink(handler, streamInfo, batchMaxSize) { bath, attribute ->
-                router.send(bath, attribute, request.externalQueue, QueueAttribute.RAW.value)
+            val batchMetadata = MessageGroupBatchMetadata.newBuilder().setExternalQueue(request.externalQueue).build()
+            createSink(handler, streamInfo, batchMaxSize) { batch, attribute ->
+                val toSend: MessageGroupBatch = batch.setMetadata(batchMetadata)
+                    .build()
+                if (request.sendRawDirectly) {
+                    router.sendExclusive(request.externalQueue, toSend)
+                }
+                if (request.rawOnly) {
+                    return@createSink
+                }
+                if (useAttributes) {
+                    router.send(toSend, attribute, QueueAttribute.RAW.value)
+                } else {
+                    router.sendAll(toSend, QueueAttribute.RAW.value)
+                }
             }.use { sink ->
                 try {
                     extractor.getGroupsWithSyncInterval(
@@ -119,7 +134,7 @@ class QueueMessagesHandler(
         handler: ResponseHandler<LoadStatistic>,
         streamInfo: ProviderStreamInfo,
         batchMaxSize: Int,
-        onBatch: (MessageGroupBatch, String) -> Unit,
+        onBatch: (MessageGroupBatch.Builder, String) -> Unit,
     ): MessageDataSink<String, StoredMessage> {
         return QueueMessageDataSink(
             handler,
@@ -164,7 +179,7 @@ private class QueueMessageDataSink(
     private val handler: ResponseHandler<LoadStatistic>,
     private val streamInfo: ProviderStreamInfo,
     private val batchMaxSize: Int,
-    private val onBatch: (MessageGroupBatch, String) -> Unit,
+    private val onBatch: (MessageGroupBatch.Builder, String) -> Unit,
 ) : MessageDataSink<String, StoredMessage> {
     private val countByGroup = hashMapOf<BookGroup, Long>()
     private val batchBuilder = MessageGroupBatch.newBuilder()
@@ -199,7 +214,7 @@ private class QueueMessageDataSink(
     }
 
     private fun processBatch(marker: String) {
-        onBatch(batchBuilder.build(), marker)
+        onBatch(batchBuilder, marker)
         batchBuilder.clear()
     }
 

@@ -33,19 +33,28 @@ class GetSessionAliases(
         LOGGER.info { "Extracting session aliases" }
         resp.writeHeaders()
 
-        val result: Any = try {
-            messagesHandler.extractStreamNames()
-            resp.status = HttpStatus.OK_200
+        val result: Result<Collection<String>> = try {
+            messagesHandler.extractStreamNames().also {
+                resp.status = HttpStatus.OK_200
+            }.let { Result.Success(it) }
         } catch (ex: Exception) {
             LOGGER.error(ex) { "Cannot get session aliases" }
             resp.status = HttpStatus.INTERNAL_SERVER_ERROR_500
-            ExceptionInfo(ex.javaClass.name, ExceptionUtils.getRootCauseMessage(ex))
+            Result.Failed(ExceptionInfo(ex.javaClass.name, ExceptionUtils.getRootCauseMessage(ex)))
         }
 
         resp.writer.use {
-            it.write(jsonMapper.writeValueAsString(result))
+            it.write(jsonMapper.writeValueAsString(when (result) {
+                is Result.Success -> result.value
+                is Result.Failed -> result.details
+            }))
             it.flush()
         }
+    }
+
+    private sealed class Result<T> {
+        class Success<T>(val value: T): Result<T>()
+        class Failed<T>(val details: ExceptionInfo): Result<T>()
     }
 
     companion object {

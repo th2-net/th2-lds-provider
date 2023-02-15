@@ -1,4 +1,4 @@
-# Lightweight data provider (1.1.2)
+# Lightweight data provider (1.1.3)
 
 # Overview
 This component serves as a data provider for [th2-data-services](https://github.com/th2-net/th2-data-services). It will connect to the cassandra database via [cradle api](https://github.com/th2-net/cradleapi) and expose the data stored in there as REST resources.
@@ -101,6 +101,13 @@ spec:
 ```
 
 ## Changes
+
+### 1.1.3
+
+#### Added:
+
++ **/messageStreams** entrypoint to extract the list of session aliases (message streams) from the Cradle
++ **usePinAttributes** parameter in custom-configuration to enable using filters on pins to route the messages for decoding
 
 ### 1.1.2
 

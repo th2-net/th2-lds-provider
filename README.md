@@ -26,11 +26,17 @@ Example: `http://localhost:8080/message/book:session_alias:<direction>:202210311
 
 **direction** - `1` - first, `2` - second
 
+##### Timestamp
+
+Timestamp in HTTP request might be specified either in milliseconds or in nanoseconds.
+The value will be interpreted as milliseconds if it is less than `1_000_000_000 ^ 2`.
+Otherwise, it will be interpreted as nanoseconds.
+
 ##### SSE requests API
 
 `http://localhost:8080/search/sse/events` - create a sse channel of event metadata that matches the filter. Accepts following query parameters:
-- `startTimestamp` - number, unix timestamp in milliseconds - Sets the search starting point. **Required**
-- `endTimestamp` - number, unix timestamp in milliseconds - Sets the timestamp to which the search will be performed, starting with `startTimestamp`. **Required**.
+- `startTimestamp` - number, unix timestamp in milliseconds or nanos - Sets the search starting point. **Required**
+- `endTimestamp` - number, unix timestamp in milliseconds or nanos - Sets the timestamp to which the search will be performed, starting with `startTimestamp`. **Required**.
 - `parentEvent` - text - parent event id of expected child-events.
 - `searchDirection` - the direction for search (_next_,_previous_). Default, **next**
 - `resultCountLimit` - limit the result responses
@@ -51,29 +57,29 @@ Filter parameters:
 
 
 `http://localhost:8080/search/sse/messages` - create a sse channel of messages that matches the filter. Accepts following query parameters:
-- `startTimestamp` - number, unix timestamp in milliseconds - Sets the search starting point. **One of the 'startTimestamp' or 'messageId' must not be null**
+- `startTimestamp` - number, unix timestamp in milliseconds or nanos - Sets the search starting point. **One of the 'startTimestamp' or 'messageId' must not be null**
 - `messageId` - text, accepts multiple values. List of message IDs to restore search. Defaults to `null`. **One of the 'startTimestamp' or 'messageId' must not be null**
 
 - `stream` - text, accepts multiple values - Sets the stream ids to search in. Case-sensitive. **Required**.
   Example: `alias` - requests all direction for alias; `alias:<direction>` - requests specified direction for alias.
 - `searchDirection` - `next`/`previous` - Sets the lookup direction. Can be used for pagination. Defaults to `next`.
 - `resultCountLimit` - number - Sets the maximum amount of messages to return. Defaults to `null (unlimited)`.
-- `endTimestamp` - number, unix timestamp in milliseconds - Sets the timestamp to which the search will be performed, starting with `startTimestamp`. When `searchDirection` is `previous`, `endTimestamp` must be less then `startTimestamp`. Defaults to `null` (search can be stopped after reaching `resultCountLimit`). 
+- `endTimestamp` - number, unix timestamp in milliseconds or nanos - Sets the timestamp to which the search will be performed, starting with `startTimestamp`. When `searchDirection` is `previous`, `endTimestamp` must be less then `startTimestamp`. Defaults to `null` (search can be stopped after reaching `resultCountLimit`). 
 - `responseFormats` - text, accepts multiple values - sets response formats. Possible values: BASE_64, PROTO_PARSED, JSON_PARSED. default value - BASE_64 & PROTO_PARSED.
 - `keepOpen` - keeps pulling for updates until have not found any message outside the requested interval. Disabled by default
 - `bookId` - book ID for requested messages (*required)
 
 `http://localhost:8080/search/sse/messages/group` - creates an SSE channel of messages that matches the requested group for the requested time period
-- `startTimestamp` - number, unix timestamp in milliseconds - Sets the search starting point. **Must not be null**
-- `endTimestamp` - number, unix timestamp in milliseconds - Sets the search ending point. **Must not be null**
-- `group` - the repeatable parameter with group names to request. **At least one must be specified**
+- `startTimestamp` - number, unix timestamp in milliseconds or nanos - Sets the search starting point. **Must not be null**
+- `endTimestamp` - number, unix timestamp in milliseconds or nanos - Sets the search ending point. **Must not be null**
+- `group` - the repeatable parameter java.time.Instantwith group names to request. **At least one must be specified**
 - `keepOpen` - keeps pulling for updates until have not found any message outside the requested interval. Disabled by default
 - `bookId` - book ID for requested messages (*required)
 Example: `http://localhost:8080/search/sse/messages/group?group=A&group=B&startTimestamp=15600000&endTimestamp=15700000`
 
 `http://localhost:8080/search/sse/page-infos` - creates an SSE channel of page infos that matches the requested book id for the requested time period
-- `startTimestamp` - number, unix timestamp in milliseconds - Sets the search starting point. **Must not be null**
-- `endTimestamp` - number, unix timestamp in milliseconds - Sets the search ending point. **Must not be null**
+- `startTimestamp` - number, unix timestamp in milliseconds or nanos - Sets the search starting point. **Must not be null**
+- `endTimestamp` - number, unix timestamp in milliseconds or nanos - Sets the search ending point. **Must not be null**
 - `bookId` - book ID for requested messages (*required)
 - `resultCountLimit` - number - Sets the maximum amount of page events to return. Defaults to `null (unlimited)`.
 Example: `http://localhost:8080/search/sse/page-infos?startTimestamp=15600000&endTimestamp=15700000&bookId=book1`

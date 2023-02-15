@@ -89,13 +89,13 @@ class GetMessagesServlet(
         queryParams = [
             OpenApiParam(
                 START_TIMESTAMP,
-                type = Int::class,
+                type = Long::class,
                 required = true,
-                description = "start timestamp for search", example = "1669990000000"),
+                description = "start timestamp for search", example = HttpServer.TIME_EXAMPLE),
             OpenApiParam(
                 END_TIMESTAMP,
-                type = Int::class,
-                description = "end timestamp for search", example = "1669990000000"),
+                type = Long::class,
+                description = "end timestamp for search", example = HttpServer.TIME_EXAMPLE),
             OpenApiParam(
                 SEARCH_DIRECTION,
                 type = SearchDirection::class,

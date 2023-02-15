@@ -40,6 +40,7 @@ import mu.KotlinLogging
 import org.apache.commons.lang3.exception.ExceptionUtils
 import org.eclipse.jetty.server.handler.gzip.GzipHandler
 import java.time.Instant
+import kotlin.math.pow
 
 class HttpServer(private val context: Context) {
 
@@ -145,9 +146,36 @@ class HttpServer(private val context: Context) {
 
     companion object {
         private val logger = KotlinLogging.logger {}
+
+        const val TIME_EXAMPLE = "Every value that is greater than 1_000_000_000 ^ 2 will be interpreted as nanos. Otherwise, as millis.\n" +
+                "Millis: 1676023329533, Nanos: 1676023329533590976"
+
+        internal const val NANOS_IN_SECOND = 1_000_000_000L
+        /**
+         * If we call current time millis it will look like this: 1_676_023_329_533
+         * If we call current time nanos it will look like this:  1_676_023_329_533_590_976
+         *
+         * We can estimate the if values is greater than 1_000_000_000 ^ 2 it is definitely nanos
+         */
+        private val NANO_SEPARATOR = (1_000_000_000.0).pow(2).toLong()
+
+        @JvmStatic
+        internal fun convertToInstant(value: Long): Instant {
+            return when {
+                value < NANO_SEPARATOR -> Instant.ofEpochMilli(value)
+                else -> Instant.ofEpochSecond(
+                    value / NANOS_IN_SECOND,
+                    value % NANOS_IN_SECOND,
+                )
+            }
+        }
+
         @JvmStatic
         fun setupConverters(javalin: Javalin) {
-            JavalinValidation.register(Instant::class.java) { Instant.ofEpochMilli(it.toLong()) }
+            JavalinValidation.register(Instant::class.java) {
+                val value = it.toLong()
+                convertToInstant(value)
+            }
             JavalinValidation.register(ProviderEventId::class.java, ::ProviderEventId)
             JavalinValidation.register(SearchDirection::class.java, SearchDirection::valueOf)
             JavalinValidation.register(BookId::class.java, ::BookId)

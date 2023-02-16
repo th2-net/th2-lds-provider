@@ -65,7 +65,7 @@ Filter parameters:
 - `searchDirection` - `next`/`previous` - Sets the lookup direction. Can be used for pagination. Defaults to `next`.
 - `resultCountLimit` - number - Sets the maximum amount of messages to return. Defaults to `null (unlimited)`.
 - `endTimestamp` - number, unix timestamp in milliseconds or nanos - Sets the timestamp to which the search will be performed, starting with `startTimestamp`. When `searchDirection` is `previous`, `endTimestamp` must be less then `startTimestamp`. Defaults to `null` (search can be stopped after reaching `resultCountLimit`). 
-- `responseFormats` - text, accepts multiple values - sets response formats. Possible values: BASE_64, PROTO_PARSED, JSON_PARSED. default value - BASE_64 & PROTO_PARSED.
+- `responseFormat` - text, accepts multiple values - sets response formats. Possible values: BASE_64, PROTO_PARSED, JSON_PARSED. default value - BASE_64 & PROTO_PARSED.
 - `keepOpen` - keeps pulling for updates until have not found any message outside the requested interval. Disabled by default
 - `bookId` - book ID for requested messages (*required)
 

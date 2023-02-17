@@ -1,4 +1,4 @@
-# Lightweight data provider (1.1.2)
+# Lightweight data provider (1.1.3)
 
 # Overview
 This component serves as a data provider for [th2-data-services](https://github.com/th2-net/th2-data-services). It will connect to the cassandra database via [cradle api](https://github.com/th2-net/cradleapi) and expose the data stored in there as REST resources.
@@ -7,6 +7,8 @@ This component is similar to [rpt-data-provider](https://github.com/th2-net/th2-
 # API
 
 ### REST
+
+`http://localhost:8080/messageStreams` - returns the list of session aliases from the Cradle
 
 `http://localhost:8080/event/{id}` - returns a single event with the specified id
 
@@ -61,6 +63,7 @@ spec:
 #   decodingTimeout: 60000 # timeout expecting answers from codec. 
 #   batchSize: 100 # batch size from codecs 
 #   responseFormats: string list # resolve data for selected formats only. (allowed values: BASE_64, PARSED)
+#   usePinAttributes: true # enables adding session alias into required attributes for pin
     
 
   pins: # pins are used to communicate with codec components to parse message data
@@ -98,6 +101,13 @@ spec:
 ```
 
 ## Changes
+
+### 1.1.3
+
+#### Added:
+
++ **/messageStreams** entrypoint to extract the list of session aliases (message streams) from the Cradle
++ **usePinAttributes** parameter in custom-configuration to enable using filters on pins to route the messages for decoding
 
 ### 1.1.2
 

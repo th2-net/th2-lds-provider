@@ -29,14 +29,18 @@ import javax.servlet.http.HttpServletResponse
 open class NoSseServlet : HttpServlet() {
     
     protected open fun waitAndWrite(queue: BlockingQueue<SseEvent>, resp: HttpServletResponse) {
-        resp.contentType = "application/json"
-        resp.addHeader(HttpHeader.CACHE_CONTROL.asString(), "no-cache, no-store")
+        resp.writeHeaders()
 
         val writer = NoSseResponseWriter(resp.writer)
         val event = queue.take()
         resp.status = statusFromEventType(event.event)
         writer.writeEvent(event)
         writer.closeWriter()    
+    }
+
+    protected fun HttpServletResponse.writeHeaders() {
+        contentType = "application/json"
+        addHeader(HttpHeader.CACHE_CONTROL.asString(), "no-cache, no-store")
     }
 
     private fun statusFromEventType(event: EventType): Int {

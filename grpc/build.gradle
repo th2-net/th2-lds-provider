@@ -6,10 +6,10 @@ plugins {
 }
 
 ext {
-    grpcVersion         = '1.32.1'
-    protobufVersion     = '3.13.0'
+    grpcVersion         = '1.48.1'
+    protobufVersion     = '3.21.12'
     genDir              = file("${project.projectDir}/src/gen")
-    serviceGeneratorVersion = '3.2.2'
+    serviceGeneratorVersion = '3.3.0'
 }
 
 dependencies {

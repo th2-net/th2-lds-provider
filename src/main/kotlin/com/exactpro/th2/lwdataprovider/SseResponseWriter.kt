@@ -18,6 +18,8 @@ package com.exactpro.th2.lwdataprovider
 
 
 import com.exactpro.th2.lwdataprovider.http.SseBufferedWriter
+import mu.KotlinLogging
+import org.apache.commons.lang3.StringUtils
 import java.io.Writer
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -43,7 +45,10 @@ class SseResponseWriter (srcWriter: Writer){
         lock.withLock {
             this.writer.write("event: ", event.event.typeName, "\n")
 
-            this.writer.write("data: ", event.data.get(), "\n")
+            val data = event.data.get()
+            this.writer.write("data: ", data, "\n")
+
+            LOGGER.trace { "Writing (${event.metadata}) data: ${StringUtils.abbreviate(data, 100)}" }
             
             if (event.metadata != null) {
                 this.writer.write("id: ", event.metadata, "\n")
@@ -52,5 +57,9 @@ class SseResponseWriter (srcWriter: Writer){
             this.writer.write('\n')
             this.writer.finishMessage()
         }
+    }
+
+    companion object {
+        private val LOGGER = KotlinLogging.logger { }
     }
 }

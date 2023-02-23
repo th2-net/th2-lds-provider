@@ -38,6 +38,7 @@ class SseBufferedWriter(private val srcWriter: Writer) {
     fun finishMessage() {
         this.srcWriter.write(buffer.toString())
         this.buffer.setLength(0)
+        this.srcWriter.flush()
     }
 
     fun write(char: Char) {

@@ -67,8 +67,9 @@ class KeepAliveHandler(configuration: Configuration) {
 
                 lock.read {
                     data.forEach {
-                        if (System.currentTimeMillis() - it.lastTimestampMillis >= timeout)
+                        if (System.currentTimeMillis() - it.lastTimestampMillis >= timeout) {
                             it.update()
+                        }
                     }
                 }
 

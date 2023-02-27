@@ -21,10 +21,13 @@ import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import mu.KotlinLogging
 import java.util.ArrayList
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.read
 import kotlin.concurrent.thread
+import kotlin.concurrent.write
 
 class KeepAliveHandler(configuration: Configuration) {
-    
+    private val lock = ReentrantReadWriteLock()
     private val data: MutableList<KeepAliveListener> = ArrayList();
     private val running = AtomicBoolean(false)
     private val timeout = configuration.keepAliveTimeout
@@ -34,16 +37,14 @@ class KeepAliveHandler(configuration: Configuration) {
         private val logger = KotlinLogging.logger { }
     }
     
-    @Synchronized
-    fun addKeepAliveData(listener: KeepAliveListener): AutoCloseable {
+    fun addKeepAliveData(listener: KeepAliveListener): AutoCloseable = lock.write {
         data.add(listener)
-        return AutoCloseable {
+        AutoCloseable {
             removeKeepAliveData(listener)
         }
     }
 
-    @Synchronized
-    private fun removeKeepAliveData(listener: KeepAliveListener) {
+    private fun removeKeepAliveData(listener: KeepAliveListener): Unit = lock.write {
         data.remove(listener)
     }
     
@@ -64,9 +65,12 @@ class KeepAliveHandler(configuration: Configuration) {
         try {
             while (running.get()) {
 
-                data.forEach {
-                    if (System.currentTimeMillis() - it.lastTimestampMillis >= timeout)
-                        it.update()
+                lock.read {
+                    data.forEach {
+                        if (System.currentTimeMillis() - it.lastTimestampMillis >= timeout) {
+                            it.update()
+                        }
+                    }
                 }
 
                 try {

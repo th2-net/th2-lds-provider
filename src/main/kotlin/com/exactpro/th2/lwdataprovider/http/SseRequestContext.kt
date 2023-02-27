@@ -57,13 +57,17 @@ class HttpMessagesRequestHandler(
     private val scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
 
     override val lastTimestampMillis: Long
-        get() = scannedObjectInfo.timestamp
+        get() = synchronized(scannedObjectInfo) { scannedObjectInfo.timestamp }
 
     override fun handleNextInternal(data: RequestedMessageDetails) {
         if (!isAlive) return
+        val nextIndex = indexer.nextIndex()
         buffer.put(builder.build({
             MessageProducer53.createMessage(data.awaitAndGet(), jsonFormatter, includeRaw)
-        }, indexer.nextIndex()))
+        }, nextIndex))
+        synchronized(scannedObjectInfo) {
+            scannedObjectInfo.update(data.id, nextIndex)
+        }
     }
 
     override fun complete() {
@@ -82,7 +86,9 @@ class HttpMessagesRequestHandler(
 
     override fun update() {
         if (!isAlive) return
-        buffer.put(builder.build(scannedObjectInfo, indexer.nextIndex()))
+        synchronized(scannedObjectInfo) {
+            buffer.put(builder.build(scannedObjectInfo, indexer.nextIndex()))
+        }
     }
 }
 
@@ -100,7 +106,7 @@ class HttpEventResponseHandler(
     private val scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
 
     override val lastTimestampMillis: Long
-        get() = scannedObjectInfo.timestamp
+        get() = synchronized(scannedObjectInfo) { scannedObjectInfo.timestamp }
 
     override fun complete() {
         if (!isAlive) return
@@ -120,12 +126,16 @@ class HttpEventResponseHandler(
         if (!isAlive) return
         val index = indexer.nextIndex()
         buffer.put(builder.build(data, index))
-        scannedObjectInfo.update(data.eventId, index)
+        synchronized(scannedObjectInfo) {
+            scannedObjectInfo.update(data.eventId, index)
+        }
     }
 
     override fun update() {
         if (!isAlive) return
-        buffer.put(builder.build(scannedObjectInfo, indexer.nextIndex()))
+        synchronized(scannedObjectInfo) {
+            buffer.put(builder.build(scannedObjectInfo, indexer.nextIndex()))
+        }
     }
 
 }

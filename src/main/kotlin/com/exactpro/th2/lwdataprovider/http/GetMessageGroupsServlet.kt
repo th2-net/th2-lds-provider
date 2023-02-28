@@ -126,6 +126,7 @@ class GetMessageGroupsServlet(
 
         val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
         val handler = HttpMessagesRequestHandler(queue, sseResponseBuilder, dataMeasurement, maxMessagesPerRequest = configuration.bufferPerQuery)
+        sseClient.onClose(handler::cancel)
 //        reqContext.startStep("messages_loading").use {
         keepAliveHandler.addKeepAliveData(handler).use {
             searchMessagesHandler.loadMessageGroups(request, handler, dataMeasurement)

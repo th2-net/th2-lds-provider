@@ -110,6 +110,10 @@ class SearchMessagesHandler(
                         val allLoaded = hashSetOf<Stream>()
                         do {
                             val continuePulling = pullUpdates(request, order, sink, allLoaded, dataMeasurement)
+                            sink.canceled?.apply {
+                                logger.info { "cancel message updates pulling: $message" }
+                                return@use
+                            }
                         } while (continuePulling)
                     }
 
@@ -181,6 +185,10 @@ class SearchMessagesHandler(
                         val allGroupLoaded = hashSetOf<String>()
                         do {
                             val keepPulling = pullUpdates(request, lastTimestamp, sink, parameters, allGroupLoaded, dataMeasurement)
+                            sink.canceled?.apply {
+                                logger.info { "cancel group updates pulling: $message" }
+                                return@use
+                            }
                         } while (keepPulling)
                     }
                 } catch (ex: Exception) {

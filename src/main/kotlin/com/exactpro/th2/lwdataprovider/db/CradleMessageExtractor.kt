@@ -122,7 +122,7 @@ class CradleMessageExtractor(
         }
 
         fun StoredGroupedMessageBatch.log() {
-            logger.trace { "Processing batch for group $group ($batchSize message(s)). First: ${firstMessage.id}; Last: ${lastMessage.id}" }
+            logger.trace { "Processing batch for group $group ($messageCount message(s)). First: ${firstMessage.id}; Last: ${lastMessage.id}" }
         }
 
         var prev: StoredGroupedMessageBatch? = null
@@ -139,6 +139,7 @@ class CradleMessageExtractor(
             val needFiltration = prev.isNeedFiltration()
 
             if (prev.lastTimestamp < currentBatch.firstTimestamp) {
+                logger.trace { "Batches does not overlap. Add ${prev.toShortInfo()} to buffer" }
                 if (needFiltration) {
                     prev.messages.filterTo(buffer, StoredMessage::inRange and parameters.preFilter)
                 } else {
@@ -165,6 +166,7 @@ class CradleMessageExtractor(
 
                 tryDrain(group, buffer, sort, sink)
             }
+            logger.trace { "Buffer size: ${buffer.size}. Remaining messages after iteration: ${remaining.size}" }
         }
         val remainingMessages = currentBatch.filterIfRequired()
         currentBatch.log()
@@ -201,6 +203,7 @@ class CradleMessageExtractor(
         sort: Boolean,
         sink: MessageDataSink<String, StoredMessage>,
     ) {
+        logger.trace { "Draining ${buffer.size} message(s). First: ${buffer.peekFirst()?.id}, Last: ${buffer.peekLast()?.id}" }
         if (sort) {
             buffer.sortWith(STORED_MESSAGE_COMPARATOR)
         }

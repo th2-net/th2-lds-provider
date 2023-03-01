@@ -24,7 +24,7 @@ plugins {
 
 ext {
     dockerImageVersion = release_version
-    cradleApiVersion = '5.0.0-dev-version-5-4252457586-c1a33ab-SNAPSHOT'
+    cradleApiVersion = '5.0.0-dev-version-5-4300900143-24582b4-SNAPSHOT'
     javalin = '5.3.1'
 }
 
@@ -35,8 +35,11 @@ dependencies {
         exclude group: 'com.exactpro.th2', module: 'cradle-cassandra'
     }
 
+
+
     implementation "io.javalin:javalin:$javalin"
     implementation "io.javalin:javalin-micrometer:$javalin"
+    implementation 'org.apache.commons:commons-lang3'
 
     kapt("io.javalin.community.openapi:openapi-annotation-processor:$javalin")
 

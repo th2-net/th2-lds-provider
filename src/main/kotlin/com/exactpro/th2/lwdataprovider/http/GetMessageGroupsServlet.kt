@@ -72,14 +72,14 @@ class GetMessageGroupsServlet(
                 type = Long::class,
                 description = "start timestamp for group search. Epoch time in milliseconds",
                 required = true,
-                example = "1669990000000",
+                example = HttpServer.TIME_EXAMPLE,
             ),
             OpenApiParam(
                 END_TIMESTAMP_PARAM,
                 type = Long::class,
                 description = "end timestamp for group search. Epoch time in milliseconds",
                 required = true,
-                example = "1669990000000",
+                example = HttpServer.TIME_EXAMPLE,
             ),
             OpenApiParam(
                 SORT_PARAMETER,

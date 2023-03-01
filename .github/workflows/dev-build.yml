@@ -16,9 +16,9 @@ jobs:
     uses: th2-net/.github/.github/workflows/compound-prebuild-java-dev-workflow.yml@main
     with:
       project-path: grpc
-    app-version:
-      name: Collect app version
-      uses: th2-net/.github/.github/workflows/compound-prebuild-java-dev-workflow.yml@main
+  app-version:
+    name: Collect app version
+    uses: th2-net/.github/.github/workflows/compound-prebuild-java-dev-workflow.yml@main
   build-and-publish-grpc-java:
     name: Build and publish Java gRPC distributions
     uses: th2-net/.github/.github/workflows/compaund-java-multi-project-build.yml@main
@@ -42,8 +42,6 @@ jobs:
     secrets:
       pypi_password: ${{ secrets.PYPI_PASSWORD }}
   owasp-scan:
-    needs:
-      - build-and-publish-core-java
     uses: th2-net/.github/.github/workflows/owasp-gradle-scan.yml@main
     with:
       multiproject: true

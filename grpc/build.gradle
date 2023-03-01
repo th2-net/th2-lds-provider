@@ -5,6 +5,15 @@ plugins {
     id "com.google.protobuf" version "0.9.2"
 }
 
+allprojects {
+    group = 'com.exactpro.th2'
+    version = release_version
+    String suffix = property('version_suffix').toString()
+    if (!suffix.isEmpty()) {
+        version = "$version-$suffix"
+    }
+}
+
 ext {
     grpcVersion         = '1.48.1'
     protobufVersion     = '3.21.12'

@@ -5,20 +5,18 @@ plugins {
     id "com.google.protobuf" version "0.9.2"
 }
 
-allprojects {
-    group = 'com.exactpro.th2'
-    version = release_version
-    String suffix = property('version_suffix').toString()
-    if (!suffix.isEmpty()) {
-        version = "$version-$suffix"
-    }
-}
-
 ext {
     grpcVersion         = '1.48.1'
     protobufVersion     = '3.21.12'
     serviceGeneratorVersion = '3.3.0'
     genBaseDir = file("${buildDir}/generated/source/proto") // from protobuf plugin
+}
+
+group = 'com.exactpro.th2'
+version = release_version
+String suffix = property('version_suffix').toString()
+if (!suffix.isEmpty()) {
+    version = "$version-$suffix"
 }
 
 dependencies {
@@ -75,6 +73,7 @@ protobuf {
 
 compileJava.dependsOn('generateProto')
 processResources.dependsOn('generateProto')
+sourcesJar.dependsOn('generateProto')
 
 tasks {
     processResources {

@@ -55,9 +55,17 @@ class CradleEventExtractor(
     fun getEvents(filter: SseEventSearchRequest, sink: EventDataSink<Event>) {
         val commonFilterSupplier: (start: Instant, end: Instant?) -> TestEventFilterBuilder = { start, end ->
             TestEventFilter.builder()
-                .startTimestampFrom().isGreaterThanOrEqualTo(start)
                 .apply {
-                    end?.also { startTimestampTo().isLessThan(it) }
+                    when(filter.searchDirection) {
+                        SearchDirection.next -> {
+                            startTimestampFrom().isGreaterThanOrEqualTo(start)
+                            end?.also { startTimestampTo().isLessThan(it) }
+                        }
+                        SearchDirection.previous -> {
+                            startTimestampTo().isLessThanOrEqualTo(start)
+                            end?.also { startTimestampFrom().isGreaterThan(it) }
+                        }
+                    }
                 }
                 .order(when (filter.searchDirection) {
                     SearchDirection.previous -> Order.REVERSE
@@ -168,10 +176,25 @@ class CradleEventExtractor(
     ) {
         val counter = ProcessingInfo()
         val startTime = System.currentTimeMillis()
-        val testEvents = storage.getTestEvents(filterSupplier(startTimestamp, endTimestamp))
+        val cradleFilter = filterSupplier(startTimestamp, endTimestamp)
+        val order = requireNotNull(cradleFilter.order) { "order is null" }
+        fun compareStart(event: BaseEventEntity): Boolean {
+            return when (order) {
+                Order.DIRECT -> event.startTimestamp >= startTimestamp
+                Order.REVERSE -> event.startTimestamp <= startTimestamp
+            }
+        }
+
+        fun compareEnd(event: BaseEventEntity): Boolean {
+            if (endTimestamp == null) return true
+            return when (order) {
+                Order.DIRECT -> event.startTimestamp < endTimestamp
+                Order.REVERSE -> event.startTimestamp > endTimestamp
+            }
+        }
+        val testEvents = storage.getTestEvents(cradleFilter)
         processEvents(testEvents.asIterable(), sink, counter) { event ->
-            event.startTimestamp >= startTimestamp
-                    && (endTimestamp == null || event.startTimestamp < endTimestamp)
+            compareStart(event) && compareEnd(event)
                     && filter.match(event)
         }
         logger.info { "Events for this period loaded. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms" }

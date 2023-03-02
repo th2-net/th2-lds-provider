@@ -37,7 +37,7 @@ class ProtoGenerator(Command):
         pass
 
     def run(self):
-        proto_path = os.path.abspath('proto')
+        proto_path = os.path.abspath('src/main/proto')
         gen_path = os.path.abspath('build/generated/source/proto/main/services/python')
 
         if not os.path.exists(gen_path):

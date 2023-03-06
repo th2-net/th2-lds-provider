@@ -35,7 +35,7 @@ dependencies {
 sourceSets {
     main {
         proto {
-            srcDirs 'proto'
+            srcDirs 'src/main/proto'
         }
         // the proto plugins add generated dir to source sets
         resources {

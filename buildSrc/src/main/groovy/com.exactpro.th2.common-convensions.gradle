@@ -19,6 +19,13 @@ configurations.all {
     resolutionStrategy.cacheDynamicVersionsFor 0, 'seconds'
 }
 
+group = 'com.exactpro.th2'
+version = release_version
+String suffix = property('version_suffix').toString()
+if (!suffix.isEmpty()) {
+    version = "$version-$suffix"
+}
+
 dependencies {
     implementation platform('com.exactpro.th2:bom:4.2.0')
     implementation 'org.slf4j:slf4j-api'

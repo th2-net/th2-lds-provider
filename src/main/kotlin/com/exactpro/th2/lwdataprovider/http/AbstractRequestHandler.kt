@@ -30,17 +30,16 @@ abstract class AbstractRequestHandler : Handler, JavalinHandler {
         queue: BlockingQueue<Supplier<SseEvent>>,
         failureResult: (message: String) -> String,
     ) {
-        header(Header.CACHE_CONTROL, "no-cache, no-store")
-        contentType(ContentType.APPLICATION_JSON)
-
         try {
             val supplier = checkNotNull(queue.take()) { "queue returned null event" }
             val event = supplier.get()
             status(statusFromEventType(event))
+                .defaultHeaders()
                 .result(event.data)
 
         } catch (e: Exception) {
             status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .defaultHeaders()
                 .result(failureResult("${e.javaClass.simpleName}: ${e.message}"))
             throw e
         }
@@ -53,5 +52,10 @@ abstract class AbstractRequestHandler : Handler, JavalinHandler {
             is SseEvent.ErrorData -> HttpStatus.INTERNAL_SERVER_ERROR
             else -> HttpStatus.OK
         }
+    }
+
+    private fun Context.defaultHeaders(): Context = apply {
+        header(Header.CACHE_CONTROL, "no-cache, no-store")
+        contentType(ContentType.APPLICATION_JSON)
     }
 }

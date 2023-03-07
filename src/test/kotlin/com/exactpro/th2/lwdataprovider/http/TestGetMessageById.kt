@@ -51,6 +51,19 @@ internal class TestGetMessageById : AbstractHttpHandlerTest<GetMessageById>() {
     }
 
     @Test
+    fun `invalid message id format`() {
+        startTest { _, client ->
+            client.get(
+                "/message/test"
+            ).also { response ->
+                expectThat(response.body?.bytes()?.toString(Charsets.UTF_8))
+                    .isNotNull()
+                    .isEqualTo("{\"error\":\"Invalid message id: test\"}")
+            }
+        }
+    }
+
+    @Test
     fun `reports error if response from codec was not received`() {
         val timestamp = Instant.parse("2020-10-31T01:02:03.123456789Z")
         val message = createCradleStoredMessage(

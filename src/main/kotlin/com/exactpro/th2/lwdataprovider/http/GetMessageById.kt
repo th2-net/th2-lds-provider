@@ -100,23 +100,22 @@ class GetMessageById(
 
         val handler = HttpMessagesRequestHandler(queue, sseResponseBuilder, dataMeasurement,
         responseFormats = if (onlyRaw) EnumSet.of(ResponseFormat.BASE_64) else configuration.responseFormats)
+        var newMsgId: StoredMessageId? = null
         try {
-            val newMsgId = parseMessageId(msgId)
+            newMsgId = parseMessageId(msgId)
             logger.info { "Received message request with id $msgId (onlyRaw: $onlyRaw)" }
 
             val request = GetMessageRequest(newMsgId, onlyRaw)
 
             searchMessagesHandler.loadOneMessage(request, handler, dataMeasurement)
-
-            ctx.waitAndWrite(queue) { newMsgId.failureReason(it)}
-            }
-         catch (ex: Exception) {
+        } catch (ex: Exception) {
             logger.error(ex) { "cannot load message $msgId" }
             handler.writeErrorMessage(ex.message ?: ex.toString())
             handler.complete()
         } finally {
             logger.info { "Processing message request finished" }
         }
+        ctx.waitAndWrite(queue) { newMsgId?.failureReason(it) ?: it }
     }
 
     private fun parseMessageId(msgId: String): StoredMessageId = try {

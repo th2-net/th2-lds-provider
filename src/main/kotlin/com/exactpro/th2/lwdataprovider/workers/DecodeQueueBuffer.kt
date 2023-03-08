@@ -18,6 +18,7 @@ package com.exactpro.th2.lwdataprovider.workers
 
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
+import com.exactpro.th2.lwdataprovider.metrics.DecodingMetrics
 import mu.KotlinLogging
 import java.util.concurrent.locks.ReentrantLock
 import javax.annotation.concurrent.GuardedBy
@@ -32,13 +33,18 @@ class DecodeQueueBuffer(
     private val decodeQueue: MutableMap<String, MutableList<RequestedMessageDetails>> = HashMap()
 
     @GuardedBy("lock")
+    private val decodeTimers: MutableMap<String, AutoCloseable> = HashMap()
+
+    @GuardedBy("lock")
     private val decodeCond = lock.newCondition()
     @GuardedBy("lock")
     private var locked: Boolean = false
     
-    fun add(details: RequestedMessageDetails) {
+    fun add(details: RequestedMessageDetails, session: String) {
         lock.withLock {
             decodeQueue.computeIfAbsent(details.id) { ArrayList(1) }.add(details)
+            decodeTimers.computeIfAbsent(details.id) { DecodingMetrics.startTimer(session) }
+            DecodingMetrics.currentWaiting(decodeQueue.size)
         }
     }
 
@@ -83,6 +89,7 @@ class DecodeQueueBuffer(
                 val (id, details) = entries.next()
                 if (details.any { currentTime - it.time >= timeout }) {
                     entries.remove()
+                    decodeTimers.remove(id)?.close()
                     LOGGER.trace { "Requests for message $id were cancelled due to timeout" }
                     details.forEach { it.timeout() }
                 } else {
@@ -131,7 +138,10 @@ class DecodeQueueBuffer(
 
     private fun processResponse(id: String, response: () -> List<Message>) {
         val details = withQueueLockAndRelease {
-            decodeQueue.remove(id) ?: run {
+            decodeTimers.remove(id)?.close()
+            decodeQueue.remove(id)?.also {
+                DecodingMetrics.currentWaiting(decodeQueue.size)
+            } ?: run {
                 LOGGER.info { "Received unexpected message $id. There is no request for this message in decode queue" }
                 return
             }

@@ -20,7 +20,6 @@ import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.plusAssign
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.QueueAttribute
-import com.exactpro.th2.lwdataprovider.configuration.VariableBuilder
 import com.exactpro.th2.lwdataprovider.workers.CodecMessageListener
 import com.exactpro.th2.lwdataprovider.workers.DecodeQueueBuffer
 import com.exactpro.th2.lwdataprovider.workers.TimeoutChecker
@@ -40,7 +39,7 @@ class RabbitMqDecoder(
         LOGGER.trace { "Sending batch with messages to codec. IDs: ${requests.joinToString { it.id }}" }
         val currentTimeMillis = System.currentTimeMillis()
         requests.forEach {
-            onMessageRequest(it, batchBuilder, currentTimeMillis)
+            onMessageRequest(it, batchBuilder, session, currentTimeMillis)
         }
         send(batchBuilder, session)
     }
@@ -49,7 +48,7 @@ class RabbitMqDecoder(
         checkAndWaitFreeBuffer(1)
         LOGGER.trace { "Sending message to codec. ID: ${message.id}" }
         val builder = MessageGroupBatch.newBuilder()
-        onMessageRequest(message, builder)
+        onMessageRequest(message, builder, session)
         send(builder, session)
     }
 
@@ -71,10 +70,11 @@ class RabbitMqDecoder(
     private fun onMessageRequest(
         details: RequestedMessageDetails,
         batchBuilder: MessageGroupBatch.Builder,
+        session: String,
         currentTimeMillis: Long = System.currentTimeMillis(),
     ) {
         details.time = currentTimeMillis
-        registerMessage(details)
+        registerMessage(details, session)
         batchBuilder.addGroupsBuilder() += details.rawMessage
     }
 
@@ -87,8 +87,8 @@ class RabbitMqDecoder(
         }
     }
 
-    private fun registerMessage(message: RequestedMessageDetails) {
-        this.decodeBuffer.add(message)
+    private fun registerMessage(message: RequestedMessageDetails, session: String) {
+        this.decodeBuffer.add(message, session)
     }
 
     companion object {

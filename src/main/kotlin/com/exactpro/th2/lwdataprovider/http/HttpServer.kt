@@ -36,6 +36,10 @@ import io.javalin.openapi.plugin.redoc.ReDocPlugin
 import io.javalin.openapi.plugin.swagger.SwaggerConfiguration
 import io.javalin.openapi.plugin.swagger.SwaggerPlugin
 import io.javalin.validation.JavalinValidation
+import io.micrometer.core.instrument.Clock
+import io.micrometer.prometheus.PrometheusConfig
+import io.micrometer.prometheus.PrometheusMeterRegistry
+import io.prometheus.client.CollectorRegistry
 import mu.KotlinLogging
 import org.apache.commons.lang3.exception.ExceptionUtils
 import org.eclipse.jetty.server.handler.gzip.GzipHandler
@@ -82,7 +86,10 @@ class HttpServer(private val context: Context) {
             it.showJavalinBanner = false
             it.jsonMapper(JavalinJackson(jacksonMapper))
 //            it.plugins.enableDevLogging()
-            it.plugins.register(MicrometerPlugin.create {})
+            it.plugins.register(MicrometerPlugin.create { micrometer ->
+                micrometer.registry =
+                    PrometheusMeterRegistry(PrometheusConfig.DEFAULT, CollectorRegistry.defaultRegistry, Clock.SYSTEM)
+            })
 
             setupOpenApi(it)
 

@@ -52,6 +52,12 @@ dependencies {
 
     implementation "io.javalin:javalin:$javalin"
     implementation "io.javalin:javalin-micrometer:$javalin"
+
+    implementation(platform('io.micrometer:micrometer-bom:1.10.1')) {
+        because('should match the version in javalin-micrometer')
+    }
+
+    implementation('io.micrometer:micrometer-registry-prometheus')
     implementation 'org.apache.commons:commons-lang3'
 
     kapt("io.javalin.community.openapi:openapi-annotation-processor:$javalin")

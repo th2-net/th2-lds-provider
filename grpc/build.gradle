@@ -12,13 +12,6 @@ ext {
     genBaseDir = file("${buildDir}/generated/source/proto") // from protobuf plugin
 }
 
-group = 'com.exactpro.th2'
-version = release_version
-String suffix = property('version_suffix').toString()
-if (!suffix.isEmpty()) {
-    version = "$version-$suffix"
-}
-
 dependencies {
     api "com.exactpro.th2:grpc-common:4.2.0-dev"
     api "com.google.protobuf:protobuf-java-util"

@@ -2,18 +2,18 @@ import static org.gradle.api.file.DuplicatesStrategy.*
 
 plugins {
     id 'com.exactpro.th2.artifacts-convensions'
-    id "com.google.protobuf" version "0.8.15"
+    id "com.google.protobuf" version "0.9.2"
 }
 
 ext {
-    grpcVersion         = '1.32.1'
-    protobufVersion     = '3.13.0'
-    genDir              = file("${project.projectDir}/src/gen")
-    serviceGeneratorVersion = '3.2.2'
+    grpcVersion         = '1.48.1'
+    protobufVersion     = '3.21.12'
+    serviceGeneratorVersion = '3.3.0'
+    genBaseDir = file("${buildDir}/generated/source/proto") // from protobuf plugin
 }
 
 dependencies {
-    api "com.exactpro.th2:grpc-common:4.1.0-th2-2150-books-pages-3871780258-SNAPSHOT"
+    api "com.exactpro.th2:grpc-common:4.2.0-dev"
     api "com.google.protobuf:protobuf-java-util"
     api "io.grpc:grpc-stub"
     implementation "io.grpc:grpc-protobuf"
@@ -28,13 +28,11 @@ dependencies {
 sourceSets {
     main {
         proto {
-            srcDirs 'src/main/proto'
+            srcDirs 'proto'
         }
-        java {
-            srcDirs 'src/gen/main/java', 'src/gen/main/grpc', 'src/gen/main/services/java/src'
-        }
+        // the proto plugins add generated dir to source sets
         resources {
-            srcDirs 'src/gen/main/services/java/resources'
+            srcDirs "$genBaseDir/main/services/java/resources"
         }
     }
 }
@@ -51,22 +49,22 @@ protobuf {
             artifact = "com.exactpro.th2:grpc-service-generator:${serviceGeneratorVersion}:all@jar"
         }
     }
-    generateProtoTasks.generatedFilesBaseDir = genDir
     generateProtoTasks {
-        all()*.plugins {
-            grpc {}
-            services {
-                option 'javaInterfacesPath=./java/src'
-                option 'javaInterfacesImplPath=./java/src'
-                option 'javaMetaInfPath=./java/resources'
-                option 'pythonPath=./python'
+        ofSourceSet('main').configureEach {
+            plugins {
+                grpc {}
+                services {
+                    option 'javaInterfacesPath=./java'
+                    option 'javaInterfacesImplPath=./java'
+                    option 'javaMetaInfPath=./java/resources'
+                    option 'pythonPath=./python'
+                }
             }
         }
-        ofSourceSet('main')
     }
 }
 
-compileJava.dependsOn.add('generateProto')
+compileJava.dependsOn('generateProto')
 processResources.dependsOn('generateProto')
 sourcesJar.dependsOn('generateProto')
 
@@ -77,5 +75,5 @@ tasks {
 }
 
 clean {
-    delete genDir
+    delete genBaseDir
 }

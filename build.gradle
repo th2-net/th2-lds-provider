@@ -20,6 +20,7 @@ plugins {
     id 'com.palantir.docker' version '0.25.0'
     id "io.github.gradle-nexus.publish-plugin" version "1.1.0"
     id 'org.jetbrains.kotlin.kapt'
+    id "org.owasp.dependencycheck" version "8.1.2"
 }
 
 ext {
@@ -28,8 +29,20 @@ ext {
     javalin = '5.3.1'
 }
 
+dependencyCheck {
+    formats=['SARIF', 'JSON', 'HTML']
+    failBuildOnCVSS=5
+
+    analyzers {
+        assemblyEnabled = false
+        nugetconfEnabled = false
+        nodeEnabled = false
+    }
+}
+
 dependencies {
-    implementation('com.exactpro.th2:common:5.1.0-dev-version-5-3912124941-SNAPSHOT') {
+    
+    implementation('com.exactpro.th2:common:5.2.0-dev') {
         exclude group: 'org.apache.logging.log4j', module: 'log4j-slf4j-impl'
         exclude group: 'com.exactpro.th2', module: 'cradle-core'
         exclude group: 'com.exactpro.th2', module: 'cradle-cassandra'

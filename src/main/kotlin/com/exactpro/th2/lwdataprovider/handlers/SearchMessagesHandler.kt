@@ -452,9 +452,7 @@ private class ParsedStoredMessageHandler(
     }
 
     override fun handleNext(data: StoredMessage) {
-        val step = measurement.start("decoding")
         val detail = RequestedMessageDetails(data) {
-            step.stop()
             handler.requestReceived()
         }
         details += detail

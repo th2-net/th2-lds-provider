@@ -83,7 +83,7 @@ class DecodeQueueBuffer(
     override fun removeOlderThan(timeout: Long): Long {
         return withQueueLockAndRelease {
             val currentTime = System.currentTimeMillis()
-            var mintime = currentTime
+            var minTime = currentTime
             val entries = decodeQueue.entries.iterator()
             while (entries.hasNext()) {
                 val (id, details) = entries.next()
@@ -95,12 +95,13 @@ class DecodeQueueBuffer(
                 } else {
                     // Possible cause of timeout thread death
                     val oldestReq = details.minOf { it.time }
-                    if (oldestReq < mintime) {
-                        mintime = oldestReq
+                    if (oldestReq < minTime) {
+                        minTime = oldestReq
                     }
                 }
             }
-            mintime
+            DecodingMetrics.currentWaiting(decodeQueue.size)
+            minTime
         }
     }
 

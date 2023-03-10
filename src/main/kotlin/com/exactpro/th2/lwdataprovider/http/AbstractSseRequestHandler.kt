@@ -37,6 +37,11 @@ abstract class AbstractSseRequestHandler : Consumer<SseClient>, JavalinHandler {
         while (inProcess) {
             val supplier = queue.take()
             val event = supplier.get()
+            if (terminated()) {
+                K_LOGGER.info { "Request is terminated. Clear queue and stop processing" }
+                queue.clear()
+                return
+            }
             sendEvent(
                 event.event.typeName,
                 event.data,

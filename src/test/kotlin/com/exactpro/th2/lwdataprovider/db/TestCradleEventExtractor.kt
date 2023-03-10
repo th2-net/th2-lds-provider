@@ -27,6 +27,7 @@ import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
+import com.exactpro.th2.lwdataprovider.util.DummyDataMeasurement
 import com.exactpro.th2.lwdataprovider.util.ListCradleResult
 import com.exactpro.th2.lwdataprovider.util.createEventId
 import com.exactpro.th2.lwdataprovider.util.createEventStoredEvent
@@ -54,7 +55,7 @@ internal class TestCradleEventExtractor {
     private val manager = mock<CradleManager> {
         on { storage } doReturn storage
     }
-    private val extractor = CradleEventExtractor(manager)
+    private val extractor = CradleEventExtractor(manager, DummyDataMeasurement)
 
     @Test
     fun `returns events for single day`() {

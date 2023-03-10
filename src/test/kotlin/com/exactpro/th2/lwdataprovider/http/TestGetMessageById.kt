@@ -33,7 +33,7 @@ internal class TestGetMessageById : AbstractHttpHandlerTest<GetMessageById>() {
             configuration,
             sseResponseBuilder,
             context.searchMessagesHandler,
-            context.dataMeasurement,
+            context.requestsDataMeasurement,
         )
     }
 

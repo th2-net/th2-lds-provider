@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,24 +14,34 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.lwdataprovider
+package com.exactpro.th2.lwdataprovider.metrics
 
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.db.Measurement
+import io.prometheus.client.CollectorRegistry
 import io.prometheus.client.Histogram
 import mu.KotlinLogging
 
+class DataMeasurementImpl private constructor(
+    name: String,
+    registry: CollectorRegistry,
+    buckets: DoubleArray,
+) : DataMeasurement {
+    private val stepMetrics = Histogram.build(
+        "th2_ldp_${name.replace(' ', '_').lowercase()}_time", "Time spent on each action for $name"
+    ).buckets(*(buckets.takeIf { it.isNotEmpty() } ?: DEFAULT_BUCKETS))
+        .labelNames("action")
+        .register(registry)
 
-object DataMeasurementImpl : DataMeasurement {
     override fun start(name: String): Measurement {
-        return MeasurementImpl(name, STEP_METRICS.labels(name).startTimer())
+        return MeasurementImpl(name, stepMetrics.labels(name).startTimer())
     }
 
-    private val STEP_METRICS = Histogram.build(
-        "th2_ldp_message_pipeline_hist_time", "Time spent on each step for a message"
-    ).buckets(.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, 25.0, 50.0, 75.0)
-        .labelNames("step")
-        .register()
+    companion object {
+        private val DEFAULT_BUCKETS = doubleArrayOf(.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, 25.0, 50.0, 75.0)
+        @JvmStatic
+        fun create(registry: CollectorRegistry, name: String, vararg buckets: Double): DataMeasurement = DataMeasurementImpl(name, registry, buckets)
+    }
 }
 
 private class MeasurementImpl(

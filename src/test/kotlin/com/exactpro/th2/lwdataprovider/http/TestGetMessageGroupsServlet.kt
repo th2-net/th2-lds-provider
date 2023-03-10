@@ -28,7 +28,6 @@ import strikt.jackson.isArray
 import strikt.jackson.isObject
 import strikt.jackson.path
 import strikt.jackson.textValue
-import java.net.URL
 import java.time.Instant
 
 internal class TestGetMessageGroupsServlet : AbstractHttpHandlerTest<GetMessageGroupsServlet>() {
@@ -38,7 +37,7 @@ internal class TestGetMessageGroupsServlet : AbstractHttpHandlerTest<GetMessageG
             sseResponseBuilder,
             context.keepAliveHandler,
             context.searchMessagesHandler,
-            context.dataMeasurement,
+            context.requestsDataMeasurement,
         )
     }
 

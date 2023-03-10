@@ -27,6 +27,7 @@ import com.exactpro.cradle.messages.StoredGroupedMessageBatch
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.MessageRouter
+import com.exactpro.th2.lwdataprovider.util.DummyDataMeasurement
 import com.exactpro.th2.lwdataprovider.util.ImmutableListCradleResult
 import com.exactpro.th2.lwdataprovider.util.ListCradleResult
 import com.exactpro.th2.lwdataprovider.util.createBatches
@@ -76,7 +77,7 @@ internal class TestCradleMessageExtractor {
     internal fun setUp() {
         storage = mock { }
         manager = mock { on { this.storage }.thenReturn(storage) }
-        extractor = CradleMessageExtractor(groupRequestBuffer, manager)
+        extractor = CradleMessageExtractor(groupRequestBuffer, manager, DummyDataMeasurement)
         clearInvocations(storage, messageRouter, manager)
     }
 
@@ -111,7 +112,6 @@ internal class TestCradleMessageExtractor {
             messagesByAlias.keys.map { createMessageFilter(it) },
             Duration.ofMinutes(20),
             sink,
-            measurement,
         )
         expectThat(sink.messages)
             .hasSize(messagesByAlias.values.sumOf { it.size })
@@ -165,7 +165,6 @@ internal class TestCradleMessageExtractor {
             messagesByAlias.keys.map { createMessageFilter(it) },
             Duration.ofMinutes(20),
             sink,
-            measurement,
         )
         expectThat(sink.messages)
             .hasSize(messagesByAlias.values.sumOf { it.size })
@@ -203,7 +202,6 @@ internal class TestCradleMessageExtractor {
             messagesByAlias.keys.map { createMessageFilter(it) },
             Duration.ofMinutes(20),
             sink,
-            measurement,
         )
         val messageInInterval = 2
         expectThat(sink.messages)
@@ -271,7 +269,7 @@ internal class TestCradleMessageExtractor {
                 .groupName("test")
                 .timestampFrom().isGreaterThanOrEqualTo(startTimestamp)
                 .timestampTo().isLessThan(endTimestamp)
-                .build(), CradleGroupRequest(true), sink, measurement
+                .build(), CradleGroupRequest(true), sink
         )
 
         verify(sink, atMost(messagesCount.toInt())).onNext(any(), any<Collection<StoredMessage>>())

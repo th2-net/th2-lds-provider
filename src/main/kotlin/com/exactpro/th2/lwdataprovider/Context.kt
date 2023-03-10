@@ -31,6 +31,7 @@ import com.exactpro.th2.lwdataprovider.handlers.QueueMessagesHandler
 import com.exactpro.th2.lwdataprovider.entities.responses.ser.InstantBackwardCompatibilitySerializer
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
+import com.exactpro.th2.lwdataprovider.metrics.DataMeasurementImpl
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import com.exactpro.th2.lwdataprovider.workers.TimerWatcher
 import com.fasterxml.jackson.databind.DeserializationFeature
@@ -39,6 +40,7 @@ import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.databind.module.SimpleModule
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import io.prometheus.client.CollectorRegistry
 import java.time.Instant
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
@@ -46,6 +48,8 @@ import java.util.concurrent.Executors
 @Suppress("MemberVisibilityCanBePrivate")
 class Context(
     val configuration: Configuration,
+
+    val registry: CollectorRegistry = CollectorRegistry.defaultRegistry,
 
     val jacksonMapper: ObjectMapper = createObjectMapper(),
 
@@ -56,8 +60,15 @@ class Context(
     val mqDecoder: RabbitMqDecoder = RabbitMqDecoder(messageRouter, configuration.maxBufferDecodeQueue, configuration.codecUsePinAttributes),
 
     val timeoutHandler: TimerWatcher = TimerWatcher(mqDecoder, configuration),
-    val cradleEventExtractor: CradleEventExtractor = CradleEventExtractor(cradleManager),
-    val cradleMsgExtractor: CradleMessageExtractor = CradleMessageExtractor(configuration.groupRequestBuffer, cradleManager),
+    val cradleEventExtractor: CradleEventExtractor = CradleEventExtractor(
+        cradleManager,
+        DataMeasurementImpl.create(registry, "cradle event")
+    ),
+    val cradleMsgExtractor: CradleMessageExtractor = CradleMessageExtractor(
+        configuration.groupRequestBuffer,
+        cradleManager,
+        DataMeasurementImpl.create(registry, "cradle message")
+    ),
     val generalCradleExtractor: GeneralCradleExtractor = GeneralCradleExtractor(cradleManager),
     val pool: Executor = Executors.newFixedThreadPool(configuration.execThreadPoolSize),
 
@@ -68,10 +79,9 @@ class Context(
         configuration,
     ),
     val searchEventsHandler: SearchEventsHandler = SearchEventsHandler(cradleEventExtractor, pool),
-    val dataMeasurement: DataMeasurement = DataMeasurementImpl,
+    val requestsDataMeasurement: DataMeasurement = DataMeasurementImpl.create(registry, "message requests"),
     val queueMessageHandler: QueueMessagesHandler = QueueMessagesHandler(
         cradleMsgExtractor,
-        dataMeasurement,
         messageRouter,
         configuration.batchSize,
         configuration.codecUsePinAttributes,

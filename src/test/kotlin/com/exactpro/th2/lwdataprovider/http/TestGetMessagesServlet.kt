@@ -22,7 +22,6 @@ import com.exactpro.cradle.messages.StoredMessageIdUtils
 import com.exactpro.th2.common.message.addField
 import com.exactpro.th2.common.message.message
 import com.exactpro.th2.common.message.setMetadata
-import com.exactpro.th2.lwdataprovider.grpc.toRawMessage
 import com.exactpro.th2.lwdataprovider.util.ImmutableListCradleResult
 import com.exactpro.th2.lwdataprovider.util.createCradleStoredMessage
 import io.javalin.http.HttpStatus
@@ -32,7 +31,6 @@ import org.mockito.kotlin.anyVararg
 import org.mockito.kotlin.argThat
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.doThrow
-import org.mockito.kotlin.reset
 import org.mockito.kotlin.whenever
 import strikt.api.expectThat
 import strikt.assertions.first
@@ -53,7 +51,7 @@ internal class TestGetMessagesServlet : AbstractHttpHandlerTest<GetMessagesServl
             sseResponseBuilder,
             context.keepAliveHandler,
             context.searchMessagesHandler,
-            context.dataMeasurement,
+            context.requestsDataMeasurement,
         )
     }
 

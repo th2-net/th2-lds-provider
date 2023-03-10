@@ -88,7 +88,7 @@ class SearchMessagesHandler(
                                 logger.info { "loading canceled: $message" }
                                 return@use
                             }
-                            loadByResumeId(resumeFromId, request, sink, dataMeasurement)
+                            loadByResumeId(resumeFromId, request, sink)
                         }
                     } else {
                         request.stream?.forEach { (stream, direction) ->
@@ -97,7 +97,7 @@ class SearchMessagesHandler(
                                 return@use
                             }
 
-                            loadByStream(stream, direction, request, sink, dataMeasurement)
+                            loadByStream(stream, direction, request, sink)
                         }
                     }
 
@@ -132,7 +132,7 @@ class SearchMessagesHandler(
                 }
             ).use { sink ->
                 try {
-                    cradleMsgExtractor.getMessage(request.msgId, sink, dataMeasurement)
+                    cradleMsgExtractor.getMessage(request.msgId, sink)
                 } catch (e: Exception) {
                     logger.error(e) { "error getting messages" }
                     sink.onError(e, request.msgId.toReportId())
@@ -168,7 +168,7 @@ class SearchMessagesHandler(
                             .timestampTo().isLessThan(request.endTimestamp)
                             .build()
                         logger.debug { "Executing request for group $group" }
-                        cradleMsgExtractor.getMessagesGroup(filter, parameters, sink, dataMeasurement)
+                        cradleMsgExtractor.getMessagesGroup(filter, parameters, sink)
                         logger.debug { "Executing of request for group $group has been finished" }
                     }
 
@@ -180,7 +180,7 @@ class SearchMessagesHandler(
                         val lastTimestamp: Instant = request.endTimestamp
                         val allGroupLoaded = hashSetOf<String>()
                         do {
-                            val keepPulling = pullUpdates(request, lastTimestamp, sink, parameters, allGroupLoaded, dataMeasurement)
+                            val keepPulling = pullUpdates(request, lastTimestamp, sink, parameters, allGroupLoaded)
                         } while (keepPulling)
                     }
                 } catch (ex: Exception) {
@@ -201,7 +201,6 @@ class SearchMessagesHandler(
         sink: RootMessagesDataSink,
         parameters: CradleGroupRequest,
         allLoaded: MutableSet<String>,
-        dataMeasurement: DataMeasurement,
     ): Boolean {
         val parametersByBookId: Map<BookGroup, GroupParametersHolder> = computeNewParametersForGroupRequest(
             mapOf(request.bookId to request.groups),
@@ -220,7 +219,7 @@ class SearchMessagesHandler(
                 .timestampFrom().isGreaterThanOrEqualTo(newStart)
                 .timestampTo().isLessThan(request.endTimestamp)
                 .build()
-            cradleMsgExtractor.getMessagesGroup(filter, reqParams, sink, dataMeasurement)
+            cradleMsgExtractor.getMessagesGroup(filter, reqParams, sink)
             logger.info { "Data has been loaded for group $bookGroup" }
         }
         return allLoaded.size != request.groups.size
@@ -257,9 +256,9 @@ class SearchMessagesHandler(
                 allLoaded += stream
             }
             if (messageId.sequence == 0L) {
-                loadByStream(messageId.sessionAlias, messageId.direction, request, sink, dataMeasurement)
+                loadByStream(messageId.sessionAlias, messageId.direction, request, sink)
             } else {
-                loadByResumeId(messageId, request, sink, dataMeasurement)
+                loadByResumeId(messageId, request, sink)
             }
 
             allDataLoaded = allDataLoaded and hasDataOutside
@@ -279,7 +278,6 @@ class SearchMessagesHandler(
         resumeFromId: StoredMessageId,
         request: SseMessageSearchRequest,
         sink: RootMessagesDataSink,
-        dataMeasurement: DataMeasurement,
     ) {
         sink.subSink(resumeFromId.sessionAlias, resumeFromId.direction).use { subSink ->
             val filter = MessageFilterBuilder().apply {
@@ -295,7 +293,7 @@ class SearchMessagesHandler(
 
 
             val time = measureTimeMillis {
-                cradleMsgExtractor.getMessages(filter, subSink, dataMeasurement)
+                cradleMsgExtractor.getMessages(filter, subSink)
             }
             logger.info { "Loaded ${subSink.loadedData} messages from DB $time ms" }
         }
@@ -306,7 +304,6 @@ class SearchMessagesHandler(
         direction: Direction,
         request: SseMessageSearchRequest,
         sink: RootMessagesDataSink,
-        dataMeasurement: DataMeasurement,
     ) {
         sink.subSink(stream, direction).use { subSink ->
             val filter = MessageFilterBuilder().apply {
@@ -320,7 +317,7 @@ class SearchMessagesHandler(
                 limitFilter(sink)
             }.build()
             val time = measureTimeMillis {
-                cradleMsgExtractor.getMessages(filter, subSink, dataMeasurement)
+                cradleMsgExtractor.getMessages(filter, subSink)
             }
             logger.info { "Loaded ${subSink.loadedData} messages from DB $time ms" }
         }

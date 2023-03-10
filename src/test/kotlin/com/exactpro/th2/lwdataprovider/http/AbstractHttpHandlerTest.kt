@@ -38,6 +38,7 @@ import io.javalin.testtools.HttpClient
 import io.javalin.testtools.JavalinTest
 import io.javalin.testtools.TestCase
 import io.javalin.testtools.TestConfig
+import io.prometheus.client.CollectorRegistry
 import mu.KotlinLogging
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -98,14 +99,17 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
 
     private val eventRouter: MessageRouter<EventBatch> = mock { }
 
-    protected val context = Context(
-        configuration,
-        cradleManager = manager,
-        messageRouter = messageRouter,
-        eventRouter = eventRouter,
-        pool = executor,
-        applicationName = "test-lw-data-provider",
-    )
+    protected val context = run {
+        Context(
+            configuration,
+            registry = CollectorRegistry(),
+            cradleManager = manager,
+            messageRouter = messageRouter,
+            eventRouter = eventRouter,
+            pool = executor,
+            applicationName = "test-lw-data-provider",
+        )
+    }
     protected val sseResponseBuilder = SseResponseBuilder(context.jacksonMapper)
 
     @BeforeAll

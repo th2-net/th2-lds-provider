@@ -42,6 +42,7 @@ import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 import com.exactpro.th2.lwdataprovider.grpc.toCradleDirection
+import com.exactpro.th2.lwdataprovider.util.DummyDataMeasurement
 import com.exactpro.th2.lwdataprovider.util.ImmutableListCradleResult
 import com.exactpro.th2.lwdataprovider.util.ListCradleResult
 import com.exactpro.th2.lwdataprovider.util.createBatches
@@ -75,7 +76,7 @@ import strikt.assertions.single
 import strikt.assertions.withElementAt
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import java.util.*
+import java.util.Queue
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
@@ -95,7 +96,7 @@ internal class TestSearchMessagesHandler {
     private val decoder = spy(TestDecoder())
 
     private val searchHandler = SearchMessagesHandler(
-        CradleMessageExtractor(10, manager),
+        CradleMessageExtractor(10, manager, DummyDataMeasurement),
         decoder,
         executor,
         Configuration(

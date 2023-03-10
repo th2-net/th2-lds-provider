@@ -127,14 +127,11 @@ class GetMessageGroupsServlet(
         val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
         val handler = HttpMessagesRequestHandler(queue, sseResponseBuilder, dataMeasurement, maxMessagesPerRequest = configuration.bufferPerQuery)
         sseClient.onClose(handler::cancel)
-//        reqContext.startStep("messages_loading").use {
         keepAliveHandler.addKeepAliveData(handler).use {
             searchMessagesHandler.loadMessageGroups(request, handler, dataMeasurement)
             sseClient.waitAndWrite(queue)
             LOGGER.info { "Processing search sse messages group request finished" }
         }
-
-//        }
     }
 
     private fun createRequest(ctx: Context) = MessagesGroupRequest(

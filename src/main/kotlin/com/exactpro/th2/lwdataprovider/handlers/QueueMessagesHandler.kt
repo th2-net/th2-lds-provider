@@ -29,7 +29,6 @@ import com.exactpro.th2.lwdataprovider.ResponseHandler
 import com.exactpro.th2.lwdataprovider.db.CancellationReason
 import com.exactpro.th2.lwdataprovider.db.CradleGroupRequest
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
-import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.db.MessageDataSink
 import com.exactpro.th2.lwdataprovider.entities.requests.QueueMessageGroupsRequest
 import com.exactpro.th2.lwdataprovider.grpc.toRawMessage
@@ -42,7 +41,6 @@ import java.util.concurrent.Executor
 
 class QueueMessagesHandler(
     private val extractor: CradleMessageExtractor,
-    private val dataMeasurement: DataMeasurement,
     private val router: MessageRouter<MessageGroupBatch>,
     private val batchMaxSize: Int,
     private val useAttributes: Boolean,
@@ -83,7 +81,6 @@ class QueueMessagesHandler(
                         ) { param },
                         request.syncInterval,
                         sink,
-                        dataMeasurement,
                     )
 
                     if (request.keepAlive) {
@@ -118,7 +115,6 @@ class QueueMessagesHandler(
                                 },
                                 request.syncInterval,
                                 sink,
-                                dataMeasurement,
                             )
                         } while (allLoaded.size != groupSize)
                     }

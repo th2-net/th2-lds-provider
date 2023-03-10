@@ -46,7 +46,7 @@ class GrpcServer private constructor(
                     context.searchMessagesHandler,
                     context.searchEventsHandler,
                     context.generalCradleHandler,
-                    context.dataMeasurement,
+                    context.requestsDataMeasurement,
                     requireNotNull(executor) { "executor cannot be null" },
                 )
             } else {
@@ -56,7 +56,7 @@ class GrpcServer private constructor(
                     context.searchMessagesHandler,
                     context.searchEventsHandler,
                     context.generalCradleHandler,
-                    context.dataMeasurement,
+                    context.requestsDataMeasurement,
                 )
             }
             logger.info { "Creating grpc queue provider" }

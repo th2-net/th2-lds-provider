@@ -47,7 +47,7 @@ abstract class MessageResponseHandler(
 
     fun checkAndWaitForRequestLimit(msgBufferCount: Int) {
         var submitted = false
-        dataMeasurement.start("await_queue").use {
+        dataMeasurement.start("await_decode_queue").use {
             do {
                 lock.withLock {
                     val expectedSize = messagesInProcess + msgBufferCount

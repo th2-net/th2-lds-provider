@@ -84,6 +84,7 @@ class Context(
         pool,
     ),
     val generalCradleHandler: GeneralCradleHandler = GeneralCradleHandler(generalCradleExtractor, pool),
+    val applicationName: String
 ) {
     companion object {
         @JvmStatic

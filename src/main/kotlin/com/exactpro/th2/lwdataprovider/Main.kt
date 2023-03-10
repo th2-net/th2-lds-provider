@@ -64,6 +64,7 @@ class Main {
             },
             messageRouter = configurationFactory.messageRouterMessageGroupBatch,
             eventRouter = configurationFactory.eventBatchRouter,
+            applicationName = configurationFactory.boxConfiguration?.boxName ?: "lw-data-provider",
         )
     }
 

@@ -37,6 +37,7 @@ import io.javalin.openapi.plugin.swagger.SwaggerConfiguration
 import io.javalin.openapi.plugin.swagger.SwaggerPlugin
 import io.javalin.validation.JavalinValidation
 import io.micrometer.core.instrument.Clock
+import io.micrometer.core.instrument.Tag
 import io.micrometer.prometheus.PrometheusConfig
 import io.micrometer.prometheus.PrometheusMeterRegistry
 import io.prometheus.client.CollectorRegistry
@@ -89,6 +90,7 @@ class HttpServer(private val context: Context) {
             it.plugins.register(MicrometerPlugin.create { micrometer ->
                 micrometer.registry =
                     PrometheusMeterRegistry(PrometheusConfig.DEFAULT, CollectorRegistry.defaultRegistry, Clock.SYSTEM)
+                micrometer.tags = listOf(Tag.of("application", context.applicationName))
             })
 
             setupOpenApi(it)

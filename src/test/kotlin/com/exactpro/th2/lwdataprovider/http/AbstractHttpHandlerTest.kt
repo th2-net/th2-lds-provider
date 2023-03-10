@@ -104,6 +104,7 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
         messageRouter = messageRouter,
         eventRouter = eventRouter,
         pool = executor,
+        applicationName = "test-lw-data-provider",
     )
     protected val sseResponseBuilder = SseResponseBuilder(context.jacksonMapper)
 

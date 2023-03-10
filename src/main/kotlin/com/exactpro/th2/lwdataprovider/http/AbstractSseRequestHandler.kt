@@ -18,6 +18,7 @@ package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.th2.lwdataprovider.EventType
 import com.exactpro.th2.lwdataprovider.SseEvent
+import com.exactpro.th2.lwdataprovider.metrics.HttpWriteMetrics
 import io.javalin.http.Context
 import io.javalin.http.sse.SseClient
 import io.javalin.validation.Validator
@@ -42,11 +43,13 @@ abstract class AbstractSseRequestHandler : Consumer<SseClient>, JavalinHandler {
                 queue.clear()
                 return
             }
-            sendEvent(
-                event.event.typeName,
-                event.data,
-                event.metadata,
-            )
+            HttpWriteMetrics.measureWrite(ctx().matchedPath()) {
+                sendEvent(
+                    event.event.typeName,
+                    event.data,
+                    event.metadata,
+                )
+            }
             K_LOGGER.debug { "Sent sse event: type ${event.event}, metadata ${event.metadata}, data ${StringUtils.abbreviate(event.data, 50)}" }
             if (event.event == EventType.CLOSE) {
                 close()

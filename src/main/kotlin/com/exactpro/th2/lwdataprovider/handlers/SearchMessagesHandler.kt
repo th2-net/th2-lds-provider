@@ -243,10 +243,13 @@ private class ParsedStoredMessageHandler(
         if (details.isEmpty()) {
             return
         }
-        handler.checkAndWaitForRequestLimit(details.size)
-        decoder.sendBatchMessage(batch, details, details.first().storedMessage.streamName)
-        details.clear()
-        batch.clear()
+        try {
+            handler.checkAndWaitForRequestLimit(details.size)
+            decoder.sendBatchMessage(batch, details, details.first().storedMessage.streamName)
+        } finally {
+            details.clear()
+            batch.clear()
+        }
     }
 }
 

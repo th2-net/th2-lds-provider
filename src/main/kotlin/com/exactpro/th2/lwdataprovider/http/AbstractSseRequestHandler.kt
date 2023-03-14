@@ -34,35 +34,40 @@ abstract class AbstractSseRequestHandler : Consumer<SseClient>, JavalinHandler {
         queue: BlockingQueue<Supplier<SseEvent>>,
     ) {
 
+        val matchedPath = ctx().matchedPath()
         var inProcess = true
-        while (inProcess) {
-            val supplier = queue.take()
-            val event = supplier.get()
-            if (terminated()) {
-                K_LOGGER.info { "Request is terminated. Clear queue and stop processing" }
-                queue.clear()
-                return
-            }
-            val matchedPath = ctx().matchedPath()
-            HttpWriteMetrics.measureWrite(matchedPath) {
-                sendEvent(
-                    event.event.typeName,
-                    event.data,
-                    event.metadata,
-                )
-            }
-            if (event.event == EventType.EVENT || event.event == EventType.MESSAGE) {
-                HttpWriteMetrics.messageSent(matchedPath)
-            }
-            K_LOGGER.debug { "Sent sse event: type ${event.event}, metadata ${event.metadata}, data ${StringUtils.abbreviate(event.data, 50)}" }
-            if (event.event == EventType.CLOSE) {
-                close()
-                inProcess = false
-                val size = queue.size
-                if (size > 0) {
-                    K_LOGGER.warn { "There are $size event(s) left in queue" }
+        var dataSent = 0
+        try {
+            while (inProcess) {
+                val supplier = queue.take()
+                val event = supplier.get()
+                if (terminated()) {
+                    K_LOGGER.info { "Request is terminated. Clear queue and stop processing" }
+                    queue.clear()
+                    return
+                }
+                HttpWriteMetrics.measureWrite(matchedPath) {
+                    sendEvent(
+                        event.event.typeName,
+                        event.data,
+                        event.metadata,
+                    )
+                }
+                if (event.event == EventType.EVENT || event.event == EventType.MESSAGE) {
+                    dataSent++
+                }
+                K_LOGGER.debug { "Sent sse event: type ${event.event}, metadata ${event.metadata}, data ${StringUtils.abbreviate(event.data, 50)}" }
+                if (event.event == EventType.CLOSE) {
+                    close()
+                    inProcess = false
+                    val size = queue.size
+                    if (size > 0) {
+                        K_LOGGER.warn { "There are $size event(s) left in queue" }
+                    }
                 }
             }
+        } finally {
+            HttpWriteMetrics.messageSent(matchedPath, dataSent)
         }
     }
 

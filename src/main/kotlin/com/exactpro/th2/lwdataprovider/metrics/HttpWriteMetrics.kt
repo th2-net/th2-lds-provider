@@ -36,7 +36,7 @@ object HttpWriteMetrics {
         }
     }
 
-    fun messageSent(path: String) {
-        messagesSent.labels(path).inc()
+    fun messageSent(path: String, count: Int) {
+        messagesSent.labels(path).inc(count.toDouble())
     }
 }

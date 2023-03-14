@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.lwdataprovider.metrics
 
+import io.prometheus.client.Counter
 import io.prometheus.client.Histogram
 
 object HttpWriteMetrics {
@@ -24,9 +25,18 @@ object HttpWriteMetrics {
         "time spent to write a response to the output"
     ).labelNames("path").register()
 
+    private val messagesSent: Counter = Counter.build(
+        "th2_ldp_sse_events_count",
+        "number of events sent into individual path"
+    ).labelNames("path").register()
+
     fun measureWrite(path: String, action: () -> Unit) {
         writingHistogram.labels(path).startTimer().use {
             action()
         }
+    }
+
+    fun messageSent(path: String) {
+        messagesSent.labels(path).inc()
     }
 }

@@ -43,12 +43,16 @@ abstract class AbstractSseRequestHandler : Consumer<SseClient>, JavalinHandler {
                 queue.clear()
                 return
             }
-            HttpWriteMetrics.measureWrite(ctx().matchedPath()) {
+            val matchedPath = ctx().matchedPath()
+            HttpWriteMetrics.measureWrite(matchedPath) {
                 sendEvent(
                     event.event.typeName,
                     event.data,
                     event.metadata,
                 )
+            }
+            if (event.event == EventType.EVENT || event.event == EventType.MESSAGE) {
+                HttpWriteMetrics.messageSent(matchedPath)
             }
             K_LOGGER.debug { "Sent sse event: type ${event.event}, metadata ${event.metadata}, data ${StringUtils.abbreviate(event.data, 50)}" }
             if (event.event == EventType.CLOSE) {

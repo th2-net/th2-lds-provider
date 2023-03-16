@@ -23,18 +23,20 @@ object HttpWriteMetrics {
     private val writingHistogram: Histogram = Histogram.build(
         "th2_ldp_sse_write_time",
         "time spent to write a response to the output"
-    ).labelNames("path").register()
+    ).labelNames("uri").register()
 
     private val messagesSent: Counter = Counter.build(
         "th2_ldp_sse_events_count",
         "number of events sent into individual path"
-    ).labelNames("path").register()
+    ).labelNames("uri").register()
 
-    fun measureWrite(path: String, action: () -> Unit) {
-        writingHistogram.labels(path).startTimer().use {
+    inline fun measureWrite(path: String, action: () -> Unit) {
+        startTimer(path).use {
             action()
         }
     }
+
+    fun startTimer(path: String): AutoCloseable = writingHistogram.labels(path).startTimer()
 
     fun messageSent(path: String, count: Int) {
         messagesSent.labels(path).inc(count.toDouble())

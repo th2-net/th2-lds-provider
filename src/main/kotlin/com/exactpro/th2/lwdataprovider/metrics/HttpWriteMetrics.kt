@@ -23,7 +23,9 @@ object HttpWriteMetrics {
     private val writingHistogram: Histogram = Histogram.build(
         "th2_ldp_sse_write_time",
         "time spent to write a response to the output"
-    ).labelNames("uri").register()
+    ).labelNames("uri")
+        .exponentialBuckets(0.000000001, 10.0, 10)
+        .register()
 
     private val messagesSent: Counter = Counter.build(
         "th2_ldp_sse_events_count",

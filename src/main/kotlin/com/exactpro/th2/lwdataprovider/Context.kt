@@ -79,7 +79,10 @@ class Context(
         configuration,
     ),
     val searchEventsHandler: SearchEventsHandler = SearchEventsHandler(cradleEventExtractor, pool),
-    val requestsDataMeasurement: DataMeasurement = DataMeasurementImpl.create(registry, "message requests"),
+    val requestsDataMeasurement: DataMeasurement = DataMeasurementImpl.create(
+        registry, "message requests",
+        *generateSequence(0.000025) { v -> (v * 2).takeIf { it < 2 } }.toList().toTypedArray().toDoubleArray()
+    ),
     val queueMessageHandler: QueueMessagesHandler = QueueMessagesHandler(
         cradleMsgExtractor,
         messageRouter,

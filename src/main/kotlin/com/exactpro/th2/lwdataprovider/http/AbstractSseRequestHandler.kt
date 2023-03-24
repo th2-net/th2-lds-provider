@@ -19,6 +19,7 @@ package com.exactpro.th2.lwdataprovider.http
 import com.exactpro.th2.lwdataprovider.EventType
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.metrics.HttpWriteMetrics
+import com.exactpro.th2.lwdataprovider.metrics.ResponseQueue
 import io.javalin.http.Context
 import io.javalin.http.sse.SseClient
 import io.javalin.validation.Validator
@@ -40,6 +41,7 @@ abstract class AbstractSseRequestHandler : Consumer<SseClient>, JavalinHandler {
         try {
             while (inProcess) {
                 val supplier = queue.take()
+                ResponseQueue.currentSize(matchedPath, queue.size)
                 val event = supplier.get()
                 if (terminated()) {
                     K_LOGGER.info { "Request is terminated. Clear queue and stop processing" }

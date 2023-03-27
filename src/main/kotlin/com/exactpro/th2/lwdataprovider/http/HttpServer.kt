@@ -22,6 +22,8 @@ import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
+import com.exactpro.th2.lwdataprovider.producers.MessageProducer
+import com.exactpro.th2.lwdataprovider.producers.MessageProducer53
 import io.javalin.Javalin
 import io.javalin.config.JavalinConfig
 import io.javalin.http.BadRequestResponse
@@ -60,7 +62,8 @@ class HttpServer(private val context: Context) {
         val searchMessagesHandler = this.context.searchMessagesHandler
         val keepAliveHandler = this.context.keepAliveHandler
 
-        val sseResponseBuilder = SseResponseBuilder(jacksonMapper)
+        val sseResponseBuilder = SseResponseBuilder(jacksonMapper,
+            if (configuration.listOfMessageAsSingleMessage) MessageProducer53.Companion::createMessage else MessageProducer.Companion::createMessage)
         val handlers: Collection<JavalinHandler> = listOf(
             GetMessagesServlet(configuration, sseResponseBuilder, keepAliveHandler,
                 searchMessagesHandler, context.requestsDataMeasurement),

@@ -59,8 +59,7 @@ class ProviderParsedMessage(
     @JsonRawValue
     val message: String = "{}"
 ) {
-    val match: Boolean = true
-    
+
     companion object {
 
         private fun directionToString(dir: com.exactpro.th2.common.grpc.Direction) : String {

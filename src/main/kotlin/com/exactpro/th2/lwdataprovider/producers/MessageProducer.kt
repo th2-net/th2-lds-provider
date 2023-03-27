@@ -16,7 +16,7 @@
 
 package com.exactpro.th2.lwdataprovider.producers
 
-import com.exactpro.th2.lwdataprovider.CustomProtoJsonFormatter
+import com.exactpro.th2.lwdataprovider.RequestedMessage
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderParsedMessage
@@ -26,13 +26,13 @@ class MessageProducer {
 
     companion object {
 
-        fun createMessage(rawMessage: RequestedMessageDetails, formatter: CustomProtoJsonFormatter): ProviderMessage {
+        fun createMessage(rawMessage: RequestedMessage, formatter: JsonFormatter?, includeRaw: Boolean): ProviderMessage {
             return ProviderMessage(
                 rawMessage.storedMessage,
-                rawMessage.parsedMessage?.asSequence()?.map { msg ->
-                    ProviderParsedMessage(msg.metadata.id, formatter.print(msg))
+                rawMessage.parsedMessage?.takeIf { formatter != null }?.asSequence()?.map { msg ->
+                    ProviderParsedMessage(msg.metadata.id, formatter!!.print(msg))
                 }?.toList() ?: emptyList(),
-                rawMessage.rawMessage.let {
+                rawMessage.rawMessage.takeIf { includeRaw }?.let {
                     Base64.getEncoder().encodeToString(it.body.toByteArray())
                 }
             )

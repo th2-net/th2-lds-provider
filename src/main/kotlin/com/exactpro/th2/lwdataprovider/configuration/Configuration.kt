@@ -39,6 +39,7 @@ class CustomConfigurationClass(
     val responseFormats: Set<String>? = null,
     val grpcBackPressureReadinessTimeoutMls: Long? = null,
     val codecUsePinAttributes: Boolean? = null,
+    val listOfMessageAsSingleMessage: Boolean? = null,
 )
 
 class Configuration(customConfiguration: CustomConfigurationClass) {
@@ -62,6 +63,7 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     }
     val grpcBackPressureReadinessTimeoutMls: Long = VariableBuilder.getVariable(customConfiguration::grpcBackPressureReadinessTimeoutMls, decodingTimeout)
     val codecUsePinAttributes: Boolean = VariableBuilder.getVariable(customConfiguration::codecUsePinAttributes, true)
+    val listOfMessageAsSingleMessage: Boolean = VariableBuilder.getVariable(customConfiguration::listOfMessageAsSingleMessage, true)
     init {
         require(bufferPerQuery <= maxBufferDecodeQueue) {
             "buffer per queue ($bufferPerQuery) must be less or equal to the total buffer size ($maxBufferDecodeQueue)"

@@ -22,12 +22,22 @@ import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.exactpro.th2.lwdataprovider.entities.responses.PageInfo
 import com.exactpro.th2.lwdataprovider.entities.responses.ResponseMessage
+import com.exactpro.th2.lwdataprovider.producers.JsonFormatter
 import com.fasterxml.jackson.databind.ObjectMapper
 
 class SseResponseBuilder(
     private val jacksonMapper: ObjectMapper = ObjectMapper(),
+    private val responseFactory: (RequestedMessage, JsonFormatter?, Boolean) -> ResponseMessage,
 ) {
 
+    fun build(
+        message: RequestedMessage,
+        formatter: JsonFormatter?,
+        includeRaw: Boolean,
+        counter: Long,
+    ): SseEvent {
+        return SseEvent.build(jacksonMapper, responseFactory(message, formatter, includeRaw), counter)
+    }
     fun build(message: ResponseMessage, counter: Long): SseEvent {
         return SseEvent.build(jacksonMapper, message, counter)
     }

@@ -29,6 +29,7 @@ import com.exactpro.th2.lwdataprovider.Context
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.configuration.CustomConfigurationClass
+import com.exactpro.th2.lwdataprovider.producers.MessageProducer53
 import com.fasterxml.jackson.databind.JsonNode
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import io.javalin.Javalin
@@ -110,7 +111,7 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
             applicationName = "test-lw-data-provider",
         )
     }
-    protected val sseResponseBuilder = SseResponseBuilder(context.jacksonMapper)
+    protected val sseResponseBuilder = SseResponseBuilder(context.jacksonMapper, MessageProducer53.Companion::createMessage)
 
     @BeforeAll
     fun setup() {

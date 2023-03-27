@@ -29,7 +29,6 @@ import com.exactpro.th2.lwdataprovider.failureReason
 import com.exactpro.th2.lwdataprovider.handlers.AbstractCancelableHandler
 import com.exactpro.th2.lwdataprovider.handlers.MessageResponseHandler
 import com.exactpro.th2.lwdataprovider.producers.JsonFormatter
-import com.exactpro.th2.lwdataprovider.producers.MessageProducer53
 import com.exactpro.th2.lwdataprovider.producers.ParsedFormats
 import org.apache.commons.lang3.exception.ExceptionUtils
 import java.util.EnumSet
@@ -68,7 +67,7 @@ class HttpMessagesRequestHandler(
                 builder.codecTimeoutError(requestedMessage.storedMessage.id, counter)
             } else {
                 builder.build(
-                    MessageProducer53.createMessage(requestedMessage, jsonFormatter, includeRaw),
+                    requestedMessage, jsonFormatter, includeRaw,
                     counter,
                 )
             }

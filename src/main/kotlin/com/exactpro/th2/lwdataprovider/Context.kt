@@ -1,5 +1,5 @@
-/*******************************************************************************
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+/*
+ * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ */
 
 package com.exactpro.th2.lwdataprovider
 
@@ -20,6 +20,7 @@ import com.exactpro.cradle.CradleManager
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.MessageRouter
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoGroupBatch
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.CradleEventExtractor
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
@@ -55,9 +56,15 @@ class Context(
 
     val cradleManager: CradleManager,
     val messageRouter: MessageRouter<MessageGroupBatch>,
+    val demoMessageRouter: MessageRouter<DemoGroupBatch>,
     val eventRouter: MessageRouter<EventBatch>,
     val keepAliveHandler: KeepAliveHandler = KeepAliveHandler(configuration),
-    val mqDecoder: RabbitMqDecoder = RabbitMqDecoder(messageRouter, configuration.maxBufferDecodeQueue, configuration.codecUsePinAttributes),
+    val mqDecoder: RabbitMqDecoder = RabbitMqDecoder(
+        messageRouter,
+        demoMessageRouter,
+        configuration.maxBufferDecodeQueue,
+        configuration.codecUsePinAttributes
+    ),
 
     val timeoutHandler: TimerWatcher = TimerWatcher(mqDecoder, configuration),
     val cradleEventExtractor: CradleEventExtractor = CradleEventExtractor(

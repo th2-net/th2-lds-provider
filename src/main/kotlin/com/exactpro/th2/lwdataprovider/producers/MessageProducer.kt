@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package com.exactpro.th2.lwdataprovider.producers
 
 import com.exactpro.th2.lwdataprovider.RequestedMessage
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
+import com.exactpro.th2.lwdataprovider.demo.toProtoMessageId
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderParsedMessage
 import java.util.Base64
@@ -31,6 +32,8 @@ class MessageProducer {
                 rawMessage.storedMessage,
                 rawMessage.parsedMessage?.takeIf { formatter != null }?.asSequence()?.map { msg ->
                     ProviderParsedMessage(msg.metadata.id, formatter!!.print(msg))
+                }?.toList() ?: rawMessage.demoParsedMessage?.takeIf { formatter != null }?.asSequence()?.map { msg ->
+                    ProviderParsedMessage(msg.id.toProtoMessageId(), formatter!!.print(msg))
                 }?.toList() ?: emptyList(),
                 rawMessage.rawMessage.takeIf { includeRaw }?.let {
                     Base64.getEncoder().encodeToString(it.body.toByteArray())

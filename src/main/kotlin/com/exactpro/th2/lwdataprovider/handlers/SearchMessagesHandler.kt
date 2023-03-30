@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ import com.exactpro.cradle.messages.GroupedMessageFilter
 import com.exactpro.cradle.messages.MessageFilterBuilder
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageId
-import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.lwdataprovider.Decoder
 import com.exactpro.th2.lwdataprovider.ProviderStreamInfo
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
@@ -72,16 +71,21 @@ class SearchMessagesHandler(
         }
 
         threadPool.execute {
-            RootMessagesDataSink(
+            val sink = RootMessagesDataSink(
                 requestContext,
                 if (request.responseFormats.hasRowOnly()) {
                     RawStoredMessageHandler(requestContext)
                 } else {
-                    ParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
+                    if (configuration.useDemoMode) {
+                        DemoParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
+                    } else {
+                        ParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
+                    }
                 },
                 limit = request.resultCountLimit
-            ).use { sink ->
-                try {
+            )
+            try {
+                sink.use {
                     if (!request.resumeFromIdsList.isNullOrEmpty()) {
                         request.resumeFromIdsList.forEach { resumeFromId ->
                             sink.canceled?.apply {
@@ -101,7 +105,7 @@ class SearchMessagesHandler(
                         }
                     }
 
-                    if (request.keepOpen ) {
+                    if (request.keepOpen) {
                         sink.canceled?.apply {
                             logger.info { "request canceled: $message" }
                             return@use
@@ -112,31 +116,35 @@ class SearchMessagesHandler(
                             val continuePulling = pullUpdates(request, order, sink, allLoaded, dataMeasurement)
                         } while (continuePulling)
                     }
-
-                } catch (e: Exception) {
-                    logger.error(e) { "error getting messages" }
-                    sink.onError(e)
                 }
+            } catch (e: Exception) {
+                logger.error(e) { "error getting messages" }
+                sink.onError(e)
             }
         }
     }
 
     fun loadOneMessage(request: GetMessageRequest, requestContext: MessageResponseHandler, dataMeasurement: DataMeasurement) {
         threadPool.execute {
-            RootMessagesDataSink(
+            val sink = RootMessagesDataSink(
                 requestContext,
                 if (request.onlyRaw) {
                     RawStoredMessageHandler(requestContext)
                 } else {
-                    ParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
+                    if (configuration.useDemoMode) {
+                        DemoParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
+                    } else {
+                        ParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
+                    }
                 }
-            ).use { sink ->
-                try {
+            )
+            try {
+                sink.use {
                     cradleMsgExtractor.getMessage(request.msgId, sink)
-                } catch (e: Exception) {
-                    logger.error(e) { "error getting messages" }
-                    sink.onError(e, request.msgId.toReportId())
                 }
+            } catch (e: Exception) {
+                logger.error(e) { "error getting messages" }
+                sink.onError(e, request.msgId.toReportId())
             }
         }
     }
@@ -148,17 +156,22 @@ class SearchMessagesHandler(
 
         threadPool.execute {
             logger.info { "Executing group request $request" }
-            RootMessagesDataSink(
+            val sink = RootMessagesDataSink(
                 requestContext,
                 if (request.rawOnly) {
                     RawStoredMessageHandler(requestContext)
                 } else {
-                    ParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
+                    if (configuration.useDemoMode) {
+                        DemoParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
+                    } else {
+                        ParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
+                    }
                 },
                 markerAsGroup = true,
                 limit = null,
-            ).use { sink ->
-                try {
+            )
+            try {
+                sink.use {
                     val parameters = CradleGroupRequest(request.sort)
                     request.groups.forEach { group ->
                         val filter = GroupedMessageFilter.builder()
@@ -183,10 +196,10 @@ class SearchMessagesHandler(
                             val keepPulling = pullUpdates(request, lastTimestamp, sink, parameters, allGroupLoaded)
                         } while (keepPulling)
                     }
-                } catch (ex: Exception) {
-                    logger.error("Error getting messages group", ex)
-                    sink.onError(ex)
                 }
+            } catch (ex: Exception) {
+                logger.error("Error getting messages group", ex)
+                sink.onError(ex)
             }
         }
     }
@@ -425,54 +438,6 @@ private abstract class MessagesDataSink(
         onNextData(marker, data)
         handler.handleNext(data)
         return true
-    }
-}
-
-private class ParsedStoredMessageHandler(
-    private val handler: MessageResponseHandler,
-    private val decoder: Decoder,
-    private val measurement: DataMeasurement,
-    private val batchSize: Int,
-) : ResponseHandler<StoredMessage> {
-    private val batch: MessageGroupBatch.Builder = MessageGroupBatch.newBuilder()
-    private val details: MutableList<RequestedMessageDetails> = arrayListOf()
-    override val isAlive: Boolean
-        get() = handler.isAlive
-
-    override fun complete() {
-        processBatch(details)
-    }
-
-    override fun writeErrorMessage(text: String, id: String?, batchId: String?) {
-        handler.writeErrorMessage(text, id, batchId)
-    }
-
-    override fun writeErrorMessage(error: Throwable, id: String?, batchId: String?) {
-        handler.writeErrorMessage(error, id, batchId)
-    }
-
-    override fun handleNext(data: StoredMessage) {
-        val detail = RequestedMessageDetails(data) {
-            handler.requestReceived()
-        }
-        details += detail
-        handler.handleNext(detail)
-        if (details.size >= batchSize) {
-            processBatch(details)
-        }
-    }
-
-    private fun processBatch(details: MutableList<RequestedMessageDetails>) {
-        if (details.isEmpty()) {
-            return
-        }
-        try {
-            handler.checkAndWaitForRequestLimit(details.size)
-            decoder.sendBatchMessage(batch, details, details.first().storedMessage.sessionAlias)
-        } finally {
-            details.clear()
-            batch.clear()
-        }
     }
 }
 

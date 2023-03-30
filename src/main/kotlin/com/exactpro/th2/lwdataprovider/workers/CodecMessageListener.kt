@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 
 package com.exactpro.th2.lwdataprovider.workers
 
-import com.exactpro.cradle.messages.StoredMessageIdUtils.timestampToString
 import com.exactpro.th2.common.grpc.AnyMessage
+import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.MessageID
@@ -30,26 +30,13 @@ class CodecMessageListener(
     private val decodeQueue: RequestsBuffer,
 ) : MessageListener<MessageGroupBatch>  {
     
-    private fun buildMessageIdString(messageId: MessageID) : String {
-        return messageId.bookName + ":" +
-                messageId.connectionId.sessionAlias + ":" +
-                (messageId.direction.number + 1) + ":" +
-                timestampToString(messageId.timestamp.toInstant()) + ":" +
-                messageId.sequence
-    }
-
-    companion object {
-        private val logger = KotlinLogging.logger { }
-    }
-    
     override fun handle(deliveryMetadata: DeliveryMetadata, message: MessageGroupBatch) {
-
         message.groupsList.forEach { group ->
             if (group.messagesList.any { !it.hasMessage() }) {
                 reportIncorrectGroup(group)
                 return@forEach
             }
-            val messageIdStr = buildMessageIdString(group.messagesList.first().message.metadata.id)
+            val messageIdStr = group.messagesList.first().message.metadata.id.buildMessageIdString()
 
             decodeQueue.responseReceived(messageIdStr) {
                 group.messagesList.map { anyMsg -> anyMsg.message }
@@ -57,19 +44,31 @@ class CodecMessageListener(
         }
     }
 
+    private fun MessageID.buildMessageIdString() : String = RequestsBuffer.buildMessageIdString(
+        bookName,
+        connectionId.sessionAlias,
+        if (direction == Direction.FIRST) 1 else 2,
+        timestamp.toInstant(),
+        sequence
+    )
+
     private fun reportIncorrectGroup(group: MessageGroup) {
         logger.error {
             "some messages in group are not parsed: ${
                 group.messagesList.joinToString(",") {
                     "${it.kindCase} ${
                         when (it.kindCase) {
-                            AnyMessage.KindCase.MESSAGE -> buildMessageIdString(it.message.metadata.id)
-                            AnyMessage.KindCase.RAW_MESSAGE -> buildMessageIdString(it.rawMessage.metadata.id)
+                            AnyMessage.KindCase.MESSAGE -> it.message.metadata.id.buildMessageIdString()
+                            AnyMessage.KindCase.RAW_MESSAGE -> it.rawMessage.metadata.id.buildMessageIdString()
                             AnyMessage.KindCase.KIND_NOT_SET, null -> null
                         }
                     }"
                 }
             }"
         }
+    }
+
+    companion object {
+        private val logger = KotlinLogging.logger { }
     }
 }

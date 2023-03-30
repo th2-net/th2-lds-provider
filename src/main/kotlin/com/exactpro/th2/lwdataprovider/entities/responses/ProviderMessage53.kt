@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ package com.exactpro.th2.lwdataprovider.entities.responses
 
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageId
-import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.lwdataprovider.entities.internal.Direction
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonRawValue
@@ -45,10 +44,6 @@ data class ProviderMessage53 (
     @JsonIgnore
     @get:OpenApiIgnore
     val id: StoredMessageId,
-
-    @JsonIgnore
-    @get:OpenApiIgnore
-    val message: Message?
 ) : ResponseMessage {
 
     val messageId: String
@@ -58,7 +53,6 @@ data class ProviderMessage53 (
     constructor(
         rawStoredMessage: StoredMessage,
         jsonBody: String?,
-        message: Message?,
         base64Body: String?,
         messageType: String,
         events: Set<String> = Collections.emptySet()
@@ -71,6 +65,5 @@ data class ProviderMessage53 (
         timestamp = rawStoredMessage.timestamp ?: Instant.ofEpochMilli(0),
         sessionId = rawStoredMessage.sessionAlias ?: "",
         attachedEventIds = events,
-        message = message
     )
 }

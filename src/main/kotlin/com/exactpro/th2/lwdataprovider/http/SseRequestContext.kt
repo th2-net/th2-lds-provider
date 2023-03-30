@@ -63,7 +63,7 @@ class HttpMessagesRequestHandler(
         val counter = indexer.nextIndex()
         buffer.put {
             val requestedMessage: RequestedMessage = data.awaitAndGet()
-            if (jsonFormatter != null && requestedMessage.parsedMessage == null) {
+            if (jsonFormatter != null && requestedMessage.parsedMessage == null && requestedMessage.demoParsedMessage == null) {
                 builder.codecTimeoutError(requestedMessage.storedMessage.id, counter)
             } else {
                 builder.build(

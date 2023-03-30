@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,9 @@ import com.exactpro.th2.common.message.plusAssign
 import com.exactpro.th2.common.schema.message.DeliveryMetadata
 import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.common.schema.message.MessageRouter
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoGroupBatch
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageGroup
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoParsedMessage
 import com.exactpro.th2.lwdataprovider.Context
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
@@ -73,7 +76,7 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
     private val executor = Executors.newSingleThreadExecutor(ThreadFactoryBuilder()
         .setNameFormat("test-executor-%d")
         .build())
-    protected val configuration = Configuration(CustomConfigurationClass(
+    protected open val configuration = Configuration(CustomConfigurationClass(
         decodingTimeout = 100,
     ))
 
@@ -84,6 +87,7 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
     }
 
     private val messageListeners = ConcurrentHashMap.newKeySet<MessageListener<MessageGroupBatch>>()
+    private val demoMessageListeners = ConcurrentHashMap.newKeySet<MessageListener<DemoGroupBatch>>()
     protected val messageRouter: MessageRouter<MessageGroupBatch> = mock {
         on { subscribeAll(any(), anyVararg()) } doAnswer {
             val listener = it.getArgument<MessageListener<MessageGroupBatch>>(0)
@@ -91,6 +95,19 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
             mock {
                 on { unsubscribe() } doAnswer {
                     messageListeners -= listener
+                }
+            }
+        }
+        on { send(any(), anyVararg()) } doAnswer { receivedRequest(it) }
+        on { sendAll(any(), anyVararg()) } doAnswer { receivedRequest(it) }
+    }
+    protected val demoMessageRouter: MessageRouter<DemoGroupBatch> = mock {
+        on { subscribeAll(any(), anyVararg()) } doAnswer {
+            val listener = it.getArgument<MessageListener<DemoGroupBatch>>(0)
+            demoMessageListeners += listener
+            mock {
+                on { unsubscribe() } doAnswer {
+                    demoMessageListeners -= listener
                 }
             }
         }
@@ -106,6 +123,7 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
             registry = CollectorRegistry(),
             cradleManager = manager,
             messageRouter = messageRouter,
+            demoMessageRouter = demoMessageRouter,
             eventRouter = eventRouter,
             pool = executor,
             applicationName = "test-lw-data-provider",
@@ -130,9 +148,10 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
         semaphore.drainPermits()
         reset(storage, messageRouter, eventRouter)
         configureMessageRouter()
+        configureDemoMessageRouter()
     }
 
-    protected fun configureMessageRouter() {
+    private fun configureMessageRouter() {
         whenever(messageRouter.subscribeAll(any(), anyVararg())) doAnswer {
             val listener = it.getArgument<MessageListener<MessageGroupBatch>>(0)
             messageListeners += listener
@@ -144,6 +163,20 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
         }
         whenever(messageRouter.send(any(), anyVararg())) doAnswer { receivedRequest(it) }
         whenever(messageRouter.sendAll(any(), anyVararg())) doAnswer { receivedRequest(it) }
+    }
+
+    private fun configureDemoMessageRouter() {
+        whenever(demoMessageRouter.subscribeAll(any(), anyVararg())) doAnswer {
+            val listener = it.getArgument<MessageListener<DemoGroupBatch>>(0)
+            demoMessageListeners += listener
+            mock {
+                on { unsubscribe() } doAnswer {
+                    demoMessageListeners -= listener
+                }
+            }
+        }
+        whenever(demoMessageRouter.send(any(), anyVararg())) doAnswer { receivedRequest(it) }
+        whenever(demoMessageRouter.sendAll(any(), anyVararg())) doAnswer { receivedRequest(it) }
     }
 
     protected fun startTest(testConfig: TestConfig = TestConfig(
@@ -177,6 +210,24 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
         LOGGER.info { "Notify ${messageListeners.size} listener(s)" }
         messageListeners.forEach { it.handle(metadata, batch) }
     }
+
+    protected fun receiveDemoMessages(vararg messages: DemoParsedMessage) {
+        val first = messages.first()
+        val batch = DemoGroupBatch(
+            first.id.book,
+            first.id.sessionGroup,
+            messages.asSequence()
+                .map { DemoMessageGroup(mutableListOf(it)) }
+                .toMutableList()
+        )
+        val metadata = DeliveryMetadata("test", isRedelivered = false)
+        LOGGER.info { "Await for codec request" }
+        Assertions.assertTrue(semaphore.tryAcquire(500, TimeUnit.MILLISECONDS)) {
+            "request for decoding was not received during 500 mls"
+        }
+        LOGGER.info { "Notify ${demoMessageListeners.size} demo listener(s)" }
+        demoMessageListeners.forEach { it.handle(metadata, batch) }
+    }
     abstract fun createHandler(): T
 
     protected fun Assertion.Builder<Response>.jsonBody(): Assertion.Builder<JsonNode> = get { body }.isNotNull().get { MAPPER.readTree(bytes()) }
@@ -189,5 +240,11 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
     companion object {
         private val MAPPER = Context.createObjectMapper()
         private val LOGGER = KotlinLogging.logger { }
+
+        const val BOOK_NAME = "test" //TODO: Move to the CradleTestUtil and use in CradleTestUtil.createCradleStoredMessage and all cases where the method used
+        const val PAGE_NAME = "test-page"
+        const val SESSION_GROUP = "test-session-group"
+        const val SESSION_ALIAS = "test-session-alias"
+        const val MESSAGE_TYPE = "test-message-type"
     }
 }

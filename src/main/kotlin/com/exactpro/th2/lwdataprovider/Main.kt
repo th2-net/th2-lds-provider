@@ -63,6 +63,7 @@ class Main {
                 resources += AutoCloseable { it.close() }
             },
             messageRouter = configurationFactory.messageRouterMessageGroupBatch,
+            demoMessageRouter = configurationFactory.demoMessageBatchRouter,
             eventRouter = configurationFactory.eventBatchRouter,
             applicationName = configurationFactory.boxConfiguration?.boxName ?: "lw-data-provider",
         )

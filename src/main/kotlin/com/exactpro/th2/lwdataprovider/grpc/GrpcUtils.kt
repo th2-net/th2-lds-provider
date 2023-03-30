@@ -84,7 +84,7 @@ fun StoredMessage.toRawMessage(): RawMessage {
         metadataBuilder.apply {
             putAllProperties(message.metadata?.toMap() ?: emptyMap())
             id = message.id.toGrpcMessageId()
-            /*protocol = message.protocol ?: "" TODO update cradle version*/
+            protocol = message.protocol ?: ""
         }.build()
         body = UnsafeByteOperations.unsafeWrap(message.content)
     }.build()

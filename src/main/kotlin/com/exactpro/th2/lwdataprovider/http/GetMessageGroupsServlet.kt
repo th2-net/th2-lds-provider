@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
@@ -101,7 +102,12 @@ class GetMessageGroupsServlet(
                 description = "book ID for requested groups",
                 required = true,
                 example = "bookId123",
-            )
+            ),
+            OpenApiParam(
+                RESPONSE_FORMAT,
+                type = Array<String>::class,
+                description = "the format of the response"
+            ),
         ],
         methods = [HttpMethod.GET],
         responses = [
@@ -125,7 +131,8 @@ class GetMessageGroupsServlet(
 
 
         val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
-        val handler = HttpMessagesRequestHandler(queue, sseResponseBuilder, dataMeasurement, maxMessagesPerRequest = configuration.bufferPerQuery)
+        val handler = HttpMessagesRequestHandler(queue, sseResponseBuilder, dataMeasurement, maxMessagesPerRequest = configuration.bufferPerQuery,
+            responseFormats = request.responseFormats ?: configuration.responseFormats)
         sseClient.onClose(handler::cancel)
         keepAliveHandler.addKeepAliveData(handler).use {
             searchMessagesHandler.loadMessageGroups(request, handler, dataMeasurement)
@@ -150,6 +157,8 @@ class GetMessageGroupsServlet(
         keepOpen = ctx.queryParamAsClass<Boolean>(KEEP_OPEN_PARAMETER)
             .getOrDefault(false),
         bookId = ctx.queryParamAsClass<BookId>(BOOK_ID_PARAM).get(),
+        responseFormats = ctx.queryParams(RESPONSE_FORMAT).takeIf(List<*>::isNotEmpty)
+            ?.mapTo(hashSetOf(), ResponseFormat.Companion::fromString),
     )
 
     companion object {
@@ -162,6 +171,7 @@ class GetMessageGroupsServlet(
         private const val RAW_ONLY_PARAMETER = "onlyRaw"
         private const val KEEP_OPEN_PARAMETER = "keepOpen"
         private const val BOOK_ID_PARAM = "bookId"
+        private const val RESPONSE_FORMAT = "responseFormat"
         private val LOGGER = KotlinLogging.logger { }
     }
 }

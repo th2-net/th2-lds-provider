@@ -1,5 +1,5 @@
-/*******************************************************************************
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+/*
+ * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,11 +12,12 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ */
 
 package com.exactpro.th2.lwdataprovider.workers
 
 import com.exactpro.th2.common.grpc.Message
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoParsedMessage
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.metrics.DecodingMetrics
 import mu.KotlinLogging
@@ -72,12 +73,21 @@ class DecodeQueueBuffer(
     }
 
     override fun responseReceived(id: String, response: () -> List<Message>) {
-        processResponse(id, response)
+        processResponse(id, response, RequestedMessageDetails::responseFinished)
+    }
+
+    override fun responseDemoReceived(id: String, response: () -> List<DemoParsedMessage>) {
+        processResponse(id, response, RequestedMessageDetails::responseDemoFinished)
     }
 
     override fun bulkResponsesReceived(responses: Map<String, () -> List<Message>>) {
         // TODO: maybe we should use something optimized for bulk removal instead of simple map
-        responses.forEach(this::processResponse)
+        responses.forEach(this::responseReceived)
+    }
+
+    override fun bulkResponsesDemoReceived(responses: Map<String, () -> List<DemoParsedMessage>>) {
+        // TODO: maybe we should use something optimized for bulk removal instead of simple map
+        responses.forEach(this::responseDemoReceived)
     }
 
     override fun removeOlderThan(timeout: Long): Long {
@@ -137,7 +147,11 @@ class DecodeQueueBuffer(
         }
     }
 
-    private fun processResponse(id: String, response: () -> List<Message>) {
+    private fun <M> processResponse(
+        id: String,
+        response: () -> List<M>,
+        responseFinished: RequestedMessageDetails.(List<M>) -> Unit
+    ) {
         val details = withQueueLockAndRelease {
             decodeTimers.remove(id)?.close()
             decodeQueue.remove(id)?.also {
@@ -160,9 +174,18 @@ class DecodeQueueBuffer(
     }
 }
 
-private fun RequestedMessageDetails.timeout(): Unit = responseFinished(null)
+private fun RequestedMessageDetails.timeout() {
+    parsedMessage = null
+    demoParsedMessage = null
+    responseMessage()
+}
 
-private fun RequestedMessageDetails.responseFinished(response: List<Message>?) {
+private fun RequestedMessageDetails.responseFinished(response: List<Message>) {
     parsedMessage = response
+    responseMessage()
+}
+
+private fun RequestedMessageDetails.responseDemoFinished(response: List<DemoParsedMessage>) {
+    demoParsedMessage = response
     responseMessage()
 }

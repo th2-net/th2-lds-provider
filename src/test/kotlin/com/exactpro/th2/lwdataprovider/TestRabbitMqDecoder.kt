@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import com.exactpro.th2.common.message.setMetadata
 import com.exactpro.th2.common.schema.message.DeliveryMetadata
 import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.common.schema.message.MessageRouter
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoGroupBatch
 import com.exactpro.th2.lwdataprovider.grpc.toGrpcDirection
 import com.exactpro.th2.lwdataprovider.util.createCradleStoredMessage
 import org.junit.jupiter.api.Test
@@ -51,9 +52,16 @@ import java.util.concurrent.TimeUnit
 
 internal class TestRabbitMqDecoder {
     private val listeners = arrayListOf<MessageListener<MessageGroupBatch>>()
+    private val demoListeners = arrayListOf<MessageListener<DemoGroupBatch>>()
     private val messageRouter: MessageRouter<MessageGroupBatch> = mock {
         on { subscribeAll(any(), anyVararg()) } doAnswer {
             listeners += it.getArgument<MessageListener<MessageGroupBatch>>(0)
+            mock { }
+        }
+    }
+    private val demoMessageRouter: MessageRouter<DemoGroupBatch> = mock {
+        on { subscribeAll(any(), anyVararg()) } doAnswer {
+            demoListeners += it.getArgument<MessageListener<DemoGroupBatch>>(0)
             mock { }
         }
     }
@@ -61,6 +69,7 @@ internal class TestRabbitMqDecoder {
     private val decoder = RabbitMqDecoder(
         maxDecodeQueue = 3,
         messageRouterRawBatch = messageRouter,
+        messageRouterDemoBatch = demoMessageRouter,
         codecUsePinAttributes = true,
     )
 

@@ -76,6 +76,7 @@ message MessageGroupsSearchRequest {
   google.protobuf.BoolValue sort = 4;
   bool raw_only = 5;
   bool keep_open = 6;
+  repeated string response_formats = 8; // List of possible response formats (e.g. PARSED or BASE_64)
 }
 
 message MessageStreamsRequest {

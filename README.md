@@ -75,6 +75,7 @@ Filter parameters:
 - `group` - the repeatable parameter java.time.Instantwith group names to request. **At least one must be specified**
 - `keepOpen` - keeps pulling for updates until have not found any message outside the requested interval. Disabled by default
 - `bookId` - book ID for requested messages (*required)
+- `responseFormat` - text, accepts multiple values - sets response formats. Possible values: BASE_64, PROTO_PARSED, JSON_PARSED. default value - BASE_64 & PROTO_PARSED.
 Example: `http://localhost:8080/search/sse/messages/group?group=A&group=B&startTimestamp=15600000&endTimestamp=15700000`
 
 `http://localhost:8080/search/sse/page-infos` - creates an SSE channel of page infos that matches the requested book id for the requested time period

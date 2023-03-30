@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,28 +20,46 @@ import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.plusAssign
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.QueueAttribute
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoGroupBatch
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageGroup
 import com.exactpro.th2.lwdataprovider.workers.CodecMessageListener
 import com.exactpro.th2.lwdataprovider.workers.DecodeQueueBuffer
+import com.exactpro.th2.lwdataprovider.workers.DemoCodecMessageListener
 import com.exactpro.th2.lwdataprovider.workers.TimeoutChecker
 import mu.KotlinLogging
 
 class RabbitMqDecoder(
     private val messageRouterRawBatch: MessageRouter<MessageGroupBatch>,
+    private val messageRouterDemoBatch: MessageRouter<DemoGroupBatch>,
     maxDecodeQueue: Int,
     private val codecUsePinAttributes: Boolean,
 ) : TimeoutChecker, Decoder, AutoCloseable {
     
     private val decodeBuffer = DecodeQueueBuffer(maxDecodeQueue)
     private val parsedMonitor = messageRouterRawBatch.subscribeAll(CodecMessageListener(decodeBuffer), QueueAttribute.PARSED.value, FROM_CODEC_ATTR)
+    private val demoMonitor = messageRouterDemoBatch.subscribeAll(DemoCodecMessageListener(decodeBuffer), "demo", FROM_CODEC_ATTR)
 
     override fun sendBatchMessage(batchBuilder: MessageGroupBatch.Builder, requests: Collection<RequestedMessageDetails>, session: String) {
         checkAndWaitFreeBuffer(requests.size)
-        LOGGER.trace { "Sending batch with messages to codec. IDs: ${requests.joinToString { it.id }}" }
+        LOGGER.trace { "Sending proto batch with messages to codec. IDs: ${requests.joinToString { it.id }}" }
         val currentTimeMillis = System.currentTimeMillis()
         requests.forEach {
             onMessageRequest(it, batchBuilder, session, currentTimeMillis)
         }
         send(batchBuilder, session)
+    }
+    override fun sendBatchMessage(
+        batch: DemoGroupBatch,
+        requests: Collection<RequestedMessageDetails>,
+        session: String
+    ) {
+        checkAndWaitFreeBuffer(requests.size)
+        LOGGER.trace { "Sending demo batch with messages to codec. IDs: ${requests.joinToString { it.id }}" }
+        val currentTimeMillis = System.currentTimeMillis()
+        requests.forEach {
+            onMessageRequest(it, batch, session, currentTimeMillis)
+        }
+        send(batch, session)
     }
 
     override fun sendMessage(message: RequestedMessageDetails, session: String) {
@@ -58,7 +76,9 @@ class RabbitMqDecoder(
 
     override fun close() {
         runCatching { parsedMonitor.unsubscribe() }
-            .onFailure { LOGGER.error(it) { "Cannot unsubscribe from queue" } }
+            .onFailure { LOGGER.error(it) { "Cannot unsubscribe from parsed queue" } }
+        runCatching { demoMonitor.unsubscribe() }
+            .onFailure { LOGGER.error(it) { "Cannot unsubscribe from demo queue" } }
         decodeBuffer.close()
     }
 
@@ -78,12 +98,31 @@ class RabbitMqDecoder(
         batchBuilder.addGroupsBuilder() += details.rawMessage
     }
 
+    private fun onMessageRequest(
+        details: RequestedMessageDetails,
+        batchBuilder: DemoGroupBatch,
+        session: String,
+        currentTimeMillis: Long = System.currentTimeMillis(),
+    ) {
+        details.time = currentTimeMillis
+        registerMessage(details, session)
+        batchBuilder.groups.add(DemoMessageGroup(mutableListOf(details.demoRawMessage)))
+    }
+
     private fun send(batchBuilder: MessageGroupBatch.Builder, session: String) {
         val batch = batchBuilder.build()
         if (codecUsePinAttributes) {
             this.messageRouterRawBatch.send(batch, session, QueueAttribute.RAW.value)
         } else {
             this.messageRouterRawBatch.sendAll(batch, QueueAttribute.RAW.value)
+        }
+    }
+
+    private fun send(batchBuilder: DemoGroupBatch, session: String) {
+        if (codecUsePinAttributes) {
+            this.messageRouterDemoBatch.send(batchBuilder, session, "demo")
+        } else {
+            this.messageRouterDemoBatch.sendAll(batchBuilder, "demo")
         }
     }
 

@@ -74,11 +74,11 @@ class GetMessagesServlet(
         private val logger = KotlinLogging.logger { }
     }
 
-    override fun setup(app: Javalin) {
+    override fun setup(app: Javalin, context: JavalinContext) {
         app.before(ROUTE) {
             it.attribute(REQUEST_KEY, createRequest(it))
         }
-        app.customSse(ROUTE, this)
+        app.customSse(ROUTE, this, context)
     }
 
     @OpenApi(

@@ -27,7 +27,10 @@ const val NEW_LINE = "\n"
  * Copied from [io.javalin.http.sse.Emitter]
  * because we need to customize the flushing and data writing
  */
-class Emitter(private var response: HttpServletResponse) {
+class Emitter(
+    private val response: HttpServletResponse,
+    private val autoFlush: Boolean,
+) {
     private val lock = ReentrantLock()
 
     var closed = false
@@ -43,10 +46,16 @@ class Emitter(private var response: HttpServletResponse) {
             write("data: $data$NEW_LINE")
 
             write(NEW_LINE)
-            response.flushBuffer()
+            if (autoFlush) {
+                response.flushBuffer()
+            }
         } catch (ignored: IOException) {
             closed = true
         }
+    }
+
+    fun flush(): Unit = lock.withLock {
+        response.flushBuffer()
     }
 
     private fun write(value: String) =

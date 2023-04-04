@@ -27,13 +27,18 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Because we need to modify the way it handles the event content
  */
 class SseClient internal constructor(
-    private val ctx: Context
+    private val ctx: Context,
+    private val flushAfter: Int,
 ) : Closeable {
+    init {
+        require(flushAfter >= 0) { "flushAfter must be 0 or positive" }
+    }
 
     private val terminated = AtomicBoolean(false)
-    private val emitter = Emitter(ctx.res())
+    private val emitter = Emitter(ctx.res(), flushAfter == 0)
     private var blockingFuture: CompletableFuture<*>? = null
     private var closeCallback = Runnable {}
+    private var emitted: Int = 0
 
     fun ctx(): Context = ctx
 
@@ -61,6 +66,9 @@ class SseClient internal constructor(
      */
     override fun close() {
         if (terminated.getAndSet(true)) return
+        if (flushAfter > 0) {
+            emitter.flush()
+        }
         closeCallback.run()
         blockingFuture?.complete(null)
     }
@@ -68,7 +76,24 @@ class SseClient internal constructor(
     fun sendEvent(event: String, data: String, id: String? = null) {
         if (terminated.get()) return logTerminated()
         emitter.emit(event, data, id)
-        if (emitter.closed) { // can't detect if closed before we try emitting
+        emitted++
+        @Suppress("ConvertTwoComparisonsToRangeCheck")
+        if (flushAfter > 0 && emitted >= flushAfter) {
+            emitter.flush()
+            emitted = 0
+        }
+        checkClosed()
+    }
+
+    fun flush() {
+        if (terminated.get()) return logTerminated()
+        emitter.flush()
+        emitted = 0
+        checkClosed()
+    }
+
+    private fun checkClosed() {
+        if (emitter.closed) { // can detect only on write
             this.close()
         }
     }

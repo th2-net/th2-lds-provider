@@ -155,7 +155,10 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
             app = Javalin.create {
                 it.jsonMapper(JavalinJackson(MAPPER))
                 it.plugins.enableDevLogging()
-            }.apply(createHandler()::setup).also(HttpServer.Companion::setupConverters),
+            }.apply {
+                val handler = createHandler()
+                handler.setup(this, JavalinContext(flushAfter = 0/*auto flush*/))
+            }.also(HttpServer.Companion::setupConverters),
             config = testConfig,
             testCase,
         )

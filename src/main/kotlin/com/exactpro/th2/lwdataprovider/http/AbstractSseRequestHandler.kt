@@ -57,6 +57,11 @@ abstract class AbstractSseRequestHandler : Consumer<SseClient>, JavalinHandler {
                 if (event.event == EventType.EVENT || event.event == EventType.MESSAGE) {
                     dataSent++
                 }
+                if (event.event == EventType.KEEP_ALIVE || event.event == EventType.ERROR) {
+                    // flush on keep alive to avoid closing connection because of inactivity
+                    // flush after error to deliver it to the user
+                    flush()
+                }
                 K_LOGGER.debug { "Sent sse event: type ${event.event}, metadata ${event.metadata}, data ${StringUtils.abbreviate(event.data, 50)}" }
                 if (event.event == EventType.CLOSE) {
                     close()

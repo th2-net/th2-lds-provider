@@ -18,7 +18,6 @@ package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.cradle.BookId
 import com.exactpro.th2.lwdataprovider.ExceptionInfo
-import com.exactpro.th2.lwdataprovider.db.CradleEventExtractor
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import io.javalin.Javalin
 import io.javalin.http.Context
@@ -72,7 +71,7 @@ class GetEventScopes(
         }
     }
 
-    override fun setup(app: Javalin) {
+    override fun setup(app: Javalin, context: JavalinContext) {
         app.get(ROUTE, this)
     }
 

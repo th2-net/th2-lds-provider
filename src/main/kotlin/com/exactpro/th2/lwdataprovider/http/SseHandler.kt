@@ -21,6 +21,7 @@ import io.javalin.http.Handler
 import io.javalin.http.Header
 import io.javalin.http.HttpStatus
 import java.util.function.Consumer
+import java.util.function.Function
 
 /**
  * Copied from [io.javalin.http.sse.SseHandler]
@@ -28,7 +29,8 @@ import java.util.function.Consumer
  */
 class SseHandler @JvmOverloads constructor(
     private val timeout: Long = 0,
-    private val clientConsumer: Consumer<SseClient>
+    private val clientConsumer: Consumer<SseClient>,
+    private val clientSupplier: Function<Context, SseClient>,
 ) : Handler {
 
     override fun handle(ctx: Context) {
@@ -43,7 +45,7 @@ class SseHandler @JvmOverloads constructor(
                 flushBuffer()
             }
             ctx.async(timeout = timeout) {
-                clientConsumer.accept(SseClient(ctx))
+                clientConsumer.accept(clientSupplier.apply(ctx))
             }
         } else {
             ctx.status(HttpStatus.NOT_FOUND)

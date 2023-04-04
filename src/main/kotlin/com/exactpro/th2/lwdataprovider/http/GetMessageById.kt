@@ -53,7 +53,7 @@ class GetMessageById(
         private val logger = KotlinLogging.logger { }
     }
 
-    override fun setup(app: Javalin) {
+    override fun setup(app: Javalin, context: JavalinContext) {
         app.get(ROUTE, this)
     }
 

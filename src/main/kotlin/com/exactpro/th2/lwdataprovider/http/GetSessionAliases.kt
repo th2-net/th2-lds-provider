@@ -18,7 +18,6 @@ package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.cradle.BookId
 import com.exactpro.th2.lwdataprovider.ExceptionInfo
-import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import io.javalin.Javalin
 import io.javalin.http.Context
@@ -71,7 +70,7 @@ class GetSessionAliases(
         }
     }
 
-    override fun setup(app: Javalin) {
+    override fun setup(app: Javalin, context: JavalinContext) {
         app.get(ROUTE, this)
     }
 

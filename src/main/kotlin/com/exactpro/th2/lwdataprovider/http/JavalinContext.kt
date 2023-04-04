@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,12 @@
 
 package com.exactpro.th2.lwdataprovider.http
 
-import io.javalin.Javalin
-import java.util.function.Consumer
+import io.javalin.http.Context
 
-interface JavalinHandler {
-    fun setup(app: Javalin, context: JavalinContext)
-
-    companion object {
-        fun Javalin.customSse(path: String, client: Consumer<SseClient>, context: JavalinContext): Javalin = apply {
-            get(path, SseHandler(clientConsumer = client, clientSupplier = context::createSseClient), *emptyArray())
-        }
+class JavalinContext(
+    private val flushAfter: Int = 0,
+) {
+    fun createSseClient(context: Context): SseClient {
+        return SseClient(context, flushAfter)
     }
 }

@@ -40,6 +40,7 @@ class CustomConfigurationClass(
     val grpcBackPressureReadinessTimeoutMls: Long? = null,
     val codecUsePinAttributes: Boolean? = null,
     val listOfMessageAsSingleMessage: Boolean? = null,
+    val flushSseAfter: Int? = null,
 )
 
 class Configuration(customConfiguration: CustomConfigurationClass) {
@@ -64,6 +65,7 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     val grpcBackPressureReadinessTimeoutMls: Long = VariableBuilder.getVariable(customConfiguration::grpcBackPressureReadinessTimeoutMls, decodingTimeout)
     val codecUsePinAttributes: Boolean = VariableBuilder.getVariable(customConfiguration::codecUsePinAttributes, true)
     val listOfMessageAsSingleMessage: Boolean = VariableBuilder.getVariable(customConfiguration::listOfMessageAsSingleMessage, true)
+    val flushSseAfter: Int = VariableBuilder.getVariable(customConfiguration::flushSseAfter, 0)
     init {
         require(bufferPerQuery <= maxBufferDecodeQueue) {
             "buffer per queue ($bufferPerQuery) must be less or equal to the total buffer size ($maxBufferDecodeQueue)"
@@ -77,6 +79,9 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
         }
         require(grpcBackPressureReadinessTimeoutMls > 0) {
             "grpcBackPressureReadinessTimeoutMls ($grpcBackPressureReadinessTimeoutMls) must be positive"
+        }
+        require(flushSseAfter >= 0) {
+            "flushSseAfter must be positive integer or zero"
         }
     }
 }

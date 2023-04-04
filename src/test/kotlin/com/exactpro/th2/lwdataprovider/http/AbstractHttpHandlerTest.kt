@@ -77,7 +77,7 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
         .setNameFormat("test-executor-%d")
         .build())
     protected open val configuration = Configuration(CustomConfigurationClass(
-        decodingTimeout = 100,
+        decodingTimeout = 200,
     ))
 
     private val semaphore = Semaphore(0)
@@ -188,7 +188,10 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
             app = Javalin.create {
                 it.jsonMapper(JavalinJackson(MAPPER))
                 it.plugins.enableDevLogging()
-            }.apply(createHandler()::setup).also(HttpServer.Companion::setupConverters),
+            }.apply {
+                val handler = createHandler()
+                handler.setup(this, JavalinContext(flushAfter = 0/*auto flush*/))
+            }.also(HttpServer.Companion::setupConverters),
             config = testConfig,
             testCase,
         )

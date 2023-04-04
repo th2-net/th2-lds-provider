@@ -71,7 +71,7 @@ class SearchMessagesHandler(
         }
 
         threadPool.execute {
-            val sink = RootMessagesDataSink(
+            val rootSink = RootMessagesDataSink(
                 requestContext,
                 if (request.responseFormats.hasRowOnly()) {
                     RawStoredMessageHandler(requestContext)
@@ -85,7 +85,8 @@ class SearchMessagesHandler(
                 limit = request.resultCountLimit
             )
             try {
-                sink.use {
+                rootSink.use { sink ->
+
                     if (!request.resumeFromIdsList.isNullOrEmpty()) {
                         request.resumeFromIdsList.forEach { resumeFromId ->
                             sink.canceled?.apply {
@@ -119,14 +120,14 @@ class SearchMessagesHandler(
                 }
             } catch (e: Exception) {
                 logger.error(e) { "error getting messages" }
-                sink.onError(e)
+                rootSink.onError(e)
             }
         }
     }
 
     fun loadOneMessage(request: GetMessageRequest, requestContext: MessageResponseHandler, dataMeasurement: DataMeasurement) {
         threadPool.execute {
-            val sink = RootMessagesDataSink(
+            val rootSink = RootMessagesDataSink(
                 requestContext,
                 if (request.onlyRaw) {
                     RawStoredMessageHandler(requestContext)
@@ -139,12 +140,12 @@ class SearchMessagesHandler(
                 }
             )
             try {
-                sink.use {
+                rootSink.use { sink ->
                     cradleMsgExtractor.getMessage(request.msgId, sink)
                 }
             } catch (e: Exception) {
                 logger.error(e) { "error getting messages" }
-                sink.onError(e, request.msgId.toReportId())
+                rootSink.onError(e, request.msgId.toReportId())
             }
         }
     }
@@ -156,7 +157,7 @@ class SearchMessagesHandler(
 
         threadPool.execute {
             logger.info { "Executing group request $request" }
-            val sink = RootMessagesDataSink(
+            val rootSink = RootMessagesDataSink(
                 requestContext,
                 if (request.rawOnly) {
                     RawStoredMessageHandler(requestContext)
@@ -171,7 +172,8 @@ class SearchMessagesHandler(
                 limit = null,
             )
             try {
-                sink.use {
+                rootSink.use { sink ->
+
                     val parameters = CradleGroupRequest(request.sort)
                     request.groups.forEach { group ->
                         val filter = GroupedMessageFilter.builder()
@@ -199,7 +201,7 @@ class SearchMessagesHandler(
                 }
             } catch (ex: Exception) {
                 logger.error("Error getting messages group", ex)
-                sink.onError(ex)
+                rootSink.onError(ex)
             }
         }
     }
@@ -239,6 +241,7 @@ class SearchMessagesHandler(
     }
 
     private data class Stream(val name: String, val direction: Direction)
+
     private fun pullUpdates(
         request: SseMessageSearchRequest,
         order: Order,
@@ -372,6 +375,7 @@ private class RootMessagesDataSink(
 
     val streamInfo: ProviderStreamInfo
         get() = messageHandler.streamInfo
+
     override fun completed() {
         handler.complete()
         messageHandler.dataLoaded()

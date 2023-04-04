@@ -45,7 +45,7 @@ class MessageProducer53 {
                         ?: convertToOneDemoMessage?.let(formatter::print)
                 },
                 if (includeRaw) {
-                    rawMessage.rawMessage.let { Base64.getEncoder().encodeToString(it.body.toByteArray()) }
+                    rawMessage.storedMessage.let { Base64.getEncoder().encodeToString(it.content) }
                 } else null,
                 convertToOneMessage?.metadata?.messageType ?: convertToOneDemoMessage?.type ?: ""
             )

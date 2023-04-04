@@ -54,7 +54,7 @@ class GetBookIDs(
             .json(books)
     }
 
-    override fun setup(app: Javalin) {
+    override fun setup(app: Javalin, context: JavalinContext) {
         app.get(ROUTE, this)
     }
 

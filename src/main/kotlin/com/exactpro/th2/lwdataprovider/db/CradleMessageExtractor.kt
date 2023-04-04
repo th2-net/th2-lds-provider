@@ -130,6 +130,10 @@ class CradleMessageExtractor(
         val buffer: LinkedList<StoredMessage> = LinkedList()
         val remaining: LinkedList<StoredMessage> = LinkedList()
         while (iterator.hasNext()) {
+            sink.canceled?.apply {
+                logger.info { "canceled because: $message" }
+                return
+            }
             prev = currentBatch
             currentBatch = iterator.next()
             check(prev.firstTimestamp <= currentBatch.firstTimestamp) {
@@ -166,6 +170,11 @@ class CradleMessageExtractor(
             }
         }
         val remainingMessages = currentBatch.filterIfRequired()
+
+        sink.canceled?.apply {
+            logger.info { "canceled because: $message" }
+            return
+        }
 
         if (prev == null) {
             // Only single batch was extracted

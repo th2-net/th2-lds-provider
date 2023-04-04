@@ -62,6 +62,7 @@ class RequestedMessageDetails(
     }
 
     private fun complete() {
+        //FIXME: raw message initialized independently
         completed.complete(RequestedMessage(id, storedMessage, rawMessage, parsedMessage, demoParsedMessage))
     }
 }

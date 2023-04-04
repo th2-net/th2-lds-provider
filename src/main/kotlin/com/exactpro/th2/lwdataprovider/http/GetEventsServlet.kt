@@ -27,11 +27,11 @@ import com.exactpro.th2.lwdataprovider.entities.requests.converter.HttpFilterCon
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.filter.events.EventsFilterFactory
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
+import com.exactpro.th2.lwdataprovider.http.JavalinHandler.Companion.customSse
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import io.javalin.Javalin
 import io.javalin.http.Context
 import io.javalin.http.queryParamAsClass
-import io.javalin.http.sse.SseClient
 import io.javalin.openapi.HttpMethod
 import io.javalin.openapi.OpenApi
 import io.javalin.openapi.OpenApiContent
@@ -56,11 +56,11 @@ class GetEventsServlet(
         private val logger = KotlinLogging.logger { }
     }
 
-    override fun setup(app: Javalin) {
+    override fun setup(app: Javalin, context: JavalinContext) {
         app.before(ROUTE) {
             it.attribute(REQUEST_KEY, createRequest(it))
         }
-        app.sse(ROUTE, this)
+        app.customSse(ROUTE, this, context)
     }
 
     @OpenApi(

@@ -35,8 +35,8 @@ class MessageProducer {
                 }?.toList() ?: rawMessage.demoParsedMessage?.takeIf { formatter != null }?.asSequence()?.map { msg ->
                     ProviderParsedMessage(msg.id.toProtoMessageId(), formatter!!.print(msg))
                 }?.toList() ?: emptyList(),
-                rawMessage.rawMessage.takeIf { includeRaw }?.let {
-                    Base64.getEncoder().encodeToString(it.body.toByteArray())
+                rawMessage.storedMessage.takeIf { includeRaw }?.let {
+                    Base64.getEncoder().encodeToString(it.content)
                 }
             )
         }
@@ -45,8 +45,8 @@ class MessageProducer {
             return ProviderMessage(
                 rawMessage.storedMessage,
                 emptyList(),
-                rawMessage.rawMessage.let {
-                    Base64.getEncoder().encodeToString(it.body.toByteArray())
+                rawMessage.storedMessage.let {
+                    Base64.getEncoder().encodeToString(it.content)
                 }
             )
         }

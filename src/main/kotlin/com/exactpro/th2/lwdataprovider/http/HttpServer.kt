@@ -103,8 +103,9 @@ class HttpServer(private val context: Context) {
             setupReDoc(it)
         }.apply {
             setupConverters(this)
+            val javalinContext = JavalinContext(configuration.flushSseAfter)
             for (handler in handlers) {
-                handler.setup(this)
+                handler.setup(this, javalinContext)
             }
             exception(IllegalArgumentException::class.java) { ex, _ -> throw BadRequestResponse(ExceptionUtils.getRootCauseMessage(ex)) }
             exception(InvalidRequestException::class.java) { ex, _ -> throw BadRequestResponse(ExceptionUtils.getRootCauseMessage(ex)) }

@@ -24,11 +24,11 @@ import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
+import com.exactpro.th2.lwdataprovider.http.JavalinHandler.Companion.customSse
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import io.javalin.Javalin
 import io.javalin.http.Context
 import io.javalin.http.queryParamAsClass
-import io.javalin.http.sse.SseClient
 import io.javalin.openapi.HttpMethod
 import io.javalin.openapi.OpenApi
 import io.javalin.openapi.OpenApiContent
@@ -51,7 +51,7 @@ class GetMessageGroupsServlet(
         app.before(ROUTE) {
             it.attribute(REQUEST_KEY, createRequest(it))
         }
-        app.sse(ROUTE, this)
+        app.customSse(ROUTE, this)
     }
 
     @OpenApi(

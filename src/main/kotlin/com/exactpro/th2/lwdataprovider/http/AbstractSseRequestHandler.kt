@@ -21,7 +21,6 @@ import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.metrics.HttpWriteMetrics
 import com.exactpro.th2.lwdataprovider.metrics.ResponseQueue
 import io.javalin.http.Context
-import io.javalin.http.sse.SseClient
 import io.javalin.validation.Validator
 import mu.KotlinLogging
 import org.apache.commons.lang3.StringUtils

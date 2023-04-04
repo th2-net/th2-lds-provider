@@ -17,7 +17,14 @@
 package com.exactpro.th2.lwdataprovider.http
 
 import io.javalin.Javalin
+import java.util.function.Consumer
 
 interface JavalinHandler {
     fun setup(app: Javalin)
+
+    companion object {
+        fun Javalin.customSse(path: String, client: Consumer<SseClient>): Javalin = apply {
+            get(path, SseHandler(clientConsumer = client), *emptyArray())
+        }
+    }
 }

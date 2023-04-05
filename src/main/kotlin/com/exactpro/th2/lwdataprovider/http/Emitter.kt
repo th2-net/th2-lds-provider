@@ -16,7 +16,10 @@
 
 package com.exactpro.th2.lwdataprovider.http
 
-import jakarta.servlet.http.HttpServletResponse
+import jakarta.servlet.ServletResponse
+import jakarta.servlet.WriteListener
+import mu.KotlinLogging
+import org.eclipse.jetty.server.HttpOutput
 import java.io.IOException
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -28,10 +31,22 @@ const val NEW_LINE = "\n"
  * because we need to customize the flushing and data writing
  */
 class Emitter(
-    private val response: HttpServletResponse,
+    private val response: ServletResponse,
     private val autoFlush: Boolean,
 ) {
     private val lock = ReentrantLock()
+    private val outputStream = (response.outputStream as HttpOutput).apply {
+        setWriteListener(object : WriteListener {
+            override fun onWritePossible() {
+                K_LOGGER.debug { "Write possible" } // FIXME: add any context
+            }
+
+            override fun onError(t: Throwable) {
+                K_LOGGER.error(t) { t.message }
+            }
+
+        })
+    }
 
     var closed = false
         private set
@@ -47,7 +62,7 @@ class Emitter(
 
             write(NEW_LINE)
             if (autoFlush) {
-                response.flushBuffer()
+                flush()
             }
         } catch (ignored: IOException) {
             closed = true
@@ -55,10 +70,22 @@ class Emitter(
     }
 
     fun flush(): Unit = lock.withLock {
+        waitReady()
         response.flushBuffer()
     }
 
-    private fun write(value: String) =
-        response.outputStream.print(value)
+    private fun write(value: String) {
+        waitReady()
+        outputStream.print(value)
+    }
 
+    private fun waitReady() {
+        while (!outputStream.isReady) {
+            Thread.yield()
+        }
+    }
+
+    companion object {
+        private val K_LOGGER = KotlinLogging.logger {  }
+    }
 }

@@ -18,6 +18,7 @@ package com.exactpro.th2.lwdataprovider.http
 
 import io.javalin.http.Context
 import io.javalin.util.JavalinLogger
+import jakarta.servlet.AsyncContext
 import java.io.Closeable
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.atomic.AtomicBoolean
@@ -30,12 +31,15 @@ class SseClient internal constructor(
     private val ctx: Context,
     private val flushAfter: Int,
 ) : Closeable {
+
+    private val asyncCtx: AsyncContext = ctx.req().asyncContext
+
     init {
         require(flushAfter >= 0) { "flushAfter must be 0 or positive" }
     }
 
     private val terminated = AtomicBoolean(false)
-    private val emitter = Emitter(ctx.res(), flushAfter == 0)
+    private val emitter = Emitter(asyncCtx.response, flushAfter == 0)
     private var blockingFuture: CompletableFuture<*>? = null
     private var closeCallback = Runnable {}
     private var emitted: Int = 0

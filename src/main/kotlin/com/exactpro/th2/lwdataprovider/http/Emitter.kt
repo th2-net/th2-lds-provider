@@ -93,7 +93,7 @@ class Emitter(
 
     private fun write(value: String) {
         waitReady()
-        outputStream.print(value)
+        outputStream.write(value.toByteArray())
     }
 
     private fun waitReady() {

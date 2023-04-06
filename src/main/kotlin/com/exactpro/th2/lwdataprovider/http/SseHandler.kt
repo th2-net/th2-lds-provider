@@ -20,7 +20,6 @@ import io.javalin.http.Context
 import io.javalin.http.Handler
 import io.javalin.http.Header
 import io.javalin.http.HttpStatus
-import jakarta.servlet.http.HttpServletResponse
 import java.util.function.Consumer
 import java.util.function.Function
 
@@ -36,23 +35,16 @@ class SseHandler @JvmOverloads constructor(
 
     override fun handle(ctx: Context) {
         if (ctx.header(Header.ACCEPT) == EVENT_STREAM_CONTENT_TYPE) {
-            val asyncCtx = ctx.req().startAsync().apply {
-                timeout = this@SseHandler.timeout
+            ctx.res().apply {
+                status = 200
+                characterEncoding = "UTF-8"
+                contentType = EVENT_STREAM_CONTENT_TYPE
+                addHeader(Header.CONNECTION, "close")
+                addHeader(Header.CACHE_CONTROL, "no-cache")
+                addHeader(Header.X_ACCEL_BUFFERING, "no") // See https://serverfault.com/a/801629
+                flushBuffer()
             }
-            try {
-                (asyncCtx.response as HttpServletResponse).apply {
-                    status = 200
-                    characterEncoding = "UTF-8"
-                    contentType = EVENT_STREAM_CONTENT_TYPE
-                    addHeader(Header.CONNECTION, "close")
-                    addHeader(Header.CACHE_CONTROL, "no-cache")
-                    addHeader(Header.X_ACCEL_BUFFERING, "no") // See https://serverfault.com/a/801629
-                    flushBuffer()
-                }
-                clientConsumer.accept(clientSupplier.apply(ctx))
-            } finally {
-                asyncCtx.complete()
-            }
+            clientConsumer.accept(clientSupplier.apply(ctx))
         } else {
             ctx.status(HttpStatus.NOT_FOUND)
                 .result("consider using $EVENT_STREAM_CONTENT_TYPE in ${Header.ACCEPT} header")

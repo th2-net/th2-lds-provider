@@ -28,9 +28,9 @@ class CustomProtoJsonFormatter : AbstractJsonFormatter() {
     override fun printV (value: Value, sb: StringBuilder) {
         when (value.kindCase) {
             Value.KindCase.SIMPLE_VALUE -> {
-                sb.append("{\"simpleValue\":\"")
-                sb.escapeAndAppend(value.simpleValue)
-                sb.append("\"}")
+                sb.append("{\"simpleValue\":")
+                convertStringToJson(value.simpleValue, sb)
+                sb.append('}')
             }
             Value.KindCase.LIST_VALUE -> {
                 sb.append("{\"listValue\":{\"values\":[")
@@ -79,9 +79,9 @@ class CustomProtoJsonFormatter : AbstractJsonFormatter() {
                 sb.append("{\"nullValue\":\"NULL_VALUE\"}")
             }
             else -> {
-                sb.append("{\"simpleValue\":\"")
-                sb.escapeAndAppend(value.toString()) //FIXME: number format
-                sb.append("\"}")
+                sb.append("{\"simpleValue\":")
+                convertStringToJson(value.toString(), sb) //FIXME: number format
+                sb.append('}')
             }
         }
     }

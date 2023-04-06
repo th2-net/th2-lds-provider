@@ -99,19 +99,12 @@ abstract class AbstractJsonFormatter : JsonFormatter {
         return s.chars().anyMatch { it < 32 || it == CustomProtoJsonFormatter.QUOTE_CHAR || it == CustomProtoJsonFormatter.BACK_SLASH }
     }
 
-    protected fun StringBuilder.escapeAndAppend(value: String): StringBuilder = if (isNeedToEscape(value)) {
-        this.apply {
-            val start = length
-            append(value)
-            val end = lastIndex
-            for (i: Int in end downTo start) {
-                REPLACEMENT_CHARS.getOrNull(get(i).code)?.let { replacement ->
-                    replace(i, i + 1, replacement)
-                }
-            }
+    protected fun convertStringToJson(s: String, builder: StringBuilder) {
+        if (isNeedToEscape(s)) {
+            gson.toJson(s, builder)
+        } else {
+            builder.append('"').append(s).append('"')
         }
-    } else {
-        append(value)
     }
 
     private fun printMetadata(msg: MessageMetadata, sb: StringBuilder) {
@@ -216,21 +209,5 @@ abstract class AbstractJsonFormatter : JsonFormatter {
             sb.append("\"protocol\":\"").append(msg.protocol).append("\"")
         }
         sb.append("}")
-    }
-
-    companion object {
-        // This code has been copied from com.google.gson.stream.JsonWriter to improve performance of escaping
-        private var REPLACEMENT_CHARS: Array<String?> = arrayOfNulls<String>(128).apply {
-            for (i in 0..0x1f) {
-                set(i, String.format("\\u%04x", i))
-            }
-            set('"'.code, "\\\"")
-            set('\\'.code, "\\\\")
-            set('\t'.code, "\\t")
-            set('\b'.code, "\\b")
-            set('\n'.code, "\\n")
-            set('\r'.code, "\\r")
-            set('\u000c'.code, "\\u000c")
-        }
     }
 }

@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 class SseClient internal constructor(
     private val ctx: Context,
-    flushAfter: Int,
+    private val flushAfter: Int,
 ) : Closeable {
 
     private val asyncCtx: AsyncContext = ctx.req().asyncContext
@@ -39,9 +39,10 @@ class SseClient internal constructor(
     }
 
     private val terminated = AtomicBoolean(false)
-    private val emitter = Emitter(asyncCtx.response, flushAfter)
+    private val emitter = Emitter(asyncCtx.response, flushAfter == 0)
     private var blockingFuture: CompletableFuture<*>? = null
     private var closeCallback = Runnable {}
+    private var emitted: Int = 0
 
     fun ctx(): Context = ctx
 
@@ -69,7 +70,9 @@ class SseClient internal constructor(
      */
     override fun close() {
         if (terminated.getAndSet(true)) return
-        emitter.flush()
+        if (flushAfter > 0) {
+            emitter.flush()
+        }
         closeCallback.run()
         blockingFuture?.complete(null)
     }
@@ -77,12 +80,19 @@ class SseClient internal constructor(
     fun sendEvent(event: String, data: String, id: String? = null) {
         if (terminated.get()) return logTerminated()
         emitter.emit(event, data, id)
+        emitted++
+        @Suppress("ConvertTwoComparisonsToRangeCheck")
+        if (flushAfter > 0 && emitted >= flushAfter) {
+            emitter.flush()
+            emitted = 0
+        }
         checkClosed()
     }
 
     fun flush() {
         if (terminated.get()) return logTerminated()
         emitter.flush()
+        emitted = 0
         checkClosed()
     }
 

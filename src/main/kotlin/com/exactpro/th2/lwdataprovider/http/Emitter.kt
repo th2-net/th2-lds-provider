@@ -32,14 +32,9 @@ const val NEW_LINE = "\n"
  */
 class Emitter(
     private val response: ServletResponse,
-    private val flushAfter: Int,
+    private val autoFlush: Boolean,
 ) {
-    init {
-        require(flushAfter >= 0) { "flushAfter must be 0 or positive" }
-    }
-
     private val lock = ReentrantLock()
-    private val builder = StringBuilder()
     private val outputStream = (response.outputStream as HttpOutput).apply {
         setWriteListener(object : WriteListener {
             override fun onWritePossible() {
@@ -59,33 +54,22 @@ class Emitter(
     fun emit(event: String, data: String, id: String?): Unit = lock.withLock {
         try {
             if (id != null) {
-                builder.append("id: ").append(id).append(NEW_LINE)
-//                write("id: $id$NEW_LINE")
+                write("id: $id$NEW_LINE")
             }
-            builder.append("event: ").append(event).append(NEW_LINE)
-//            write("event: $event$NEW_LINE")
+            write("event: $event$NEW_LINE")
 
-            builder.append("data: ").append(data).append(NEW_LINE)
-//            write("data: $data$NEW_LINE")
+            write("data: $data$NEW_LINE")
 
-            builder.append(NEW_LINE)
-//            write(NEW_LINE)
-
-            if (flushAfter == 0 || builder.length > flushAfter) {
+            write(NEW_LINE)
+            if (autoFlush) {
                 flush()
             }
-
         } catch (ignored: IOException) {
             closed = true
         }
     }
 
     fun flush(): Unit = lock.withLock {
-        if (builder.isNotEmpty()) {
-            write(builder.toString())
-            builder.clear()
-        }
-
         waitReady()
         response.flushBuffer()
     }

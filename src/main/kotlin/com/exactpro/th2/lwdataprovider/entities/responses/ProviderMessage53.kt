@@ -16,6 +16,8 @@
 
 package com.exactpro.th2.lwdataprovider.entities.responses
 
+import com.exactpro.cradle.BookId
+import com.exactpro.cradle.Direction.FIRST
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.lwdataprovider.entities.internal.Direction
@@ -23,12 +25,15 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonRawValue
 import io.javalin.openapi.OpenApiIgnore
 import io.javalin.openapi.OpenApiPropertyType
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import java.time.Instant
 import java.util.*
 
 @Deprecated("same format as rpt-data-provider5.3")
-data class ProviderMessage53 (
-    val timestamp: Instant,
+@Serializable
+data class ProviderMessage53 constructor(
+    @Serializable(with = InstantSerializer::class) val timestamp: Instant,
     val direction: Direction?,
     val sessionId: String,
     val messageType: String,
@@ -37,18 +42,18 @@ data class ProviderMessage53 (
 
     @JsonRawValue
     @get:OpenApiPropertyType(Map::class)
+    @Serializable(with = UnwrappingJsonListSerializer::class)
     val body: String?,
 
     val bodyBase64: String?,
 
     @JsonIgnore
     @get:OpenApiIgnore
-    val id: StoredMessageId,
+    @Transient
+    val id: StoredMessageId = DEFAULT_STORE_ID,
+
+    val messageId: String,
 ) : ResponseMessage {
-
-    val messageId: String
-        get() = id.toString()
-
 
     constructor(
         rawStoredMessage: StoredMessage,
@@ -57,13 +62,18 @@ data class ProviderMessage53 (
         messageType: String,
         events: Set<String> = Collections.emptySet()
     ) : this(
-        bodyBase64 = base64Body,
-        body = jsonBody ?: "{}",
-        messageType = messageType,
-        id = rawStoredMessage.id,
-        direction = Direction.fromStored(rawStoredMessage.direction ?: com.exactpro.cradle.Direction.FIRST),
         timestamp = rawStoredMessage.timestamp ?: Instant.ofEpochMilli(0),
+        direction = Direction.fromStored(rawStoredMessage.direction ?: FIRST),
         sessionId = rawStoredMessage.sessionAlias ?: "",
+        messageType = messageType,
         attachedEventIds = events,
+        body = jsonBody ?: "{}",
+        bodyBase64 = base64Body,
+        id = rawStoredMessage.id,
+        messageId = rawStoredMessage.id.toString()
     )
+
+    companion object {
+        private val DEFAULT_STORE_ID = StoredMessageId(BookId("default"), "default", FIRST, Instant.MIN, 0)
+    }
 }

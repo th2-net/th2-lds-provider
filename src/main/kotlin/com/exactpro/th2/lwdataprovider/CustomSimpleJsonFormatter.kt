@@ -22,7 +22,7 @@ class CustomSimpleJsonFormatter : AbstractJsonFormatter() {
     override fun printV(value: Value, sb: StringBuilder) {
         when (value.kindCase) {
             Value.KindCase.NULL_VALUE -> sb.append("null")
-            Value.KindCase.SIMPLE_VALUE -> convertStringToJson(value.simpleValue, sb)
+            Value.KindCase.SIMPLE_VALUE -> sb.append('"').escapeAndAppend(value.simpleValue).append('"')
             Value.KindCase.MESSAGE_VALUE -> printM(value.messageValue, sb)
             Value.KindCase.LIST_VALUE -> {
                 sb.append("[")
@@ -48,7 +48,12 @@ class CustomSimpleJsonFormatter : AbstractJsonFormatter() {
                 }
                 sb.append(']')
             }
-            else -> convertStringToJson(value.toString(), sb) //FIXME: number format
+//            else -> convertStringToJson(value.toString(), sb) //FIXME: number format
+            else -> {
+                sb.append('"')
+                    .escapeAndAppend(value.toString()) //FIXME: number format
+                    .append('"')
+            }
         }
     }
 }

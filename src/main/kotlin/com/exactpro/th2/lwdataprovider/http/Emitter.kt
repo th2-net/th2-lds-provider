@@ -72,8 +72,7 @@ class Emitter(
 //            write(NEW_LINE)
 
             if (flushAfter == 0 || builder.length > flushAfter) {
-                write(builder.toString())
-                builder.clear()
+                flush()
             }
 
         } catch (ignored: IOException) {

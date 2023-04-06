@@ -106,13 +106,13 @@ internal class TestGetMessageGroupsServletDemoMode : AbstractHttpHandlerTest<Get
                     timestamp = messageTimestamp
                 ),
                 type = MESSAGE_TYPE,
-                body = mutableMapOf("a" to 42)
+                body = mutableMapOf("a" to "\u000135=123\u0001")
             ))
             val expectedData =
                 "{\"timestamp\":{\"epochSecond\":${messageTimestamp.epochSecond},\"nano\":${messageTimestamp.nano}},\"direction\":\"IN\",\"sessionId\":\"$SESSION_ALIAS\"," +
                         "\"messageType\":\"$MESSAGE_TYPE\",\"attachedEventIds\":[]," +
                         "\"body\":{\"metadata\":{\"id\":{\"connectionId\":{\"sessionAlias\":\"$SESSION_ALIAS\"},\"direction\":\"FIRST\",\"sequence\":\"1\",\"timestamp\":{\"seconds\":\"${messageTimestamp.epochSecond}\",\"nanos\":\"${messageTimestamp.nano}\"},\"subsequence\":[]}," +
-                        "\"messageType\":\"$MESSAGE_TYPE\"},\"fields\":{\"a\":\"42\"}}," +
+                        "\"messageType\":\"$MESSAGE_TYPE\"},\"fields\":{\"a\":\"\\u000135=123\\u0001\"}}," +
                         "\"bodyBase64\":\"dGVzdCBjb250ZW50\",\"messageId\":\"$BOOK_NAME:$SESSION_ALIAS:1:${StoredMessageIdUtils.timestampToString(messageTimestamp)}:1\"}"
             expectThat(response) {
                 get { code } isEqualTo HttpStatus.OK.code

@@ -21,10 +21,11 @@ import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.exactpro.th2.lwdataprovider.entities.responses.PageInfo
+import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.entities.responses.ResponseMessage
 import com.fasterxml.jackson.databind.ObjectMapper
+import kotlinx.serialization.json.Json
 import java.util.*
-import java.util.function.Supplier
 
 /**
  * The data class representing an SSE Event that will be sent to the client.
@@ -91,7 +92,11 @@ sealed class SseEvent(
 
         fun build(jacksonMapper: ObjectMapper, message: ResponseMessage, counter: Long): SseEvent {
             return MessageData(
-                jacksonMapper.writeValueAsString(message),
+                if (message is ProviderMessage53) {
+                    Json.encodeToString(ProviderMessage53.serializer(), message)
+                } else {
+                    jacksonMapper.writeValueAsString(message)
+                },
                 counter.toString(),
             )
         }

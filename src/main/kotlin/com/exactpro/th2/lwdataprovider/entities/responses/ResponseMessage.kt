@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,6 +55,15 @@ fun CompositeEncoder.encodeStringElementIfNotEmpty(descriptor: SerialDescriptor,
     }
 }
 
+val SERIALIZERS_MODULE = SerializersModule {
+    contextual(FieldSerializer)
+}
+
+val SUBSEQUENCE_SERIALIZER = serializer<List<Long>>()
+val METADATA_SERIALIZER = serializer<Map<String, String>>()
+val MESSAGE_SERIALIZER = SERIALIZERS_MODULE.serializer<Map<String, Any>>()
+val COLLECTION_SERIALIZER = SERIALIZERS_MODULE.serializer<List<Any>>()
+
 @OptIn(ExperimentalSerializationApi::class)
 @Serializer(forClass = Instant::class)
 object InstantSerializer : KSerializer<Instant> {
@@ -95,10 +104,12 @@ object FieldSerializer : KSerializer<Any> {
     @OptIn(ExperimentalSerializationApi::class)
     override val descriptor: SerialDescriptor = ContextualSerializer(Any::class, null, emptyArray()).descriptor
     override fun deserialize(decoder: Decoder): Any = error("Unsupported decoding")
-    override fun serialize(encoder: Encoder, value: Any) = when(value) {
-        is List<*> -> encoder.encodeSerializableValue(serializer(), value)
-        is Map<*, *> -> encoder.encodeSerializableValue(serializer(), value)
-        else -> encoder.encodeString(value.toString())
+    override fun serialize(encoder: Encoder, value: Any) {
+        when(value) {
+            is List<*> -> encoder.encodeSerializableValue(COLLECTION_SERIALIZER, value as List<Any>)
+            is Map<*, *> -> encoder.encodeSerializableValue(MESSAGE_SERIALIZER, value as Map<String, Any>)
+            else -> encoder.encodeString(value.toString())
+        }
     }
 }
 
@@ -125,16 +136,9 @@ object DemoParsedMessageSerializer : KSerializer<DemoParsedMessage> {
         element<String>("protocol")
     }
 
-    private val serializersModule = SerializersModule {
-        contextual(FieldSerializer)
-    }
-    private val subsequenceSerializer = serializer<List<Long>>()
-    private val metadataSerializer = serializer<Map<String, String>>()
-    private val fieldsSerializer = serializersModule.serializer<Map<String, Any>>()
-
     override val descriptor: SerialDescriptor = buildClassSerialDescriptor("DemoParsedMessage") {
         element("metadata", metadataDescriptor)
-        element("fields", fieldsSerializer.descriptor)
+        element("fields", MESSAGE_SERIALIZER.descriptor)
     }
 
     override fun serialize(encoder: Encoder, value: DemoParsedMessage) {
@@ -155,14 +159,14 @@ object DemoParsedMessageSerializer : KSerializer<DemoParsedMessage> {
                                     encodeIntElement(timestampDescriptor, 1, nano)
                                 }
                             }
-                            encodeSerializableElement(idDescriptor, 4, subsequenceSerializer, subsequence)
+                            encodeSerializableElement(idDescriptor, 4, SUBSEQUENCE_SERIALIZER, subsequence)
                         }
                     }
                     encodeStringElementIfNotEmpty(metadataDescriptor, 1, type)
-                    if (metadata.isNotEmpty()) encodeSerializableElement(metadataDescriptor, 2, metadataSerializer, metadata)
+                    if (metadata.isNotEmpty()) encodeSerializableElement(metadataDescriptor, 2, METADATA_SERIALIZER, metadata)
                     encodeStringElementIfNotEmpty(metadataDescriptor, 3, protocol)
                 }
-                if (body.isNotEmpty()) encodeSerializableElement(descriptor, 1, fieldsSerializer, body)
+                if (body.isNotEmpty()) encodeSerializableElement(descriptor, 1, MESSAGE_SERIALIZER, body)
             }
         }
     }

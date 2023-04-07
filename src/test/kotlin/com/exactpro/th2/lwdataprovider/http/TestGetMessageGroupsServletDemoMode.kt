@@ -110,13 +110,23 @@ internal class TestGetMessageGroupsServletDemoMode : AbstractHttpHandlerTest<Get
                     timestamp = messageTimestamp
                 ),
                 type = MESSAGE_TYPE,
-                body = mutableMapOf("a" to "\u000135=123\u0001")
+                body = mutableMapOf(
+                    "unprintable" to "\u000135=123\u0001",
+                    "int" to 1,
+                    "instant" to messageTimestamp,
+                    "stringList" to listOf("a", "b"),
+                    "subMessage" to mutableMapOf("string" to "abc"),
+                    "subMessageList" to listOf(
+                        mutableMapOf("string" to "def"),
+                        mutableMapOf("string" to "ghi"),
+                    ),
+                )
             ))
             val expectedData =
                 "{\"timestamp\":{\"epochSecond\":${messageTimestamp.epochSecond},\"nano\":${messageTimestamp.nano}},\"direction\":\"IN\",\"sessionId\":\"$SESSION_ALIAS\"," +
                         "\"messageType\":\"$MESSAGE_TYPE\",\"attachedEventIds\":[]," +
                         "\"body\":{\"metadata\":{\"id\":{\"connectionId\":{\"sessionAlias\":\"$SESSION_ALIAS\"},\"direction\":\"FIRST\",\"sequence\":1,\"timestamp\":{\"seconds\":${messageTimestamp.epochSecond},\"nanos\":${messageTimestamp.nano}},\"subsequence\":[]}," +
-                        "\"messageType\":\"$MESSAGE_TYPE\"},\"fields\":{\"a\":\"\\u000135=123\\u0001\"}}," +
+                        "\"messageType\":\"$MESSAGE_TYPE\"},\"fields\":{\"unprintable\":\"\\u000135=123\\u0001\",\"int\":\"1\",\"instant\":\"$messageTimestamp\",\"stringList\":[\"a\",\"b\"],\"subMessage\":{\"string\":\"abc\"},\"subMessageList\":[{\"string\":\"def\"},{\"string\":\"ghi\"}]}}," +
                         "\"bodyBase64\":\"dGVzdCBjb250ZW50\",\"messageId\":\"$BOOK_NAME:$SESSION_ALIAS:1:${StoredMessageIdUtils.timestampToString(messageTimestamp)}:1\"}"
             expectThat(response) {
                 get { code } isEqualTo HttpStatus.OK.code

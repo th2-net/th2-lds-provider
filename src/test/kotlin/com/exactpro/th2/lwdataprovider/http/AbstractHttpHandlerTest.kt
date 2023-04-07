@@ -129,7 +129,7 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
             applicationName = "test-lw-data-provider",
         )
     }
-    protected val sseResponseBuilder = SseResponseBuilder(context.jacksonMapper, MessageProducer53.Companion::createMessage)
+    protected open val sseResponseBuilder = SseResponseBuilder(context.jacksonMapper, MessageProducer53.Companion::createMessage)
 
     @BeforeAll
     fun setup() {

@@ -24,8 +24,10 @@ import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageIdUtils
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoParsedMessage
+import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.configuration.CustomConfigurationClass
+import com.exactpro.th2.lwdataprovider.producers.MessageProducer53Demo
 import com.exactpro.th2.lwdataprovider.util.ImmutableListCradleResult
 import com.exactpro.th2.lwdataprovider.util.createCradleStoredMessage
 import io.javalin.http.HttpStatus
@@ -50,6 +52,8 @@ internal class TestGetMessageGroupsServletDemoMode : AbstractHttpHandlerTest<Get
                 useDemoMode = true
             )
         )
+
+    override val sseResponseBuilder = SseResponseBuilder(context.jacksonMapper, MessageProducer53Demo.Companion::createMessage)
 
     override fun createHandler(): GetMessageGroupsServlet {
         return GetMessageGroupsServlet(
@@ -111,8 +115,8 @@ internal class TestGetMessageGroupsServletDemoMode : AbstractHttpHandlerTest<Get
             val expectedData =
                 "{\"timestamp\":{\"epochSecond\":${messageTimestamp.epochSecond},\"nano\":${messageTimestamp.nano}},\"direction\":\"IN\",\"sessionId\":\"$SESSION_ALIAS\"," +
                         "\"messageType\":\"$MESSAGE_TYPE\",\"attachedEventIds\":[]," +
-                        "\"body\":{\"metadata\":{\"id\":{\"connectionId\":{\"sessionAlias\":\"$SESSION_ALIAS\"},\"direction\":\"FIRST\",\"sequence\":\"1\",\"timestamp\":{\"seconds\":\"${messageTimestamp.epochSecond}\",\"nanos\":\"${messageTimestamp.nano}\"},\"subsequence\":[]}," +
-                        "\"messageType\":\"$MESSAGE_TYPE\"},\"fields\":{\"a\":\"\\u000135\\u003d123\\u0001\"}}," +
+                        "\"body\":{\"metadata\":{\"id\":{\"connectionId\":{\"sessionAlias\":\"$SESSION_ALIAS\"},\"direction\":\"FIRST\",\"sequence\":1,\"timestamp\":{\"seconds\":${messageTimestamp.epochSecond},\"nanos\":${messageTimestamp.nano}},\"subsequence\":[]}," +
+                        "\"messageType\":\"$MESSAGE_TYPE\"},\"fields\":{\"a\":\"\\u000135=123\\u0001\"}}," +
                         "\"bodyBase64\":\"dGVzdCBjb250ZW50\",\"messageId\":\"$BOOK_NAME:$SESSION_ALIAS:1:${StoredMessageIdUtils.timestampToString(messageTimestamp)}:1\"}"
             expectThat(response) {
                 get { code } isEqualTo HttpStatus.OK.code

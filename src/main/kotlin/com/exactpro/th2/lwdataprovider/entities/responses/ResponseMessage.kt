@@ -16,14 +16,21 @@
 
 package com.exactpro.th2.lwdataprovider.entities.responses
 
+import com.exactpro.cradle.messages.StoredMessageId
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoParsedMessage
+import com.exactpro.th2.lwdataprovider.demo.toProtoDirection
+import kotlinx.serialization.ContextualSerializer
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializer
 import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.buildClassSerialDescriptor
 import kotlinx.serialization.descriptors.element
 import kotlinx.serialization.encoding.CompositeDecoder
+import kotlinx.serialization.encoding.CompositeEncoder
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.encoding.decodeStructure
@@ -33,17 +40,25 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.JsonTransformingSerializer
 import java.time.Instant
 import kotlinx.serialization.json.*
+import kotlinx.serialization.modules.SerializersModule
+import kotlinx.serialization.modules.contextual
+import kotlinx.serialization.serializer
 
 /**
  * Marker interface to specify the message what can be sent in response to message request
  */
 interface ResponseMessage
 
+fun CompositeEncoder.encodeStringElementIfNotEmpty(descriptor: SerialDescriptor, index: Int, value: String) {
+    if (value.isNotEmpty()) {
+        encodeStringElement(descriptor, index, value)
+    }
+}
+
 @OptIn(ExperimentalSerializationApi::class)
 @Serializer(forClass = Instant::class)
 object InstantSerializer : KSerializer<Instant> {
     override val descriptor: SerialDescriptor =
-        //{"epochSecond":${messageTimestamp.epochSecond},"nano":${messageTimestamp.nano}}
         buildClassSerialDescriptor("Instant") {
             element<Long>("epochSecond")
             element<Int>("nano")
@@ -68,6 +83,93 @@ object InstantSerializer : KSerializer<Instant> {
     }
 }
 
+@OptIn(ExperimentalSerializationApi::class)
+@Serializer(forClass = StoredMessageId::class)
+object StoredMessageIdSerializer : KSerializer<StoredMessageId> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("StoredMessageId", PrimitiveKind.STRING)
+    override fun serialize(encoder: Encoder, value: StoredMessageId) = encoder.encodeString(value.toString())
+    override fun deserialize(decoder: Decoder): StoredMessageId = StoredMessageId.fromString(decoder.decodeString())
+}
+
+object FieldSerializer : KSerializer<Any> {
+    @OptIn(ExperimentalSerializationApi::class)
+    override val descriptor: SerialDescriptor = ContextualSerializer(Any::class, null, emptyArray()).descriptor
+    override fun deserialize(decoder: Decoder): Any = error("Unsupported decoding")
+    override fun serialize(encoder: Encoder, value: Any) = when(value) {
+        is List<*> -> encoder.encodeSerializableValue(serializer(), value)
+        is Map<*, *> -> encoder.encodeSerializableValue(serializer(), value)
+        else -> encoder.encodeString(value.toString())
+    }
+}
+
+object DemoParsedMessageSerializer : KSerializer<DemoParsedMessage> {
+    private val connectionIdDescriptor = buildClassSerialDescriptor("ConnectionId") {
+        element<String>("sessionGroup", isOptional = true)
+        element<String>("sessionAlias")
+    }
+    private val timestampDescriptor = buildClassSerialDescriptor("Timestamp") {
+        element<Long>("seconds")
+        element<Int>("nanos")
+    }
+    private val idDescriptor = buildClassSerialDescriptor("Id") {
+        element("connectionId", connectionIdDescriptor)
+        element<String>("direction")
+        element<Long>("sequence")
+        element("timestamp", timestampDescriptor)
+        element<List<Long>>("subsequence", isOptional = true)
+    }
+    private val metadataDescriptor = buildClassSerialDescriptor("Metadata") {
+        element("id", idDescriptor)
+        element<String>("messageType")
+        element<Map<String, String>>("properties", isOptional = true)
+        element<String>("protocol")
+    }
+
+    private val serializersModule = SerializersModule {
+        contextual(FieldSerializer)
+    }
+    private val subsequenceSerializer = serializer<List<Long>>()
+    private val metadataSerializer = serializer<Map<String, String>>()
+    private val fieldsSerializer = serializersModule.serializer<Map<String, Any>>()
+
+    override val descriptor: SerialDescriptor = buildClassSerialDescriptor("DemoParsedMessage") {
+        element("metadata", metadataDescriptor)
+        element("fields", fieldsSerializer.descriptor)
+    }
+
+    override fun serialize(encoder: Encoder, value: DemoParsedMessage) {
+        encoder.encodeStructure(descriptor) {
+            with(value) {
+                encodeInlineElement(descriptor, 0).encodeStructure(metadataDescriptor) {
+                    encodeInlineElement(metadataDescriptor, 0).encodeStructure(idDescriptor) {
+                        with(id) {
+                            encodeInlineElement(idDescriptor, 0).encodeStructure(connectionIdDescriptor) {
+                                encodeStringElementIfNotEmpty(connectionIdDescriptor, 0, sessionGroup)
+                                encodeStringElementIfNotEmpty(connectionIdDescriptor, 1, sessionAlias)
+                            }
+                            encodeStringElementIfNotEmpty(idDescriptor, 1, direction.toProtoDirection().name)
+                            encodeLongElement(idDescriptor, 2, sequence)
+                            encodeInlineElement(idDescriptor, 3).encodeStructure(timestampDescriptor) {
+                                with(timestamp) {
+                                    encodeLongElement(timestampDescriptor, 0, epochSecond)
+                                    encodeIntElement(timestampDescriptor, 1, nano)
+                                }
+                            }
+                            encodeSerializableElement(idDescriptor, 4, subsequenceSerializer, subsequence)
+                        }
+                    }
+                    encodeStringElementIfNotEmpty(metadataDescriptor, 1, type)
+                    if (metadata.isNotEmpty()) encodeSerializableElement(metadataDescriptor, 2, metadataSerializer, metadata)
+                    encodeStringElementIfNotEmpty(metadataDescriptor, 3, protocol)
+                }
+                if (body.isNotEmpty()) encodeSerializableElement(descriptor, 1, fieldsSerializer, body)
+            }
+        }
+    }
+
+    override fun deserialize(decoder: Decoder): DemoParsedMessage = error("Unsupported decoding")
+}
+
 object UnwrappingJsonListSerializer :
     JsonTransformingSerializer<String>(String.serializer()) {
 
@@ -77,8 +179,5 @@ object UnwrappingJsonListSerializer :
             return JsonUnquotedLiteral(element.content)
         }
         return element
-    }
-    override fun transformDeserialize(element: JsonElement): JsonElement {
-        return super.transformDeserialize(element)
     }
 }

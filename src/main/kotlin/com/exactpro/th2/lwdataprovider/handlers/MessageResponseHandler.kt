@@ -28,7 +28,7 @@ import javax.annotation.concurrent.GuardedBy
 import kotlin.concurrent.withLock
 
 abstract class MessageResponseHandler(
-    private val dataMeasurement: DataMeasurement,
+    protected val dataMeasurement: DataMeasurement,
     private val maxMessagesPerRequest: Int = 0,
 ) : AbstractCancelableHandler(), ResponseHandler<RequestedMessageDetails> {
     private val lock: ReentrantLock = ReentrantLock()

@@ -28,6 +28,7 @@ import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.exactpro.th2.lwdataprovider.failureReason
 import com.exactpro.th2.lwdataprovider.handlers.AbstractCancelableHandler
 import com.exactpro.th2.lwdataprovider.handlers.MessageResponseHandler
+import com.exactpro.th2.lwdataprovider.metrics.HttpWriteMetrics
 import com.exactpro.th2.lwdataprovider.producers.JsonFormatter
 import com.exactpro.th2.lwdataprovider.producers.ParsedFormats
 import org.apache.commons.lang3.exception.ExceptionUtils
@@ -72,6 +73,8 @@ class HttpMessagesRequestHandler(
                     requestedMessage, jsonFormatter, includeRaw,
                     counter,
                 )
+            }.also {
+                HttpWriteMetrics.incConverted()
             }
         }, executor)
         buffer.put(future::get)

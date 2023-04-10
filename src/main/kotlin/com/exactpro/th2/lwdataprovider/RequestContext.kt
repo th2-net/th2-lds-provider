@@ -23,6 +23,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoParsedMessa
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoRawMessage
 import com.exactpro.th2.lwdataprovider.demo.toDemoRawMessage
 import com.exactpro.th2.lwdataprovider.grpc.toRawMessage
+import com.exactpro.th2.lwdataprovider.metrics.DecodingMetrics
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
@@ -64,6 +65,7 @@ class RequestedMessageDetails(
     private fun complete() {
         //FIXME: raw message initialized independently
         completed.complete(RequestedMessage(id, storedMessage, rawMessage, parsedMessage, demoParsedMessage))
+        DecodingMetrics.incDecoded()
     }
 }
 

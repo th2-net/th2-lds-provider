@@ -41,6 +41,7 @@ abstract class AbstractSseRequestHandler : Consumer<SseClient>, JavalinHandler {
             while (inProcess) {
                 val supplier = queue.take()
                 ResponseQueue.currentSize(matchedPath, queue.size)
+                // com.exactpro.th2.lwdataprovider.http.HttpMessagesRequestHandler$$Lambda$812.0x00000008007db440.get ()	156,703 ms (58.9%)	2,673 ms (2.7%)
                 val event = supplier.get()
                 if (terminated()) {
                     K_LOGGER.info { "Request is terminated. Clear queue and stop processing" }

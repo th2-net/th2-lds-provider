@@ -16,10 +16,15 @@
 
 package com.exactpro.th2.lwdataprovider.metrics
 
+import io.prometheus.client.Counter
 import io.prometheus.client.Gauge
 import io.prometheus.client.Histogram
 
 object DecodingMetrics {
+    private val decoded = Counter.build(
+        "th2_ldp_decoded_total", "Number decoded messages"
+    ).register()
+
     private val messagesWaiting: Gauge = Gauge.build(
         "th2_ldp_wait_decode",
         "number of messages waiting to decode",
@@ -56,5 +61,9 @@ object DecodingMetrics {
 
     fun startTimer(marker: String): AutoCloseable {
         return decodingTime.labels(marker).startTimer()
+    }
+
+    fun incDecoded() {
+        decoded.inc()
     }
 }

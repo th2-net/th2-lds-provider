@@ -20,6 +20,10 @@ import io.prometheus.client.Counter
 import io.prometheus.client.Histogram
 
 object HttpWriteMetrics {
+    private val converted = Counter.build(
+        "th2_ldp_sse_converted_total", "Number converted messages from requested message details to SSE event"
+    ).register()
+
     private val writingHistogram: Histogram = Histogram.build(
         "th2_ldp_sse_write_time",
         "time spent to write a response to the output"
@@ -42,5 +46,9 @@ object HttpWriteMetrics {
 
     fun messageSent(path: String, count: Int) {
         messagesSent.labels(path).inc(count.toDouble())
+    }
+
+    fun incConverted() {
+        converted.inc()
     }
 }

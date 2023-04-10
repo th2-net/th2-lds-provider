@@ -49,6 +49,7 @@ import com.exactpro.th2.lwdataprovider.util.ListCradleResult
 import com.exactpro.th2.lwdataprovider.util.createBatches
 import com.exactpro.th2.lwdataprovider.util.createCradleStoredMessage
 import com.exactpro.th2.lwdataprovider.util.validateMessagesOrder
+import com.exactpro.th2.lwdataprovider.workers.CradleRequestId
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -262,7 +263,7 @@ internal class TestSearchMessagesHandler {
         val increase = 5L
         val group = "test"
 
-        val batches = createBatches(10, 1, 0, increase, startTimestamp, endTimestamp,)
+        val batches = createBatches(10, 1, 0, increase, startTimestamp, endTimestamp)
 
         whenever(storage.getGroupedMessageBatches(argThat {
             groupName == group
@@ -301,7 +302,7 @@ internal class TestSearchMessagesHandler {
         assertEquals(messagesCount, messages.size) {
             val missing: List<StoredMessage> = (batches.asSequence() + batches.asSequence()).flatMap { it.messages }.filter { stored ->
                 messages.none {
-                    val raw = it.rawMessage
+                    val raw = it.rawMessage.value
                     raw.sessionAlias == stored.sessionAlias && raw.sequence == stored.sequence && raw.direction.toCradleDirection() == stored.direction
                 }
             }.toList()
@@ -441,7 +442,7 @@ internal class TestSearchMessagesHandler {
         assertEquals(messagesCount, messages.size) {
             val missing: List<StoredMessage> = (firstBatches.asSequence() + lastBatches.asSequence()).flatMap { it.messages }.filter { stored ->
                 messages.none {
-                    val raw = it.rawMessage
+                    val raw = it.rawMessage.value
                     raw.sessionAlias == stored.sessionAlias && raw.sequence == stored.sequence && raw.direction.toCradleDirection() == stored.direction
                 }
             }.toList()
@@ -478,7 +479,7 @@ internal class TestSearchMessagesHandler {
         isParsed: Boolean = true,
         index: Int = 0,
     ) {
-        get { id } isEqualTo storedMessage.id.toString()
+        get { requestId } isEqualTo CradleRequestId(storedMessage.id)
         get { parsedMessage }.apply {
             if (isParsed) {
                 isNotNull().single()

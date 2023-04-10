@@ -41,7 +41,7 @@ class RabbitMqDecoder(
 
     override fun sendBatchMessage(batchBuilder: MessageGroupBatch.Builder, requests: Collection<RequestedMessageDetails>, session: String) {
         checkAndWaitFreeBuffer(requests.size)
-        LOGGER.trace { "Sending proto batch with messages to codec. IDs: ${requests.joinToString { it.id }}" }
+        LOGGER.trace { "Sending proto batch with messages to codec. IDs: ${requests.joinToString { it.requestId.toString() }}" }
         val currentTimeMillis = System.currentTimeMillis()
         requests.forEach {
             onMessageRequest(it, batchBuilder, session, currentTimeMillis)
@@ -54,7 +54,7 @@ class RabbitMqDecoder(
         session: String
     ) {
         checkAndWaitFreeBuffer(requests.size)
-        LOGGER.trace { "Sending demo batch with messages to codec. IDs: ${requests.joinToString { it.id }}" }
+        LOGGER.trace { "Sending demo batch with messages to codec. IDs: ${requests.joinToString { it.requestId.toString() }}" }
         val currentTimeMillis = System.currentTimeMillis()
         requests.forEach {
             onMessageRequest(it, batch, session, currentTimeMillis)
@@ -64,7 +64,7 @@ class RabbitMqDecoder(
 
     override fun sendMessage(message: RequestedMessageDetails, session: String) {
         checkAndWaitFreeBuffer(1)
-        LOGGER.trace { "Sending message to codec. ID: ${message.id}" }
+        LOGGER.trace { "Sending message to codec. ID: ${message.requestId}" }
         val builder = MessageGroupBatch.newBuilder()
         onMessageRequest(message, builder, session)
         send(builder, session)
@@ -95,7 +95,7 @@ class RabbitMqDecoder(
     ) {
         details.time = currentTimeMillis
         registerMessage(details, session)
-        batchBuilder.addGroupsBuilder() += details.rawMessage
+        batchBuilder.addGroupsBuilder() += details.rawMessage.value
     }
 
     private fun onMessageRequest(
@@ -106,7 +106,7 @@ class RabbitMqDecoder(
     ) {
         details.time = currentTimeMillis
         registerMessage(details, session)
-        batchBuilder.groups.add(DemoMessageGroup(mutableListOf(details.demoRawMessage)))
+        batchBuilder.groups.add(DemoMessageGroup(mutableListOf(details.demoRawMessage.value)))
     }
 
     private fun send(batchBuilder: MessageGroupBatch.Builder, session: String) {

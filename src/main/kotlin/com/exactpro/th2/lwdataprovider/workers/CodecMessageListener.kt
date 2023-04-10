@@ -17,13 +17,11 @@
 package com.exactpro.th2.lwdataprovider.workers
 
 import com.exactpro.th2.common.grpc.AnyMessage
-import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.schema.message.DeliveryMetadata
 import com.exactpro.th2.common.schema.message.MessageListener
-import com.exactpro.th2.lwdataprovider.grpc.toInstant
 import mu.KotlinLogging
 
 class CodecMessageListener(
@@ -36,7 +34,7 @@ class CodecMessageListener(
                 reportIncorrectGroup(group)
                 return@forEach
             }
-            val messageIdStr = group.messagesList.first().message.metadata.id.buildMessageIdString()
+            val messageIdStr = group.messagesList.first().message.metadata.id.buildRequestId()
 
             decodeQueue.responseReceived(messageIdStr) {
                 group.messagesList.map { anyMsg -> anyMsg.message }
@@ -44,13 +42,7 @@ class CodecMessageListener(
         }
     }
 
-    private fun MessageID.buildMessageIdString() : String = RequestsBuffer.buildMessageIdString(
-        bookName,
-        connectionId.sessionAlias,
-        if (direction == Direction.FIRST) 1 else 2,
-        timestamp.toInstant(),
-        sequence
-    )
+    private fun MessageID.buildRequestId() : RequestId = ProtoRequestId(this)
 
     private fun reportIncorrectGroup(group: MessageGroup) {
         logger.error {
@@ -58,8 +50,8 @@ class CodecMessageListener(
                 group.messagesList.joinToString(",") {
                     "${it.kindCase} ${
                         when (it.kindCase) {
-                            AnyMessage.KindCase.MESSAGE -> it.message.metadata.id.buildMessageIdString()
-                            AnyMessage.KindCase.RAW_MESSAGE -> it.rawMessage.metadata.id.buildMessageIdString()
+                            AnyMessage.KindCase.MESSAGE -> it.message.metadata.id.buildRequestId()
+                            AnyMessage.KindCase.RAW_MESSAGE -> it.rawMessage.metadata.id.buildRequestId()
                             AnyMessage.KindCase.KIND_NOT_SET, null -> null
                         }
                     }"

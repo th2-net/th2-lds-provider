@@ -24,6 +24,8 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoRawMessage
 import com.exactpro.th2.lwdataprovider.demo.toDemoRawMessage
 import com.exactpro.th2.lwdataprovider.grpc.toRawMessage
 import com.exactpro.th2.lwdataprovider.metrics.DecodingMetrics
+import com.exactpro.th2.lwdataprovider.workers.CradleRequestId
+import com.exactpro.th2.lwdataprovider.workers.RequestId
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
@@ -33,9 +35,9 @@ class RequestedMessageDetails(
     val group: String? = null,
     private val onResponse: ((RequestedMessageDetails) -> Unit)? = null
 ) {
-    val id: String = storedMessage.id.toString()
-    val rawMessage: RawMessage by lazy(storedMessage::toRawMessage)
-    val demoRawMessage: DemoRawMessage by lazy(storedMessage::toDemoRawMessage)
+    val requestId: RequestId = CradleRequestId(storedMessage.id)
+    val rawMessage: Lazy<RawMessage> = lazy(LazyThreadSafetyMode.NONE, storedMessage::toRawMessage)
+    val demoRawMessage: Lazy<DemoRawMessage> = lazy(LazyThreadSafetyMode.NONE, storedMessage::toDemoRawMessage)
     @Volatile
     var time: Long = 0
     var parsedMessage: List<Message>? = null
@@ -64,15 +66,15 @@ class RequestedMessageDetails(
 
     private fun complete() {
         //FIXME: raw message initialized independently
-        completed.complete(RequestedMessage(id, storedMessage, rawMessage, parsedMessage, demoParsedMessage))
+        completed.complete(RequestedMessage(requestId, storedMessage, rawMessage, parsedMessage, demoParsedMessage))
         DecodingMetrics.incDecoded()
     }
 }
 
 class RequestedMessage(
-    val id: String,
+    val requestId: RequestId,
     val storedMessage: StoredMessage,
-    val rawMessage: RawMessage,
+    val rawMessage: Lazy<RawMessage>,
     val parsedMessage: List<Message>?,
     val demoParsedMessage: List<DemoParsedMessage>?,
 )

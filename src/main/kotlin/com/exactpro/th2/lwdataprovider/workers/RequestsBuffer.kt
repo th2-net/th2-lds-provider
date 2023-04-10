@@ -16,35 +16,21 @@
 
 package com.exactpro.th2.lwdataprovider.workers
 
-import com.exactpro.cradle.messages.StoredMessageIdUtils.timestampToString
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoParsedMessage
-import java.time.Instant
 
 interface RequestsBuffer {
-
     /**
-     * @param id message ID for which the response was received
+     * @param id [RequestId] for which the response was received
      * @param response the supplier function that will be invoked it the [id] is in the decoding queue
      */
-    fun responseReceived(id: String, response: () -> List<Message>)
-    fun responseDemoReceived(id: String, response: () -> List<DemoParsedMessage>)
-    fun bulkResponsesReceived(responses: Map<String, () -> List<Message>>)
-    fun bulkResponsesDemoReceived(responses: Map<String, () -> List<DemoParsedMessage>>)
+    fun responseReceived(id: RequestId, response: () -> List<Message>)
+    fun responseDemoReceived(id: RequestId, response: () -> List<DemoParsedMessage>)
+    fun bulkResponsesReceived(responses: Map<RequestId, () -> List<Message>>)
+    fun bulkResponsesDemoReceived(responses: Map<RequestId, () -> List<DemoParsedMessage>>)
 
     /**
      * @return the sending time of the oldest message request or current time in epoch millis
      */
     fun removeOlderThan(timeout: Long): Long
-
-    companion object {
-        fun buildMessageIdString(
-            bookName: String,
-            sessionAlias: String,
-            directionNum: Int,
-            timestamp: Instant,
-            sequence: Long
-        ): String =
-            "$bookName:$sessionAlias:$directionNum:${timestampToString(timestamp)}:$sequence"
-    }
 }

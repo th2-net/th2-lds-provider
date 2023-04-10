@@ -42,7 +42,7 @@ class GrpcMessageProducer {
                 putAllMessageProperties(storedMessage.metadata?.toMap() ?: emptyMap())
 
                 if (responseFormats.isEmpty() || ResponseFormat.BASE_64 in responseFormats) {
-                    bodyRaw = rawMessage.rawMessage.body
+                    bodyRaw = rawMessage.rawMessage.value.body
                 }
                 if (responseFormats.isEmpty() || ResponseFormat.PROTO_PARSED in responseFormats) {
                     rawMessage.parsedMessage?.forEach {

@@ -44,13 +44,7 @@ class DemoCodecMessageListener(
         }
     }
 
-    private fun DemoMessageId.buildMessageIdString() : String = RequestsBuffer.buildMessageIdString(
-        book,
-        sessionAlias,
-        if (direction == DemoDirection.INCOMING) 1 else 2,
-        timestamp,
-        sequence
-    )
+    private fun DemoMessageId.buildMessageIdString() : RequestId = DemoRequestId(this)
 
     private fun reportIncorrectGroup(group: DemoMessageGroup) {
         K_LOGGER.error {

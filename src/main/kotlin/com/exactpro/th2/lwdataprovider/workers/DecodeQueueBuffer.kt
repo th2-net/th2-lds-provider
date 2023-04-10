@@ -31,10 +31,10 @@ class DecodeQueueBuffer(
 
     private val lock = ReentrantLock()
     @GuardedBy("lock")
-    private val decodeQueue: MutableMap<String, MutableList<RequestedMessageDetails>> = HashMap()
+    private val decodeQueue: MutableMap<RequestId, MutableList<RequestedMessageDetails>> = HashMap()
 
     @GuardedBy("lock")
-    private val decodeTimers: MutableMap<String, AutoCloseable> = HashMap()
+    private val decodeTimers: MutableMap<RequestId, AutoCloseable> = HashMap()
 
     @GuardedBy("lock")
     private val decodeCond = lock.newCondition()
@@ -43,8 +43,8 @@ class DecodeQueueBuffer(
     
     fun add(details: RequestedMessageDetails, session: String) {
         lock.withLock {
-            decodeQueue.computeIfAbsent(details.id) { ArrayList(1) }.add(details)
-            decodeTimers.computeIfAbsent(details.id) { DecodingMetrics.startTimer(session) }
+            decodeQueue.computeIfAbsent(details.requestId) { ArrayList(1) }.add(details)
+            decodeTimers.computeIfAbsent(details.requestId) { DecodingMetrics.startTimer(session) }
             DecodingMetrics.currentWaiting(decodeQueue.size)
         }
     }
@@ -72,20 +72,20 @@ class DecodeQueueBuffer(
         LOGGER.trace { "Decode request for $size message(s) is submitted" }
     }
 
-    override fun responseReceived(id: String, response: () -> List<Message>) {
+    override fun responseReceived(id: RequestId, response: () -> List<Message>) {
         processResponse(id, response, RequestedMessageDetails::responseFinished)
     }
 
-    override fun responseDemoReceived(id: String, response: () -> List<DemoParsedMessage>) {
+    override fun responseDemoReceived(id: RequestId, response: () -> List<DemoParsedMessage>) {
         processResponse(id, response, RequestedMessageDetails::responseDemoFinished)
     }
 
-    override fun bulkResponsesReceived(responses: Map<String, () -> List<Message>>) {
+    override fun bulkResponsesReceived(responses: Map<RequestId, () -> List<Message>>) {
         // TODO: maybe we should use something optimized for bulk removal instead of simple map
         responses.forEach(this::responseReceived)
     }
 
-    override fun bulkResponsesDemoReceived(responses: Map<String, () -> List<DemoParsedMessage>>) {
+    override fun bulkResponsesDemoReceived(responses: Map<RequestId, () -> List<DemoParsedMessage>>) {
         // TODO: maybe we should use something optimized for bulk removal instead of simple map
         responses.forEach(this::responseDemoReceived)
     }
@@ -148,7 +148,7 @@ class DecodeQueueBuffer(
     }
 
     private fun <M> processResponse(
-        id: String,
+        id: RequestId,
         response: () -> List<M>,
         responseFinished: RequestedMessageDetails.(List<M>) -> Unit
     ) {

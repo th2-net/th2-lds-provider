@@ -35,10 +35,9 @@ abstract class AbstractSseRequestHandler : Consumer<SseClient>, JavalinHandler {
     ) {
 
         val matchedPath = ctx().matchedPath()
-        var inProcess = true
         var dataSent = 0
         try {
-            while (inProcess) {
+            while (true) {
                 val supplier = queue.take()
                 ResponseQueue.currentSize(matchedPath, queue.size)
                 // com.exactpro.th2.lwdataprovider.http.HttpMessagesRequestHandler$$Lambda$812.0x00000008007db440.get ()	156,703 ms (58.9%)	2,673 ms (2.7%)
@@ -65,15 +64,13 @@ abstract class AbstractSseRequestHandler : Consumer<SseClient>, JavalinHandler {
                 }
                 K_LOGGER.debug { "Sent sse event: type ${event.event}, metadata ${event.metadata}, data ${StringUtils.abbreviate(event.data, 50)}" }
                 if (event.event == EventType.CLOSE) {
-                    close()
-                    inProcess = false
-                    val size = queue.size
-                    if (size > 0) {
-                        K_LOGGER.warn { "There are $size event(s) left in queue" }
-                    }
+                    return
                 }
             }
         } finally {
+            close()
+            val size = queue.size
+            if (size > 0) { K_LOGGER.warn { "There are $size event(s) left in queue" } }
             HttpWriteMetrics.messageSent(matchedPath, dataSent)
         }
     }

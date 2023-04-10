@@ -34,6 +34,7 @@ sealed class RequestId {
     protected abstract val sequence: Long
 
     protected abstract val timestamp: Instant
+    protected abstract val hashCode: Int
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -49,7 +50,13 @@ sealed class RequestId {
         return true
     }
 
-    override fun hashCode(): Int {
+    override fun hashCode(): Int = hashCode
+
+    override fun toString(): String {
+        return "$bookName:$sessionAlias:$directionNum:${StoredMessageIdUtils.timestampToString(timestamp)}:$sequence"
+    }
+
+    protected fun calculateHashCode(): Int {
         var result = bookName.hashCode()
         result = 31 * result + sessionAlias.hashCode()
         result = 31 * result + directionNum
@@ -57,10 +64,6 @@ sealed class RequestId {
         result = 31 * result + nano
         result = 31 * result + sequence.hashCode()
         return result
-    }
-
-    override fun toString(): String {
-        return "$bookName:$sessionAlias:$directionNum:${StoredMessageIdUtils.timestampToString(timestamp)}:$sequence"
     }
 }
 
@@ -81,6 +84,9 @@ class ProtoRequestId(
         get() = messageID.timestamp.toInstant()
     override val sequence: Long
         get() = messageID.sequence
+
+    // this value should be cached
+    override val hashCode: Int = calculateHashCode()
 }
 
 class DemoRequestId(
@@ -100,6 +106,9 @@ class DemoRequestId(
         get() = messageID.timestamp
     override val sequence: Long
         get() = messageID.sequence
+
+    // this value should be cached
+    override val hashCode: Int = calculateHashCode()
 }
 
 class CradleRequestId(
@@ -120,4 +129,6 @@ class CradleRequestId(
     override val timestamp: Instant
         get() = messageID.timestamp
 
+    // this value should be cached
+    override val hashCode: Int = calculateHashCode()
 }

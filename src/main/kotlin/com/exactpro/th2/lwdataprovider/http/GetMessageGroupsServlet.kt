@@ -38,10 +38,12 @@ import io.javalin.openapi.OpenApiResponse
 import mu.KotlinLogging
 import java.time.Instant
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.Executor
 import java.util.function.Supplier
 
 class GetMessageGroupsServlet(
     private val configuration: Configuration,
+    private val convExecutor: Executor,
     private val sseResponseBuilder: SseResponseBuilder,
     private val keepAliveHandler: KeepAliveHandler,
     private val searchMessagesHandler: SearchMessagesHandler,
@@ -131,8 +133,11 @@ class GetMessageGroupsServlet(
 
 
         val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
-        val handler = HttpMessagesRequestHandler(queue, sseResponseBuilder, dataMeasurement, maxMessagesPerRequest = configuration.bufferPerQuery,
-            responseFormats = request.responseFormats ?: configuration.responseFormats)
+        val handler = HttpMessagesRequestHandler(
+            queue, sseResponseBuilder, convExecutor, dataMeasurement,
+            maxMessagesPerRequest = configuration.bufferPerQuery,
+            responseFormats = request.responseFormats ?: configuration.responseFormats
+        )
         sseClient.onClose(handler::cancel)
         keepAliveHandler.addKeepAliveData(handler).use {
             searchMessagesHandler.loadMessageGroups(request, handler, dataMeasurement)

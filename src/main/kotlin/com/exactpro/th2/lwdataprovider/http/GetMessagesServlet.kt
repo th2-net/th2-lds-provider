@@ -40,6 +40,7 @@ import io.javalin.openapi.OpenApiResponse
 import mu.KotlinLogging
 import java.time.Instant
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.Executor
 import java.util.function.Supplier
 
 private const val START_TIMESTAMP = "startTimestamp"
@@ -62,6 +63,7 @@ private const val BOOK_ID = "bookId"
 
 class GetMessagesServlet(
     private val configuration: Configuration,
+    private val convExecutor: Executor,
     private val sseResponseBuilder: SseResponseBuilder,
     private val keepAliveHandler: KeepAliveHandler,
     private val searchMessagesHandler: SearchMessagesHandler,
@@ -151,8 +153,11 @@ class GetMessagesServlet(
         }
 
         val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
-        val handler = HttpMessagesRequestHandler(queue, sseResponseBuilder, dataMeasurement, maxMessagesPerRequest = configuration.bufferPerQuery,
-            responseFormats = request.responseFormats ?: configuration.responseFormats)
+        val handler = HttpMessagesRequestHandler(
+            queue, sseResponseBuilder, convExecutor, dataMeasurement,
+            maxMessagesPerRequest = configuration.bufferPerQuery,
+            responseFormats = request.responseFormats ?: configuration.responseFormats
+        )
         sseClient.onClose(handler::cancel)
 //        requestsDataMeasurement.start("messages_loading").use {
             keepAliveHandler.addKeepAliveData(handler).use {

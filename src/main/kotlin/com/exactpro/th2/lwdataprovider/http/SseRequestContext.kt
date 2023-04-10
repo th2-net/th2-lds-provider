@@ -33,12 +33,15 @@ import com.exactpro.th2.lwdataprovider.producers.ParsedFormats
 import org.apache.commons.lang3.exception.ExceptionUtils
 import java.util.EnumSet
 import java.util.concurrent.BlockingQueue
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.Executor
 import java.util.concurrent.atomic.AtomicLong
 import java.util.function.Supplier
 
 class HttpMessagesRequestHandler(
     private val buffer: BlockingQueue<Supplier<SseEvent>>,
     private val builder: SseResponseBuilder,
+    private val executor: Executor,
     dataMeasurement: DataMeasurement,
     maxMessagesPerRequest: Int = 0,
     responseFormats: Set<ResponseFormat> = EnumSet.of(ResponseFormat.BASE_64, ResponseFormat.PROTO_PARSED),
@@ -61,8 +64,7 @@ class HttpMessagesRequestHandler(
     override fun handleNextInternal(data: RequestedMessageDetails) {
         if (!isAlive) return
         val counter = indexer.nextIndex()
-        buffer.put {
-            val requestedMessage: RequestedMessage = data.awaitAndGet()
+        val future: CompletableFuture<SseEvent> = data.completed.thenApplyAsync({ requestedMessage: RequestedMessage ->
             if (jsonFormatter != null && requestedMessage.parsedMessage == null && requestedMessage.demoParsedMessage == null) {
                 builder.codecTimeoutError(requestedMessage.storedMessage.id, counter)
             } else {
@@ -71,7 +73,8 @@ class HttpMessagesRequestHandler(
                     counter,
                 )
             }
-        }
+        }, executor)
+        buffer.put(future::get)
     }
 
     override fun complete() {

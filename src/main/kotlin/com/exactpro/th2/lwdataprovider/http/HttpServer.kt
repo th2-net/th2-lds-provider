@@ -65,12 +65,16 @@ class HttpServer(private val context: Context) {
         val sseResponseBuilder = SseResponseBuilder(jacksonMapper,
             if (configuration.listOfMessageAsSingleMessage) MessageProducer53Demo.Companion::createMessage else MessageProducer.Companion::createMessage)
         val handlers: Collection<JavalinHandler> = listOf(
-            GetMessagesServlet(configuration, sseResponseBuilder, keepAliveHandler,
-                searchMessagesHandler, context.requestsDataMeasurement),
-            GetMessageGroupsServlet(configuration, sseResponseBuilder, keepAliveHandler,
-                searchMessagesHandler, context.requestsDataMeasurement),
+            GetMessagesServlet(
+                configuration, context.convExecutor, sseResponseBuilder,
+                keepAliveHandler, searchMessagesHandler, context.requestsDataMeasurement
+            ),
+            GetMessageGroupsServlet(
+                configuration, context.convExecutor, sseResponseBuilder,
+                keepAliveHandler, searchMessagesHandler, context.requestsDataMeasurement
+            ),
             GetMessageById(
-                configuration,
+                configuration, context.convExecutor,
                 sseResponseBuilder, searchMessagesHandler, context.requestsDataMeasurement
             ),
             GetOneEvent(configuration, sseResponseBuilder, this.context.searchEventsHandler),

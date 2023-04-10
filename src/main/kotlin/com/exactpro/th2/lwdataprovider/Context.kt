@@ -41,6 +41,7 @@ import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.databind.module.SimpleModule
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import io.prometheus.client.CollectorRegistry
 import java.time.Instant
 import java.util.concurrent.Executor
@@ -77,15 +78,21 @@ class Context(
         DataMeasurementImpl.create(registry, "cradle message")
     ),
     val generalCradleExtractor: GeneralCradleExtractor = GeneralCradleExtractor(cradleManager),
-    val pool: Executor = Executors.newFixedThreadPool(configuration.execThreadPoolSize),
-
+    val execExecutor: Executor = Executors.newFixedThreadPool(
+        configuration.execThreadPoolSize,
+        ThreadFactoryBuilder().setNameFormat("exec-executor-%d").build()
+    ),
+    val convExecutor: Executor = Executors.newFixedThreadPool(
+        configuration.convThreadPoolSize,
+        ThreadFactoryBuilder().setNameFormat("conv-executor-%d").build()
+    ),
     val searchMessagesHandler: SearchMessagesHandler = SearchMessagesHandler(
         cradleMsgExtractor,
         mqDecoder,
-        pool,
+        execExecutor,
         configuration,
     ),
-    val searchEventsHandler: SearchEventsHandler = SearchEventsHandler(cradleEventExtractor, pool),
+    val searchEventsHandler: SearchEventsHandler = SearchEventsHandler(cradleEventExtractor, execExecutor),
     val requestsDataMeasurement: DataMeasurement = DataMeasurementImpl.create(
         registry, "message requests",
         *generateSequence(0.000025) { v -> (v * 2).takeIf { it < 2 } }.toList().toTypedArray().toDoubleArray()
@@ -95,15 +102,15 @@ class Context(
         messageRouter,
         configuration.batchSize,
         configuration.codecUsePinAttributes,
-        pool,
+        execExecutor,
     ),
     val queueEventsHandler: QueueEventsHandler = QueueEventsHandler(
         cradleEventExtractor,
         eventRouter,
         configuration.batchSize,
-        pool,
+        execExecutor,
     ),
-    val generalCradleHandler: GeneralCradleHandler = GeneralCradleHandler(generalCradleExtractor, pool),
+    val generalCradleHandler: GeneralCradleHandler = GeneralCradleHandler(generalCradleExtractor, execExecutor),
     val applicationName: String
 ) {
     companion object {

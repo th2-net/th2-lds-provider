@@ -39,10 +39,12 @@ import io.javalin.openapi.OpenApiResponse
 import mu.KotlinLogging
 import java.util.EnumSet
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.Executor
 import java.util.function.Supplier
 
 class GetMessageById(
     private val configuration: Configuration,
+    private val convExecutor: Executor,
     private val sseResponseBuilder: SseResponseBuilder,
     private val searchMessagesHandler: SearchMessagesHandler,
     private val dataMeasurement: DataMeasurement,
@@ -98,8 +100,11 @@ class GetMessageById(
             .getOrDefault(false)
 
 
-        val handler = HttpMessagesRequestHandler(queue, sseResponseBuilder, dataMeasurement,
-        responseFormats = if (onlyRaw) EnumSet.of(ResponseFormat.BASE_64) else configuration.responseFormats)
+        val handler = HttpMessagesRequestHandler(
+            queue, sseResponseBuilder, convExecutor,
+            dataMeasurement,
+            responseFormats = if (onlyRaw) EnumSet.of(ResponseFormat.BASE_64) else configuration.responseFormats
+        )
         var newMsgId: StoredMessageId? = null
         try {
             newMsgId = parseMessageId(msgId)

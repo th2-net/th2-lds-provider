@@ -125,7 +125,8 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
             messageRouter = messageRouter,
             demoMessageRouter = demoMessageRouter,
             eventRouter = eventRouter,
-            pool = executor,
+            execExecutor = executor,
+            convExecutor = executor,
             applicationName = "test-lw-data-provider",
         )
     }

@@ -31,6 +31,7 @@ internal class TestGetMessageById : AbstractHttpHandlerTest<GetMessageById>() {
     override fun createHandler(): GetMessageById {
         return GetMessageById(
             configuration,
+            context.convExecutor,
             sseResponseBuilder,
             context.searchMessagesHandler,
             context.requestsDataMeasurement,

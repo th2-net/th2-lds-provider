@@ -31,6 +31,7 @@ class CustomConfigurationClass(
     val decodingTimeout: Long? = null,
     val responseQueueSize: Int? = null,
     val execThreadPoolSize: Int? = null,
+    val convThreadPoolSize: Int? = null,
     val batchSize: Int? = null,
     val mode: String? = null,
     val grpcBackPressure : Boolean? = null,
@@ -53,6 +54,7 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     val decodingTimeout: Long = VariableBuilder.getVariable(customConfiguration::decodingTimeout, 60_000)
     val responseQueueSize: Int = VariableBuilder.getVariable(customConfiguration::responseQueueSize, 1000)
     val execThreadPoolSize: Int = VariableBuilder.getVariable(customConfiguration::execThreadPoolSize, 10)
+    val convThreadPoolSize: Int = VariableBuilder.getVariable(customConfiguration::convThreadPoolSize, 3)
     val batchSize: Int = VariableBuilder.getVariable(customConfiguration::batchSize, 100)
     val mode: Mode = VariableBuilder.getVariable(customConfiguration::mode, Mode.HTTP) {
         it.let { Mode.valueOf(it.uppercase(Locale.getDefault())) }

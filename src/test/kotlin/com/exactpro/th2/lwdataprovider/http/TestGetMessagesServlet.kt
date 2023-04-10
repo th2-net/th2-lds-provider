@@ -48,6 +48,7 @@ internal class TestGetMessagesServlet : AbstractHttpHandlerTest<GetMessagesServl
     override fun createHandler(): GetMessagesServlet {
         return GetMessagesServlet(
             configuration,
+            context.convExecutor,
             sseResponseBuilder,
             context.keepAliveHandler,
             context.searchMessagesHandler,

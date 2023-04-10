@@ -39,7 +39,7 @@ class RequestedMessageDetails(
     var time: Long = 0
     var parsedMessage: List<Message>? = null
     var demoParsedMessage: List<DemoParsedMessage>? = null
-    private val completed = CompletableFuture<RequestedMessage>()
+    val completed = CompletableFuture<RequestedMessage>()
     init {
         if (onResponse == null) {
             // nothing to await

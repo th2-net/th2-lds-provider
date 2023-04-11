@@ -57,8 +57,12 @@ class Emitter(
     }
 
     fun flush(): Unit = lock.withLock {
-        outputStream.flush()
-        response.flushBuffer()
+        try {
+            outputStream.flush()
+            response.flushBuffer()
+        } catch (ignored: IOException) {
+            closed = true
+        }
     }
 
     private fun write(value: String) {

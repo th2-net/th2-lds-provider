@@ -65,12 +65,14 @@ class SseClient internal constructor(
      * @see [io.javalin.http.sse.SseClient.close]
      */
     override fun close() {
+        JavalinLogger.info("Try to close sse client ${ctx.url()}")
         if (terminated.getAndSet(true)) return
         if (flushAfter > 0) {
             emitter.flush()
         }
         closeCallback.run()
         blockingFuture?.complete(null)
+        JavalinLogger.info("Sse client ${ctx.url()} has been closed")
     }
 
     fun sendEvent(event: String, data: String, id: String? = null) {

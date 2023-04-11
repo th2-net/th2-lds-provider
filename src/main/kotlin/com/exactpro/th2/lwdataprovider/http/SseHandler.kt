@@ -34,25 +34,20 @@ class SseHandler @JvmOverloads constructor(
 ) : Handler {
 
     override fun handle(ctx: Context) {
-        try {
-            if (ctx.header(Header.ACCEPT) == EVENT_STREAM_CONTENT_TYPE) {
-                ctx.res().apply {
-                    status = 200
-                    characterEncoding = "UTF-8"
-                    contentType = EVENT_STREAM_CONTENT_TYPE
-                    addHeader(Header.CONNECTION, "close")
-                    addHeader(Header.CACHE_CONTROL, "no-cache")
-                    addHeader(Header.X_ACCEL_BUFFERING, "no") // See https://serverfault.com/a/801629
-                    flushBuffer()
-                }
-                clientConsumer.accept(clientSupplier.apply(ctx))
-            } else {
-                ctx.status(HttpStatus.NOT_FOUND)
-                    .result("consider using $EVENT_STREAM_CONTENT_TYPE in ${Header.ACCEPT} header")
+        if (ctx.header(Header.ACCEPT) == EVENT_STREAM_CONTENT_TYPE) {
+            ctx.res().apply {
+                status = 200
+                characterEncoding = "UTF-8"
+                contentType = EVENT_STREAM_CONTENT_TYPE
+                addHeader(Header.CONNECTION, "close")
+                addHeader(Header.CACHE_CONTROL, "no-cache")
+                addHeader(Header.X_ACCEL_BUFFERING, "no") // See https://serverfault.com/a/801629
+                flushBuffer()
             }
-        } catch (e: Exception) { // TODO: maybe move to our Servlet implementations
-            ctx.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .result(e.message ?: "Request can't be handled by the ${e::class.java} error with ${e.message} message")
+            clientConsumer.accept(clientSupplier.apply(ctx))
+        } else {
+            ctx.status(HttpStatus.NOT_FOUND)
+                .result("consider using $EVENT_STREAM_CONTENT_TYPE in ${Header.ACCEPT} header")
         }
     }
 

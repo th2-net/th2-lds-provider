@@ -131,7 +131,7 @@ class GetMessagesServlet(
                 description = "keeps pulling for new message until don't have one outside the requested range"),
             OpenApiParam(
                 RESPONSE_FORMAT,
-                type = Array<String>::class,
+                type = Array<ResponseFormat>::class,
                 description = "the format of the response"),
         ],
         responses = [

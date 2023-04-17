@@ -107,7 +107,7 @@ class GetMessageGroupsServlet(
             ),
             OpenApiParam(
                 RESPONSE_FORMAT,
-                type = Array<String>::class,
+                type = Array<ResponseFormat>::class,
                 description = "the format of the response"
             ),
         ],

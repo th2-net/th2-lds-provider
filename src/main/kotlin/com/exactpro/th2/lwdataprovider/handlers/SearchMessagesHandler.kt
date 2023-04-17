@@ -159,7 +159,7 @@ class SearchMessagesHandler(
             logger.info { "Executing group request $request" }
             val rootSink = RootMessagesDataSink(
                 requestContext,
-                if (request.rawOnly) {
+                if (request.responseFormats.hasRowOnly()) {
                     RawStoredMessageHandler(requestContext)
                 } else {
                     if (configuration.useDemoMode) {

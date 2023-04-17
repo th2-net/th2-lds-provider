@@ -28,7 +28,6 @@ data class MessagesGroupRequest(
     val startTimestamp: Instant,
     val endTimestamp: Instant,
     val sort: Boolean,
-    val rawOnly: Boolean,
     val keepOpen: Boolean,
     val bookId: BookId,
     val responseFormats: Set<ResponseFormat>? = null,
@@ -58,10 +57,17 @@ data class MessagesGroupRequest(
                 if (hasStartTimestamp()) startTimestamp.toInstant() else error("missing start timestamp"),
                 if (hasEndTimestamp()) endTimestamp.toInstant() else error("missing end timestamp"),
                 if (hasSort()) sort.value else false,
-                rawOnly,
                 false, // FIXME: update gRPC
                 if (hasBookId()) bookId.toCradle() else error("parameter '$BOOK_ID_PARAM' is required"),
-                request.responseFormatsList.takeIf { it.isNotEmpty() }?.mapTo(hashSetOf(), ResponseFormat.Companion::fromString),
+                request.responseFormatsList.takeIf { it.isNotEmpty() }
+                    ?.mapTo(hashSetOf(), ResponseFormat.Companion::fromString)
+                    .let { formats ->
+                        if (request.rawOnly) {
+                            formats?.let { it + ResponseFormat.BASE_64 } ?: setOf(ResponseFormat.BASE_64)
+                        } else {
+                            formats
+                        }
+                    },
             )
         }
 

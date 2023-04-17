@@ -275,7 +275,6 @@ internal class TestSearchMessagesHandler {
             startTimestamp,
             endTimestamp,
             sort = true,
-            rawOnly = false,
             keepOpen = false,
             BookId("test"),
         )
@@ -428,9 +427,9 @@ internal class TestSearchMessagesHandler {
             startTimestamp,
             endTimestamp,
             sort = true,
-            rawOnly = true,
             keepOpen = true,
             BookId("test"),
+            responseFormats = setOf(ResponseFormat.BASE_64),
         )
         searchHandler.loadMessageGroups(request, handler, measurement)
 

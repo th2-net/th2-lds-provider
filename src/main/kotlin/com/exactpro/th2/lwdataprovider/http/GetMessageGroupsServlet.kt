@@ -52,6 +52,9 @@ class GetMessageGroupsServlet(
 
     override fun setup(app: Javalin, context: JavalinContext) {
         app.before(ROUTE) {
+            it.queryParam(RAW_ONLY_PARAMETER)?.also {
+                LOGGER.warn { "Parameter $RAW_ONLY_PARAMETER is deprecated" }
+            }
             it.attribute(REQUEST_KEY, createRequest(it))
         }
         app.customSse(ROUTE, this, context)
@@ -92,7 +95,9 @@ class GetMessageGroupsServlet(
             OpenApiParam(
                 RAW_ONLY_PARAMETER,
                 type = Boolean::class,
-                description = "only raw message will be returned in the response",
+                description = "only raw message will be returned in the response. " +
+                        "Parameter is deprecated: use $RESPONSE_FORMAT with BASE_64 to achieve the same effect",
+                deprecated = true,
             ),
             OpenApiParam(
                 KEEP_OPEN_PARAMETER,
@@ -133,10 +138,17 @@ class GetMessageGroupsServlet(
 
 
         val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
+        val responseFormats: Set<ResponseFormat>? = request.responseFormats.let { formats ->
+            if (ctx.queryParamAsClass<Boolean>(RAW_ONLY_PARAMETER).getOrDefault(false)) {
+                formats?.let { it + ResponseFormat.BASE_64 } ?: setOf(ResponseFormat.BASE_64)
+            } else {
+                formats
+            }
+        }
         val handler = HttpMessagesRequestHandler(
             queue, sseResponseBuilder, convExecutor, dataMeasurement,
             maxMessagesPerRequest = configuration.bufferPerQuery,
-            responseFormats = request.responseFormats ?: configuration.responseFormats
+            responseFormats = responseFormats ?: configuration.responseFormats
         )
         sseClient.onClose(handler::cancel)
         keepAliveHandler.addKeepAliveData(handler).use {
@@ -156,8 +168,6 @@ class GetMessageGroupsServlet(
         endTimestamp = ctx.queryParamAsClass<Instant>(END_TIMESTAMP_PARAM)
             .get(),
         sort = ctx.queryParamAsClass<Boolean>(SORT_PARAMETER)
-            .getOrDefault(false),
-        rawOnly = ctx.queryParamAsClass<Boolean>(RAW_ONLY_PARAMETER)
             .getOrDefault(false),
         keepOpen = ctx.queryParamAsClass<Boolean>(KEEP_OPEN_PARAMETER)
             .getOrDefault(false),

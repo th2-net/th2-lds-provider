@@ -74,7 +74,8 @@ message MessageGroupsSearchRequest {
   BookId book_id = 7;
   repeated Group message_group = 3;
   google.protobuf.BoolValue sort = 4;
-  bool raw_only = 5;
+  // deprecated: use response_formats with only BASE_64 to achieve the same effect
+  bool raw_only = 5 [deprecated = true];
   bool keep_open = 6;
   repeated string response_formats = 8; // List of possible response formats (e.g. PARSED or BASE_64)
 }

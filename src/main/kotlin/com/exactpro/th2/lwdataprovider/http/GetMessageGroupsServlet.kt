@@ -23,6 +23,7 @@ import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
+import com.exactpro.th2.lwdataprovider.entities.requests.util.convertToMessageStreams
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import com.exactpro.th2.lwdataprovider.http.JavalinHandler.Companion.customSse
@@ -174,6 +175,9 @@ class GetMessageGroupsServlet(
         bookId = ctx.queryParamAsClass<BookId>(BOOK_ID_PARAM).get(),
         responseFormats = ctx.queryParams(RESPONSE_FORMAT).takeIf(List<*>::isNotEmpty)
             ?.mapTo(hashSetOf(), ResponseFormat.Companion::fromString),
+        includeStreams = ctx.queryParams(STREAM).takeIf(List<*>::isNotEmpty)
+            ?.let(::convertToMessageStreams)
+            ?.toSet() ?: emptySet(),
     )
 
     companion object {
@@ -187,6 +191,7 @@ class GetMessageGroupsServlet(
         private const val KEEP_OPEN_PARAMETER = "keepOpen"
         private const val BOOK_ID_PARAM = "bookId"
         private const val RESPONSE_FORMAT = "responseFormat"
+        private const val STREAM = "stream"
         private val LOGGER = KotlinLogging.logger { }
     }
 }

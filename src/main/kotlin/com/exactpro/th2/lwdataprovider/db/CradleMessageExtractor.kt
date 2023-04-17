@@ -19,6 +19,7 @@ package com.exactpro.th2.lwdataprovider.db
 import com.exactpro.cradle.BookId
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
+import com.exactpro.cradle.Direction
 import com.exactpro.cradle.TimeRelation
 import com.exactpro.cradle.messages.GroupedMessageFilter
 import com.exactpro.cradle.messages.GroupedMessageFilterBuilder
@@ -30,11 +31,13 @@ import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.resultset.CradleResultSet
 import com.exactpro.th2.lwdataprovider.db.util.getGenericWithSyncInterval
 import com.exactpro.th2.lwdataprovider.db.util.withMeasurements
+import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
 import com.exactpro.th2.lwdataprovider.handlers.util.BookGroup
 import com.exactpro.th2.lwdataprovider.toReportId
 import mu.KotlinLogging
 import java.time.Duration
 import java.time.Instant
+import java.util.EnumSet
 import java.util.LinkedList
 import kotlin.system.measureTimeMillis
 
@@ -113,21 +116,45 @@ class CradleMessageExtractor(
             return
         }
 
-        fun StoredMessage.timestampLess(batch: StoredGroupedMessageBatch): Boolean = timestamp < batch.firstTimestamp
-        fun StoredGroupedMessageBatch.isNeedFiltration(): Boolean = firstTimestamp < start || lastTimestamp >= end
-        fun StoredMessage.inRange(): Boolean = timestamp >= start && timestamp < end
-        fun Collection<StoredMessage>.preFilter(): Collection<StoredMessage> =
-            parameters.preFilter?.let { filter(it) } ?: this
+        val includeMap: Map<String, Set<Direction>> = parameters.include.takeUnless(Set<*>::isEmpty)
+            ?.groupingBy { it.sessionAlias }
+            ?.aggregate { key, acc: MutableSet<Direction>?, el, first ->
+                el.direction.let {
+                    if (first) {
+                        hashSetOf(it)
+                    } else {
+                        requireNotNull(acc) { "accumulator is null for $key" }.apply { add(it) }
+                    }
+                }
+            } ?: emptyMap()
 
-        fun StoredGroupedMessageBatch.filterIfRequired(): Collection<StoredMessage> = if (isNeedFiltration()) {
-            messages.filter(StoredMessage::inRange and parameters.preFilter)
+        fun StoredMessage.timestampLess(batch: StoredGroupedMessageBatch): Boolean = timestamp < batch.firstTimestamp
+        fun StoredGroupedMessageBatch.isNeedFiltration(): Boolean = firstTimestamp < start || lastTimestamp >= end || includeMap.isNotEmpty()
+        fun StoredMessage.inRange(): Boolean = timestamp >= start && timestamp < end
+        fun StoredMessage.isIncluded(): Boolean = if (includeMap.isEmpty()) {
+            true
         } else {
-            messages.preFilter()
+            includeMap[sessionAlias]?.contains(direction) ?: false
         }
+        fun Sequence<StoredMessage>.preFilter(): Sequence<StoredMessage> =
+            parameters.preFilter?.let { filter(it) } ?: this
+        fun Collection<StoredMessage>.preFilterTo(dest: MutableCollection<StoredMessage>): Collection<StoredMessage> {
+            parameters.preFilter?.let { filterTo(dest, it) } ?: dest.addAll(this)
+            return dest
+        }
+
+        fun StoredGroupedMessageBatch.filterIfRequired(): Collection<StoredMessage> = messages.asSequence().run {
+            if (this@filterIfRequired.isNeedFiltration()) {
+                filter(StoredMessage::inRange and parameters.preFilter)
+                    .filter(StoredMessage::isIncluded)
+            } else {
+                preFilter()
+            }
+        }.toList()
 
         var prev: StoredGroupedMessageBatch? = null
         var currentBatch: StoredGroupedMessageBatch = iterator.next()
-        val buffer: LinkedList<StoredMessage> = LinkedList()
+        val buffer: MutableList<StoredMessage> = ArrayList()
         val remaining: LinkedList<StoredMessage> = LinkedList()
         while (iterator.hasNext()) {
             sink.canceled?.apply {
@@ -145,7 +172,7 @@ class CradleMessageExtractor(
                 if (needFiltration) {
                     prev.messages.filterTo(buffer, StoredMessage::inRange and parameters.preFilter)
                 } else {
-                    buffer.addAll(prev.messages.preFilter())
+                    prev.messages.preFilterTo(buffer)
                 }
                 tryDrain(group, buffer, sort, sink)
             } else {
@@ -153,7 +180,7 @@ class CradleMessageExtractor(
 
                 val messageCount = prev.messageCount
                 prev.messages.forEachIndexed { index, msg ->
-                    if ((needFiltration && !msg.inRange()) || parameters.preFilter?.invoke(msg) == false) {
+                    if ((needFiltration && !msg.inRange() && !msg.isIncluded()) || parameters.preFilter?.invoke(msg) == false) {
                         return@forEachIndexed
                     }
                     if (!sort || msg.timestampLess(currentBatch)) {
@@ -204,7 +231,7 @@ class CradleMessageExtractor(
 
     private fun tryDrain(
         group: String,
-        buffer: LinkedList<StoredMessage>,
+        buffer: MutableList<StoredMessage>,
         sort: Boolean,
         sink: MessageDataSink<String, StoredMessage>,
     ) {
@@ -296,5 +323,6 @@ private fun StoredGroupedMessageBatch.toShortInfo(): String = "${group}:${firstM
 
 data class CradleGroupRequest(
     val sort: Boolean,
+    val include: Set<ProviderMessageStream> = emptySet(),
     val preFilter: ((StoredMessage) -> Boolean)? = null,
 )

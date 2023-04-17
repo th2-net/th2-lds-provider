@@ -25,6 +25,7 @@ import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
+import com.exactpro.th2.lwdataprovider.entities.requests.util.convertToMessageStreams
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import com.exactpro.th2.lwdataprovider.http.JavalinHandler.Companion.customSse
@@ -174,7 +175,7 @@ class GetMessagesServlet(
             .allowNullable().get(),
         stream = ctx.listQueryParameters(STREAM).get()
             .takeIf(List<*>::isNotEmpty)
-            ?.let(SseMessageSearchRequest::toStreams),
+            ?.let(::convertToMessageStreams),
         searchDirection = ctx.queryParamAsClass<SearchDirection>(SEARCH_DIRECTION)
             .getOrDefault(SearchDirection.next),
         endTimestamp = ctx.queryParamAsClass<Instant>(END_TIMESTAMP).allowNullable().get(),

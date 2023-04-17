@@ -174,7 +174,7 @@ class SearchMessagesHandler(
             try {
                 rootSink.use { sink ->
 
-                    val parameters = CradleGroupRequest(request.sort)
+                    val parameters = CradleGroupRequest(request.sort, request.includeStreams)
                     request.groups.forEach { group ->
                         val filter = GroupedMessageFilter.builder()
                             .groupName(group)
@@ -196,6 +196,10 @@ class SearchMessagesHandler(
                         val allGroupLoaded = hashSetOf<String>()
                         do {
                             val keepPulling = pullUpdates(request, lastTimestamp, sink, parameters, allGroupLoaded)
+                            sink.canceled?.apply {
+                                logger.info { "request canceled: $message" }
+                                return@use
+                            }
                         } while (keepPulling)
                     }
                 }

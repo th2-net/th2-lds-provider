@@ -27,7 +27,10 @@ import com.exactpro.cradle.messages.StoredGroupedMessageBatch
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.MessageRouter
+import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
+import com.exactpro.th2.lwdataprovider.util.CradleResult
 import com.exactpro.th2.lwdataprovider.util.DummyDataMeasurement
+import com.exactpro.th2.lwdataprovider.util.GroupBatch
 import com.exactpro.th2.lwdataprovider.util.ImmutableListCradleResult
 import com.exactpro.th2.lwdataprovider.util.ListCradleResult
 import com.exactpro.th2.lwdataprovider.util.createBatches
@@ -52,6 +55,9 @@ import org.mockito.kotlin.whenever
 import strikt.api.expectThat
 import strikt.assertions.containsExactly
 import strikt.assertions.hasSize
+import strikt.assertions.isEqualTo
+import strikt.assertions.single
+import strikt.assertions.withElementAt
 import java.time.Duration
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -79,6 +85,92 @@ internal class TestCradleMessageExtractor {
         manager = mock { on { this.storage }.thenReturn(storage) }
         extractor = CradleMessageExtractor(groupRequestBuffer, manager, DummyDataMeasurement)
         clearInvocations(storage, messageRouter, manager)
+    }
+
+    @ParameterizedTest(name = "sort: {0}")
+    @ValueSource(booleans = [true, false])
+    fun `excludes alias from group search`(sort: Boolean) {
+        var index = 1L
+        val start = Instant.now()
+        doReturn(
+            CradleResult(
+                GroupBatch(
+                    "test-group",
+                    messages = buildList {
+                        repeat(6) {
+                            add(createCradleStoredMessage("test-${it % 3}", Direction.FIRST, index++))
+                        }
+                    },
+                )
+            )
+        ).whenever(storage).getGroupedMessageBatches(argThat {
+            groupName == "test-group"
+        })
+
+        val sink = StoredMessageDataSink()
+        extractor.getMessagesGroup(
+            GroupedMessageFilter.builder()
+                .groupName("test-group")
+                .timestampFrom().isGreaterThanOrEqualTo(start)
+                .timestampTo().isLessThan(Instant.now())
+                .build(),
+            CradleGroupRequest(
+                sort = sort,
+                include = setOf(ProviderMessageStream("test-0", Direction.FIRST)),
+            ),
+            sink,
+        )
+
+        expectThat(sink.messages)
+            .hasSize(2)
+            .withElementAt(0) {
+                get { sequence }.isEqualTo(1)
+            }.withElementAt(1) {
+                get { sequence }.isEqualTo(4)
+            }
+    }
+
+    @ParameterizedTest(name = "sort: {0}")
+    @ValueSource(booleans = [true, false])
+    fun `excludes alias and direction from group search`(sort: Boolean) {
+        var index = 1L
+        val start = Instant.now()
+        doReturn(
+            CradleResult(
+                GroupBatch(
+                    "test-group",
+                    messages = buildList {
+                        repeat(6) {
+                            add(createCradleStoredMessage(
+                                "test-${it % 3}",
+                                if (it % 2 == 0) Direction.FIRST else Direction.SECOND,
+                                index++,
+                            ))
+                        }
+                    },
+                )
+            )
+        ).whenever(storage).getGroupedMessageBatches(argThat {
+            groupName == "test-group"
+        })
+
+        val sink = StoredMessageDataSink()
+        extractor.getMessagesGroup(
+            GroupedMessageFilter.builder()
+                .groupName("test-group")
+                .timestampFrom().isGreaterThanOrEqualTo(start)
+                .timestampTo().isLessThan(Instant.now())
+                .build(),
+            CradleGroupRequest(
+                sort = sort,
+                include = setOf(ProviderMessageStream("test-0", Direction.FIRST)),
+            ),
+            sink,
+        )
+
+        expectThat(sink.messages)
+            .single()
+            .get { sequence }.isEqualTo(1)
     }
 
     @Test

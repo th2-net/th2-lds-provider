@@ -103,6 +103,9 @@ class ImmutableListCradleResult<T>(collection: Collection<T>) : CradleResultSet<
     override fun next(): T = iterator.next()
 }
 
+@Suppress("TestFunctionName")
+fun <T> CradleResult(vararg data: T): CradleResultSet<T> = ImmutableListCradleResult(data.toList())
+
 fun createBatches(
     messagesPerBatch: Long,
     batchesCount: Int,
@@ -132,6 +135,21 @@ fun createBatches(
             ))
         }
     }
+
+@Suppress("TestFunctionName")
+fun GroupBatch(group: String, vararg messages: StoredMessage): StoredGroupedMessageBatch = GroupBatch(
+    group,
+    "test",
+    messages.toList(),
+)
+
+@Suppress("TestFunctionName")
+fun GroupBatch(group: String, book: String? = "test", messages: Collection<StoredMessage>): StoredGroupedMessageBatch = StoredGroupedMessageBatch(
+    group,
+    messages,
+    PageId(BookId(book), "test-page-${System.currentTimeMillis()}"),
+    Instant.now(),
+)
 
 fun createStoredMessages(
     alias: String,

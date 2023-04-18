@@ -200,30 +200,9 @@ class SearchMessagesHandler(
             try {
                 rootSink.use { sink ->
 
-                    val preFilter = if (request.includeStreams.isEmpty()) {
-                        null
-                    } else {
-                        val includeMap: Map<String, Set<Direction>> = request.includeStreams
-                            .groupingBy { it.sessionAlias }
-                            .aggregate { key, acc: MutableSet<Direction>?, el, first ->
-                                el.direction.let {
-                                    if (first) {
-                                        hashSetOf(it)
-                                    } else {
-                                        requireNotNull(acc) { "accumulator is null for $key" }.apply { add(it) }
-                                    }
-                                }
-                            }
-
-                        val filter: (StoredMessage) -> Boolean = { msg ->
-                            includeMap[msg.sessionAlias]?.contains(msg.direction) ?: false
-                        }
-                        filter
-                    }
-
                     val parameters = CradleGroupRequest(
                         sort = request.sort,
-                        preFilter = preFilter,
+                        preFilter = createInitialPrefilter(request),
                     )
                     request.groups.forEach { group ->
                         val filter = GroupedMessageFilter.builder()
@@ -257,6 +236,27 @@ class SearchMessagesHandler(
                 logger.error("Error getting messages group", ex)
                 rootSink.onError(ex)
             }
+        }
+    }
+
+    private fun createInitialPrefilter(request: MessagesGroupRequest): ((StoredMessage) -> Boolean)? {
+        if (request.includeStreams.isEmpty()) {
+            return null
+        }
+        val includeMap: Map<String, Set<Direction>> = request.includeStreams
+            .groupingBy { it.sessionAlias }
+            .aggregate { key, acc: MutableSet<Direction>?, el, first ->
+                el.direction.let {
+                    if (first) {
+                        hashSetOf(it)
+                    } else {
+                        requireNotNull(acc) { "accumulator is null for $key" }.apply { add(it) }
+                    }
+                }
+            }
+
+        return { msg ->
+            includeMap[msg.sessionAlias]?.contains(msg.direction) ?: false
         }
     }
 

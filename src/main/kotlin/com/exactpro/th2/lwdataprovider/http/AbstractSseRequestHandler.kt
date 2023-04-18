@@ -75,9 +75,6 @@ abstract class AbstractSseRequestHandler : Consumer<SseClient>, JavalinHandler {
         }
     }
 
-    protected fun Context.listQueryParameters(name: String): Validator<List<String>> =
-        Validator(fieldName = name, typedValue = queryParams(name))
-
     companion object {
         private val K_LOGGER = KotlinLogging.logger { }
     }

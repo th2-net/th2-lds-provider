@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.cradle.BookId
+import com.exactpro.th2.lwdataprovider.EventType
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
@@ -26,11 +27,14 @@ import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.util.convertToMessageStreams
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
-import com.exactpro.th2.lwdataprovider.http.JavalinHandler.Companion.customSse
 import com.exactpro.th2.lwdataprovider.http.util.listQueryParameters
+import com.exactpro.th2.lwdataprovider.metrics.HttpWriteMetrics
+import com.exactpro.th2.lwdataprovider.metrics.ResponseQueue
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import io.javalin.Javalin
 import io.javalin.http.Context
+import io.javalin.http.Header
+import io.javalin.http.HttpStatus
 import io.javalin.http.queryParamAsClass
 import io.javalin.openapi.HttpMethod
 import io.javalin.openapi.OpenApi
@@ -38,32 +42,26 @@ import io.javalin.openapi.OpenApiContent
 import io.javalin.openapi.OpenApiParam
 import io.javalin.openapi.OpenApiResponse
 import mu.KotlinLogging
+import org.apache.commons.lang3.StringUtils
 import java.time.Instant
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.Executor
 import java.util.function.Supplier
 
-class GetMessageGroupsServlet(
+class FileDownloadHandler(
     private val configuration: Configuration,
     private val convExecutor: Executor,
     private val sseResponseBuilder: SseResponseBuilder,
     private val keepAliveHandler: KeepAliveHandler,
     private val searchMessagesHandler: SearchMessagesHandler,
     private val dataMeasurement: DataMeasurement,
-) : AbstractSseRequestHandler() {
-
+) : JavalinHandler {
     override fun setup(app: Javalin, context: JavalinContext) {
-        app.before(ROUTE) {
-            it.queryParam(RAW_ONLY_PARAMETER)?.also {
-                LOGGER.warn { "Parameter $RAW_ONLY_PARAMETER is deprecated" }
-            }
-            it.attribute(REQUEST_KEY, createRequest(it))
-        }
-        app.customSse(ROUTE, this, context)
+        app.get(ROUTE_MESSAGES, this::handleMessage)
     }
 
     @OpenApi(
-        path = ROUTE,
+        path = ROUTE_MESSAGES,
         description = "returns list of messages for specified groups. Each group will be requested one after another " +
                 "(there is no order guaranties between groups). Messages for a group are not sorted by default. " +
                 "Use $SORT_PARAMETER in order to sort messages for each group",
@@ -120,7 +118,7 @@ class GetMessageGroupsServlet(
             OpenApiParam(
                 STREAM,
                 type = Array<String>::class,
-                description = "list of streams (optionally with direction) to include in the response"
+                description = "list of streams (optionally with direction) to include in the response",
             )
         ],
         methods = [HttpMethod.GET],
@@ -130,19 +128,33 @@ class GetMessageGroupsServlet(
                 content = [
                     OpenApiContent(
                         from = ProviderMessage53::class,
-                        mimeType = "text/event-stream",
+                        mimeType = JSON_STREAM_CONTENT_TYPE,
                     )
                 ]
             )
         ]
     )
-    override fun accept(sseClient: SseClient) {
-        val ctx = sseClient.ctx()
-        LOGGER.info { "Processing request for getting message groups: ${ctx.queryString()}" }
-        val request = checkNotNull(ctx.attribute<MessagesGroupRequest>(REQUEST_KEY)) {
-            "request was not created in before handler"
-        }
-
+    private fun handleMessage(ctx: Context) {
+        val request = MessagesGroupRequest(
+            groups = ctx.listQueryParameters(GROUP_PARAM)
+                .check(List<*>::isNotEmpty, "EMPTY_COLLECTION")
+                .check({ it.all(String::isNotBlank) }, "BLANK_GROUP")
+                .get().toSet(),
+            startTimestamp = ctx.queryParamAsClass<Instant>(START_TIMESTAMP_PARAM)
+                .get(),
+            endTimestamp = ctx.queryParamAsClass<Instant>(END_TIMESTAMP_PARAM)
+                .get(),
+            sort = ctx.queryParamAsClass<Boolean>(SORT_PARAMETER)
+                .getOrDefault(false),
+            keepOpen = ctx.queryParamAsClass<Boolean>(KEEP_OPEN_PARAMETER)
+                .getOrDefault(false),
+            bookId = ctx.queryParamAsClass<BookId>(BOOK_ID_PARAM).get(),
+            responseFormats = ctx.queryParams(RESPONSE_FORMAT).takeIf(List<*>::isNotEmpty)
+                ?.mapTo(hashSetOf(), ResponseFormat.Companion::fromString),
+            includeStreams = ctx.queryParams(STREAM).takeIf(List<*>::isNotEmpty)
+                ?.let(::convertToMessageStreams)
+                ?.toSet() ?: emptySet(),
+        )
 
         val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
         val responseFormats: Set<ResponseFormat>? = request.responseFormats.let { formats ->
@@ -157,38 +169,57 @@ class GetMessageGroupsServlet(
             maxMessagesPerRequest = configuration.bufferPerQuery,
             responseFormats = responseFormats ?: configuration.responseFormats
         )
-        sseClient.onClose(handler::cancel)
         keepAliveHandler.addKeepAliveData(handler).use {
             searchMessagesHandler.loadMessageGroups(request, handler, dataMeasurement)
-            sseClient.waitAndWrite(queue)
+            processData(ctx, queue, handler)
             LOGGER.info { "Processing search sse messages group request finished" }
         }
     }
 
-    private fun createRequest(ctx: Context) = MessagesGroupRequest(
-        groups = ctx.listQueryParameters(GROUP_PARAM)
-            .check(List<*>::isNotEmpty, "EMPTY_COLLECTION")
-            .check({ it.all(String::isNotBlank) }, "BLANK_GROUP")
-            .get().toSet(),
-        startTimestamp = ctx.queryParamAsClass<Instant>(START_TIMESTAMP_PARAM)
-            .get(),
-        endTimestamp = ctx.queryParamAsClass<Instant>(END_TIMESTAMP_PARAM)
-            .get(),
-        sort = ctx.queryParamAsClass<Boolean>(SORT_PARAMETER)
-            .getOrDefault(false),
-        keepOpen = ctx.queryParamAsClass<Boolean>(KEEP_OPEN_PARAMETER)
-            .getOrDefault(false),
-        bookId = ctx.queryParamAsClass<BookId>(BOOK_ID_PARAM).get(),
-        responseFormats = ctx.queryParams(RESPONSE_FORMAT).takeIf(List<*>::isNotEmpty)
-            ?.mapTo(hashSetOf(), ResponseFormat.Companion::fromString),
-        includeStreams = ctx.queryParams(STREAM).takeIf(List<*>::isNotEmpty)
-            ?.let(::convertToMessageStreams)
-            ?.toSet() ?: emptySet(),
-    )
+    private fun processData(
+        ctx: Context,
+        queue: ArrayBlockingQueue<Supplier<SseEvent>>,
+        handler: HttpMessagesRequestHandler
+    ) {
+        val matchedPath = ctx.matchedPath()
+        var dataSent = 0
+        ctx.status(HttpStatus.OK)
+            .contentType(JSON_STREAM_CONTENT_TYPE)
+            .header(Header.TRANSFER_ENCODING, "chunked")
+        val output = ctx.res().outputStream.buffered()
+        val responseCharset = ctx.responseCharset()
+        try {
+            do {
+                val nextEvent = queue.take()
+                ResponseQueue.currentSize(matchedPath, queue.size)
+                val sseEvent = nextEvent.get()
+                when (sseEvent.event) {
+                    EventType.KEEP_ALIVE -> output.flush()
+                    EventType.CLOSE -> {
+                        LOGGER.info { "Received close event" }
+                        break
+                    }
+                    else -> {
+                        LOGGER.debug { "Write event to output: ${StringUtils.abbreviate(sseEvent.data, 100)}" }
+                        output.write(sseEvent.data.toByteArray(responseCharset))
+                        output.write('\n'.code)
+                        dataSent++
+                    }
+                }
+            } while (true)
+        } catch (ex: Exception) {
+            LOGGER.error(ex) { "cannot process next event" }
+            handler.cancel()
+            queue.clear()
+        } finally {
+            HttpWriteMetrics.messageSent(matchedPath, dataSent)
+            runCatching { output.flush() }
+                .onFailure { LOGGER.error(it) { "cannot flush the remaining data when processing is finished" } }
+        }
+    }
 
     companion object {
-        const val ROUTE = "/search/sse/messages/group"
-        private const val REQUEST_KEY = "sse.groups.request"
+        private const val JSON_STREAM_CONTENT_TYPE = "application/stream+json"
         private const val GROUP_PARAM = "group"
         private const val START_TIMESTAMP_PARAM = "startTimestamp"
         private const val END_TIMESTAMP_PARAM = "endTimestamp"
@@ -199,5 +230,6 @@ class GetMessageGroupsServlet(
         private const val RESPONSE_FORMAT = "responseFormat"
         private const val STREAM = "stream"
         private val LOGGER = KotlinLogging.logger { }
+        const val ROUTE_MESSAGES = "/download/messages"
     }
 }

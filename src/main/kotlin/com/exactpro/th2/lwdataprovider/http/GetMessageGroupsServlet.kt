@@ -116,6 +116,11 @@ class GetMessageGroupsServlet(
                 type = Array<ResponseFormat>::class,
                 description = "the format of the response"
             ),
+            OpenApiParam(
+                STREAM,
+                type = Array<String>::class,
+                description = "list of streams (optionally with direction) to include in the response"
+            )
         ],
         methods = [HttpMethod.GET],
         responses = [

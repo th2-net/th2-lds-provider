@@ -116,26 +116,9 @@ class CradleMessageExtractor(
             return
         }
 
-        val includeMap: Map<String, Set<Direction>> = parameters.include.takeUnless(Set<*>::isEmpty)
-            ?.groupingBy { it.sessionAlias }
-            ?.aggregate { key, acc: MutableSet<Direction>?, el, first ->
-                el.direction.let {
-                    if (first) {
-                        hashSetOf(it)
-                    } else {
-                        requireNotNull(acc) { "accumulator is null for $key" }.apply { add(it) }
-                    }
-                }
-            } ?: emptyMap()
-
         fun StoredMessage.timestampLess(batch: StoredGroupedMessageBatch): Boolean = timestamp < batch.firstTimestamp
-        fun StoredGroupedMessageBatch.isNeedFiltration(): Boolean = firstTimestamp < start || lastTimestamp >= end || includeMap.isNotEmpty()
+        fun StoredGroupedMessageBatch.isNeedFiltration(): Boolean = firstTimestamp < start || lastTimestamp >= end
         fun StoredMessage.inRange(): Boolean = timestamp >= start && timestamp < end
-        fun StoredMessage.isIncluded(): Boolean = if (includeMap.isEmpty()) {
-            true
-        } else {
-            includeMap[sessionAlias]?.contains(direction) ?: false
-        }
         fun Sequence<StoredMessage>.preFilter(): Sequence<StoredMessage> =
             parameters.preFilter?.let { filter(it) } ?: this
         fun Collection<StoredMessage>.preFilterTo(dest: MutableCollection<StoredMessage>): Collection<StoredMessage> {
@@ -146,7 +129,6 @@ class CradleMessageExtractor(
         fun StoredGroupedMessageBatch.filterIfRequired(): Collection<StoredMessage> = messages.asSequence().run {
             if (this@filterIfRequired.isNeedFiltration()) {
                 filter(StoredMessage::inRange and parameters.preFilter)
-                    .filter(StoredMessage::isIncluded)
             } else {
                 preFilter()
             }
@@ -180,7 +162,7 @@ class CradleMessageExtractor(
 
                 val messageCount = prev.messageCount
                 prev.messages.forEachIndexed { index, msg ->
-                    if ((needFiltration && !msg.inRange() && !msg.isIncluded()) || parameters.preFilter?.invoke(msg) == false) {
+                    if ((needFiltration && !msg.inRange()) || parameters.preFilter?.invoke(msg) == false) {
                         return@forEachIndexed
                     }
                     if (!sort || msg.timestampLess(currentBatch)) {
@@ -353,6 +335,5 @@ private fun StoredGroupedMessageBatch.toShortInfo(): String = "${group}:${firstM
 
 data class CradleGroupRequest(
     val sort: Boolean,
-    val include: Set<ProviderMessageStream> = emptySet(),
     val preFilter: ((StoredMessage) -> Boolean)? = null,
 )

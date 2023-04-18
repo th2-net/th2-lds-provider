@@ -55,12 +55,15 @@ fun computeNewParametersForGroupRequest(
         } else {
             val lastIdByStream: Map<Pair<String, Direction>, StoredMessageId> = streamInfo.lastIDsForGroup(group)
                 .associateBy { it.sessionAlias to it.direction }
+            val originalPrefilter = parameters.preFilter
             parameters.copy(
                 preFilter = { msg ->
-                    val stream = msg.run { sessionAlias to direction }
-                    lastIdByStream[stream]?.run {
-                        msg.sequence > sequence
-                    } ?: true
+                    originalPrefilter?.invoke(msg)?.takeIf { !it } ?: run {
+                        val stream = msg.run { sessionAlias to direction }
+                        lastIdByStream[stream]?.run {
+                            msg.sequence > sequence
+                        } ?: true
+                    }
                 }
             )
         }

@@ -43,7 +43,9 @@ import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 import com.exactpro.th2.lwdataprovider.grpc.toCradleDirection
+import com.exactpro.th2.lwdataprovider.util.CradleResult
 import com.exactpro.th2.lwdataprovider.util.DummyDataMeasurement
+import com.exactpro.th2.lwdataprovider.util.GroupBatch
 import com.exactpro.th2.lwdataprovider.util.ImmutableListCradleResult
 import com.exactpro.th2.lwdataprovider.util.ListCradleResult
 import com.exactpro.th2.lwdataprovider.util.createBatches
@@ -98,6 +100,112 @@ internal class TestSearchMessagesHandler {
     private val decoder = spy(TestDecoder())
 
     private val searchHandler = createSearchMessagesHandler(decoder, false)
+
+    @ParameterizedTest(name = "sort: {0}")
+    @ValueSource(booleans = [true, false])
+    fun `excludes alias from group search`(sort: Boolean) {
+        var index = 1L
+        val start = Instant.now()
+        val groupBatch = GroupBatch(
+            "test-group",
+            messages = buildList {
+                repeat(6) {
+                    add(createCradleStoredMessage("test-${it % 3}", Direction.FIRST, index++))
+                }
+            },
+        )
+        doReturn(
+            CradleResult(
+                groupBatch
+            )
+        ).whenever(storage).getGroupedMessageBatches(argThat {
+            groupName == "test-group"
+        })
+
+        val handler = spy(MessageResponseHandlerTestImpl(measurement, 4))
+        searchHandler.loadMessageGroups(
+            MessagesGroupRequest(
+                groups = setOf("test-group"),
+                startTimestamp = start,
+                endTimestamp = Instant.now(),
+                sort = sort,
+                keepOpen = false,
+                bookId = BookId("test-book"),
+                responseFormats = setOf(ResponseFormat.BASE_64),
+                includeStreams = setOf(
+                    ProviderMessageStream("test-0", Direction.FIRST),
+                ),
+            ),
+            handler,
+            measurement,
+        )
+
+        val messages = argumentCaptor<RequestedMessageDetails>()
+        inOrder(handler) {
+            verify(handler, times(2)).handleNext(messages.capture())
+            verify(handler).complete()
+        }
+        expectThat(messages.allValues).elementsEquals(
+            groupBatch.messages.filter { it.sessionAlias == "test-0" && it.direction == Direction.FIRST },
+            isParsed = false
+        )
+        verifyNoInteractions(decoder)
+    }
+
+    @ParameterizedTest(name = "sort: {0}")
+    @ValueSource(booleans = [true, false])
+    fun `excludes alias and direction from group search`(sort: Boolean) {
+        var index = 1L
+        val start = Instant.now()
+        val groupBatch = GroupBatch(
+            "test-group",
+            messages = buildList {
+                repeat(6) {
+                    add(
+                        createCradleStoredMessage(
+                            "test-${it % 3}",
+                            if (it % 2 == 0) Direction.FIRST else Direction.SECOND,
+                            index++,
+                        )
+                    )
+                }
+            },
+        )
+        doReturn(
+            CradleResult(
+                groupBatch
+            )
+        ).whenever(storage).getGroupedMessageBatches(argThat {
+            groupName == "test-group"
+        })
+
+        val handler = spy(MessageResponseHandlerTestImpl(measurement, 4))
+        searchHandler.loadMessageGroups(
+            MessagesGroupRequest(
+                groups = setOf("test-group"),
+                startTimestamp = start,
+                endTimestamp = Instant.now(),
+                sort = sort,
+                keepOpen = false,
+                bookId = BookId("test-book"),
+                responseFormats = setOf(ResponseFormat.BASE_64),
+                includeStreams = setOf(ProviderMessageStream("test-0", Direction.FIRST)),
+            ),
+            handler,
+            measurement,
+        )
+
+        val messages = argumentCaptor<RequestedMessageDetails>()
+        inOrder(handler) {
+            verify(handler, times(1)).handleNext(messages.capture())
+            verify(handler).complete()
+        }
+        expectThat(messages.allValues).elementsEquals(
+            groupBatch.messages.filter { it.sessionAlias == "test-0" && it.direction == Direction.FIRST },
+            isParsed = false
+        )
+        verifyNoInteractions(decoder)
+    }
     @Test
     fun `stops when limit per request is reached`() {
         val taskExecutor = Executors.newSingleThreadExecutor()

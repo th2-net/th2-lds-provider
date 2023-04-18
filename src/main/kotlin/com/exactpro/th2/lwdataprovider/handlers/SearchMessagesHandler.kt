@@ -200,7 +200,31 @@ class SearchMessagesHandler(
             try {
                 rootSink.use { sink ->
 
-                    val parameters = CradleGroupRequest(request.sort, request.includeStreams)
+                    val preFilter = if (request.includeStreams.isEmpty()) {
+                        null
+                    } else {
+                        val includeMap: Map<String, Set<Direction>> = request.includeStreams
+                            .groupingBy { it.sessionAlias }
+                            .aggregate { key, acc: MutableSet<Direction>?, el, first ->
+                                el.direction.let {
+                                    if (first) {
+                                        hashSetOf(it)
+                                    } else {
+                                        requireNotNull(acc) { "accumulator is null for $key" }.apply { add(it) }
+                                    }
+                                }
+                            }
+
+                        val filter: (StoredMessage) -> Boolean = { msg ->
+                            includeMap[msg.sessionAlias]?.contains(msg.direction) ?: false
+                        }
+                        filter
+                    }
+
+                    val parameters = CradleGroupRequest(
+                        sort = request.sort,
+                        preFilter = preFilter,
+                    )
                     request.groups.forEach { group ->
                         val filter = GroupedMessageFilter.builder()
                             .groupName(group)

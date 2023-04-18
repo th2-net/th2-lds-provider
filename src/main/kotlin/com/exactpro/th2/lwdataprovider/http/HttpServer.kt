@@ -88,6 +88,13 @@ class HttpServer(private val context: Context) {
                 keepAliveHandler, context.generalCradleHandler),
             GetAllPageInfosServlet(configuration, sseResponseBuilder,
                 keepAliveHandler, context.generalCradleHandler),
+            GetSingleMessageByGroupAndId(
+                searchMessagesHandler,
+                configuration,
+                sseResponseBuilder,
+                context.convExecutor,
+                context.requestsDataMeasurement,
+            )
         )
 
         app = Javalin.create {
@@ -107,12 +114,11 @@ class HttpServer(private val context: Context) {
             setupReDoc(it)
         }.apply {
             setupConverters(this)
+            setupExceptionHandlers(this)
             val javalinContext = JavalinContext(configuration.flushSseAfter)
             for (handler in handlers) {
                 handler.setup(this, javalinContext)
             }
-            exception(IllegalArgumentException::class.java) { ex, _ -> throw BadRequestResponse(ExceptionUtils.getRootCauseMessage(ex)) }
-            exception(InvalidRequestException::class.java) { ex, _ -> throw BadRequestResponse(ExceptionUtils.getRootCauseMessage(ex)) }
             jettyServer()?.server()?.insertHandler(createGzipHandler())
         }.start(configuration.hostname, configuration.port)
 
@@ -197,6 +203,14 @@ class HttpServer(private val context: Context) {
             JavalinValidation.register(SearchDirection::class.java, SearchDirection::valueOf)
             JavalinValidation.register(BookId::class.java, ::BookId)
             JavalinValidation.addValidationExceptionMapper(javalin)
+        }
+
+        @JvmStatic
+        fun setupExceptionHandlers(javalin: Javalin) {
+            javalin.apply {
+                exception(IllegalArgumentException::class.java) { ex, _ -> throw BadRequestResponse(ExceptionUtils.getRootCauseMessage(ex)) }
+                exception(InvalidRequestException::class.java) { ex, _ -> throw BadRequestResponse(ExceptionUtils.getRootCauseMessage(ex)) }
+            }
         }
     }
 }

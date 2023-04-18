@@ -32,6 +32,7 @@ import com.exactpro.th2.lwdataprovider.db.CradleGroupRequest
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
+import com.exactpro.th2.lwdataprovider.entities.requests.GetGroupMessageRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
@@ -150,6 +151,31 @@ class SearchMessagesHandler(
         }
     }
 
+    fun loadOneMessageByGroup(request: GetGroupMessageRequest, requestContext: MessageResponseHandler, dataMeasurement: DataMeasurement) {
+        threadPool.execute {
+            val rootSink = RootMessagesDataSink(
+                requestContext,
+                if (request.rawOnly) {
+                    RawStoredMessageHandler(requestContext)
+                } else {
+                    if (configuration.useDemoMode) {
+                        DemoParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
+                    } else {
+                        ParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
+                    }
+                }
+            )
+            try {
+                rootSink.use { sink ->
+                    cradleMsgExtractor.getMessage(request.group, request.messageId, sink)
+                }
+            } catch (e: Exception) {
+                logger.error(e) { "error getting messages" }
+                rootSink.onError(e, request.messageId.toReportId())
+            }
+        }
+    }
+
     fun loadMessageGroups(request: MessagesGroupRequest, requestContext: MessageResponseHandler, dataMeasurement: DataMeasurement) {
         if (request.groups.isEmpty()) {
             requestContext.complete()
@@ -159,7 +185,7 @@ class SearchMessagesHandler(
             logger.info { "Executing group request $request" }
             val rootSink = RootMessagesDataSink(
                 requestContext,
-                if (request.rawOnly) {
+                if (request.responseFormats.hasRowOnly()) {
                     RawStoredMessageHandler(requestContext)
                 } else {
                     if (configuration.useDemoMode) {
@@ -174,7 +200,10 @@ class SearchMessagesHandler(
             try {
                 rootSink.use { sink ->
 
-                    val parameters = CradleGroupRequest(request.sort)
+                    val parameters = CradleGroupRequest(
+                        sort = request.sort,
+                        preFilter = createInitialPrefilter(request),
+                    )
                     request.groups.forEach { group ->
                         val filter = GroupedMessageFilter.builder()
                             .groupName(group)
@@ -196,6 +225,10 @@ class SearchMessagesHandler(
                         val allGroupLoaded = hashSetOf<String>()
                         do {
                             val keepPulling = pullUpdates(request, lastTimestamp, sink, parameters, allGroupLoaded)
+                            sink.canceled?.apply {
+                                logger.info { "request canceled: $message" }
+                                return@use
+                            }
                         } while (keepPulling)
                     }
                 }
@@ -203,6 +236,27 @@ class SearchMessagesHandler(
                 logger.error("Error getting messages group", ex)
                 rootSink.onError(ex)
             }
+        }
+    }
+
+    private fun createInitialPrefilter(request: MessagesGroupRequest): ((StoredMessage) -> Boolean)? {
+        if (request.includeStreams.isEmpty()) {
+            return null
+        }
+        val includeMap: Map<String, Set<Direction>> = request.includeStreams
+            .groupingBy { it.sessionAlias }
+            .aggregate { key, acc: MutableSet<Direction>?, el, first ->
+                el.direction.let {
+                    if (first) {
+                        hashSetOf(it)
+                    } else {
+                        requireNotNull(acc) { "accumulator is null for $key" }.apply { add(it) }
+                    }
+                }
+            }
+
+        return { msg ->
+            includeMap[msg.sessionAlias]?.contains(msg.direction) ?: false
         }
     }
 

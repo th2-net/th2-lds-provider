@@ -27,7 +27,10 @@ import com.exactpro.cradle.messages.StoredGroupedMessageBatch
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.MessageRouter
+import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
+import com.exactpro.th2.lwdataprovider.util.CradleResult
 import com.exactpro.th2.lwdataprovider.util.DummyDataMeasurement
+import com.exactpro.th2.lwdataprovider.util.GroupBatch
 import com.exactpro.th2.lwdataprovider.util.ImmutableListCradleResult
 import com.exactpro.th2.lwdataprovider.util.ListCradleResult
 import com.exactpro.th2.lwdataprovider.util.createBatches
@@ -52,6 +55,9 @@ import org.mockito.kotlin.whenever
 import strikt.api.expectThat
 import strikt.assertions.containsExactly
 import strikt.assertions.hasSize
+import strikt.assertions.isEqualTo
+import strikt.assertions.single
+import strikt.assertions.withElementAt
 import java.time.Duration
 import java.time.Instant
 import java.time.temporal.ChronoUnit

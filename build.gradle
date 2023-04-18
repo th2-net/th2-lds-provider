@@ -27,7 +27,7 @@ plugins {
 ext {
     dockerImageVersion = release_version
     cradleApiVersion = '5.0.0-separate-executor-4540242539-6c92e55-SNAPSHOT'
-    javalin = '5.3.1'
+    javalin = '5.4.2'
 }
 
 dependencyCheck {
@@ -89,6 +89,12 @@ dependencies {
     implementation 'io.netty:netty-buffer'
 
     testImplementation "io.javalin:javalin-testtools:$javalin"
+
+    testImplementation platform('org.testcontainers:testcontainers-bom:1.18.0')
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation "org.testcontainers:cassandra"
+
+    testImplementation 'com.datastax.oss:java-driver-core'
 }
 
 applicationName = 'service'

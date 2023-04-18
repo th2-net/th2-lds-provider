@@ -19,6 +19,8 @@ package com.exactpro.th2.lwdataprovider.db
 import com.exactpro.cradle.BookId
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
+import com.exactpro.cradle.Direction
+import com.exactpro.cradle.Order
 import com.exactpro.cradle.TimeRelation
 import com.exactpro.cradle.messages.GroupedMessageFilter
 import com.exactpro.cradle.messages.GroupedMessageFilterBuilder
@@ -30,6 +32,7 @@ import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.resultset.CradleResultSet
 import com.exactpro.th2.lwdataprovider.db.util.getGenericWithSyncInterval
 import com.exactpro.th2.lwdataprovider.db.util.withMeasurements
+import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
 import com.exactpro.th2.lwdataprovider.handlers.util.BookGroup
 import com.exactpro.th2.lwdataprovider.toReportId
 import mu.KotlinLogging
@@ -116,18 +119,24 @@ class CradleMessageExtractor(
         fun StoredMessage.timestampLess(batch: StoredGroupedMessageBatch): Boolean = timestamp < batch.firstTimestamp
         fun StoredGroupedMessageBatch.isNeedFiltration(): Boolean = firstTimestamp < start || lastTimestamp >= end
         fun StoredMessage.inRange(): Boolean = timestamp >= start && timestamp < end
-        fun Collection<StoredMessage>.preFilter(): Collection<StoredMessage> =
+        fun Sequence<StoredMessage>.preFilter(): Sequence<StoredMessage> =
             parameters.preFilter?.let { filter(it) } ?: this
-
-        fun StoredGroupedMessageBatch.filterIfRequired(): Collection<StoredMessage> = if (isNeedFiltration()) {
-            messages.filter(StoredMessage::inRange and parameters.preFilter)
-        } else {
-            messages.preFilter()
+        fun Collection<StoredMessage>.preFilterTo(dest: MutableCollection<StoredMessage>): Collection<StoredMessage> {
+            parameters.preFilter?.let { filterTo(dest, it) } ?: dest.addAll(this)
+            return dest
         }
+
+        fun StoredGroupedMessageBatch.filterIfRequired(): Collection<StoredMessage> = messages.asSequence().run {
+            if (this@filterIfRequired.isNeedFiltration()) {
+                filter(StoredMessage::inRange and parameters.preFilter)
+            } else {
+                preFilter()
+            }
+        }.toList()
 
         var prev: StoredGroupedMessageBatch? = null
         var currentBatch: StoredGroupedMessageBatch = iterator.next()
-        val buffer: LinkedList<StoredMessage> = LinkedList()
+        val buffer: MutableList<StoredMessage> = ArrayList()
         val remaining: LinkedList<StoredMessage> = LinkedList()
         while (iterator.hasNext()) {
             sink.canceled?.apply {
@@ -145,7 +154,7 @@ class CradleMessageExtractor(
                 if (needFiltration) {
                     prev.messages.filterTo(buffer, StoredMessage::inRange and parameters.preFilter)
                 } else {
-                    buffer.addAll(prev.messages.preFilter())
+                    prev.messages.preFilterTo(buffer)
                 }
                 tryDrain(group, buffer, sort, sink)
             } else {
@@ -204,7 +213,7 @@ class CradleMessageExtractor(
 
     private fun tryDrain(
         group: String,
-        buffer: LinkedList<StoredMessage>,
+        buffer: MutableList<StoredMessage>,
         sort: Boolean,
         sink: MessageDataSink<String, StoredMessage>,
     ) {
@@ -240,6 +249,36 @@ class CradleMessageExtractor(
 
         logger.info { "Loaded 1 messages with id $msgId from DB $time ms" }
 
+    }
+
+    fun getMessage(group: String, msgId: StoredMessageId, sink: MessageDataSink<String, StoredMessage>) {
+        val time = measureTimeMillis {
+            logger.info { "Extracting message: $msgId from group $group" }
+            val batches = measure("group_message") {
+                storage.getGroupedMessageBatches(
+                    GroupedMessageFilter.builder()
+                        .groupName(group)
+                        .bookId(msgId.bookId)
+                        .timestampTo().isLessThanOrEqualTo(msgId.timestamp)
+                        .order(Order.REVERSE)
+                        .build()
+                )
+            }
+
+            if (batches != null && batches.hasNext()) {
+                val batch = batches.next()
+                batch.messages.find { it.id == msgId }?.also {
+                    logger.debug { "Found message in batch (${batch.firstMessage.id}..${batch.lastMessage.id})" }
+                    sink.onNext(group, it)
+                    return@measureTimeMillis
+                }
+            }
+            sink.onError("Message with id $msgId not found", msgId.toReportId())
+            logger.error { "Message with id $msgId was not found for group $group" }
+            return // we have found nothing
+        }
+
+        logger.info { "Loaded 1 messages with id $msgId and group $group from DB $time ms" }
     }
 
     fun getMessagesWithSyncInterval(

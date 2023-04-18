@@ -23,6 +23,7 @@ import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
+import com.exactpro.th2.lwdataprovider.entities.requests.util.convertToMessageStreams
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import com.exactpro.th2.lwdataprovider.http.JavalinHandler.Companion.customSse
@@ -52,6 +53,9 @@ class GetMessageGroupsServlet(
 
     override fun setup(app: Javalin, context: JavalinContext) {
         app.before(ROUTE) {
+            it.queryParam(RAW_ONLY_PARAMETER)?.also {
+                LOGGER.warn { "Parameter $RAW_ONLY_PARAMETER is deprecated" }
+            }
             it.attribute(REQUEST_KEY, createRequest(it))
         }
         app.customSse(ROUTE, this, context)
@@ -92,7 +96,9 @@ class GetMessageGroupsServlet(
             OpenApiParam(
                 RAW_ONLY_PARAMETER,
                 type = Boolean::class,
-                description = "only raw message will be returned in the response",
+                description = "only raw message will be returned in the response. " +
+                        "Parameter is deprecated: use $RESPONSE_FORMAT with BASE_64 to achieve the same effect",
+                deprecated = true,
             ),
             OpenApiParam(
                 KEEP_OPEN_PARAMETER,
@@ -107,9 +113,14 @@ class GetMessageGroupsServlet(
             ),
             OpenApiParam(
                 RESPONSE_FORMAT,
-                type = Array<String>::class,
+                type = Array<ResponseFormat>::class,
                 description = "the format of the response"
             ),
+            OpenApiParam(
+                STREAM,
+                type = Array<String>::class,
+                description = "list of streams (optionally with direction) to include in the response"
+            )
         ],
         methods = [HttpMethod.GET],
         responses = [
@@ -133,10 +144,17 @@ class GetMessageGroupsServlet(
 
 
         val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
+        val responseFormats: Set<ResponseFormat>? = request.responseFormats.let { formats ->
+            if (ctx.queryParamAsClass<Boolean>(RAW_ONLY_PARAMETER).getOrDefault(false)) {
+                formats?.let { it + ResponseFormat.BASE_64 } ?: setOf(ResponseFormat.BASE_64)
+            } else {
+                formats
+            }
+        }
         val handler = HttpMessagesRequestHandler(
             queue, sseResponseBuilder, convExecutor, dataMeasurement,
             maxMessagesPerRequest = configuration.bufferPerQuery,
-            responseFormats = request.responseFormats ?: configuration.responseFormats
+            responseFormats = responseFormats ?: configuration.responseFormats
         )
         sseClient.onClose(handler::cancel)
         keepAliveHandler.addKeepAliveData(handler).use {
@@ -157,13 +175,14 @@ class GetMessageGroupsServlet(
             .get(),
         sort = ctx.queryParamAsClass<Boolean>(SORT_PARAMETER)
             .getOrDefault(false),
-        rawOnly = ctx.queryParamAsClass<Boolean>(RAW_ONLY_PARAMETER)
-            .getOrDefault(false),
         keepOpen = ctx.queryParamAsClass<Boolean>(KEEP_OPEN_PARAMETER)
             .getOrDefault(false),
         bookId = ctx.queryParamAsClass<BookId>(BOOK_ID_PARAM).get(),
         responseFormats = ctx.queryParams(RESPONSE_FORMAT).takeIf(List<*>::isNotEmpty)
             ?.mapTo(hashSetOf(), ResponseFormat.Companion::fromString),
+        includeStreams = ctx.queryParams(STREAM).takeIf(List<*>::isNotEmpty)
+            ?.let(::convertToMessageStreams)
+            ?.toSet() ?: emptySet(),
     )
 
     companion object {
@@ -177,6 +196,7 @@ class GetMessageGroupsServlet(
         private const val KEEP_OPEN_PARAMETER = "keepOpen"
         private const val BOOK_ID_PARAM = "bookId"
         private const val RESPONSE_FORMAT = "responseFormat"
+        private const val STREAM = "stream"
         private val LOGGER = KotlinLogging.logger { }
     }
 }

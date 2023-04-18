@@ -20,6 +20,7 @@ import com.exactpro.cradle.BookId
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
 import com.exactpro.cradle.Direction
+import com.exactpro.cradle.Order
 import com.exactpro.cradle.TimeRelation
 import com.exactpro.cradle.messages.GroupedMessageFilter
 import com.exactpro.cradle.messages.GroupedMessageFilterBuilder
@@ -37,7 +38,6 @@ import com.exactpro.th2.lwdataprovider.toReportId
 import mu.KotlinLogging
 import java.time.Duration
 import java.time.Instant
-import java.util.EnumSet
 import java.util.LinkedList
 import kotlin.system.measureTimeMillis
 
@@ -267,6 +267,36 @@ class CradleMessageExtractor(
 
         logger.info { "Loaded 1 messages with id $msgId from DB $time ms" }
 
+    }
+
+    fun getMessage(group: String, msgId: StoredMessageId, sink: MessageDataSink<String, StoredMessage>) {
+        val time = measureTimeMillis {
+            logger.info { "Extracting message: $msgId from group $group" }
+            val batches = measure("group_message") {
+                storage.getGroupedMessageBatches(
+                    GroupedMessageFilter.builder()
+                        .groupName(group)
+                        .bookId(msgId.bookId)
+                        .timestampTo().isLessThanOrEqualTo(msgId.timestamp)
+                        .order(Order.REVERSE)
+                        .build()
+                )
+            }
+
+            if (batches != null && batches.hasNext()) {
+                val batch = batches.next()
+                batch.messages.find { it.id == msgId }?.also {
+                    logger.debug { "Found message in batch (${batch.firstMessage.id}..${batch.lastMessage.id})" }
+                    sink.onNext(group, it)
+                    return@measureTimeMillis
+                }
+            }
+            sink.onError("Message with id $msgId not found", msgId.toReportId())
+            logger.error { "Message with id $msgId was not found for group $group" }
+            return // we have found nothing
+        }
+
+        logger.info { "Loaded 1 messages with id $msgId and group $group from DB $time ms" }
     }
 
     fun getMessagesWithSyncInterval(

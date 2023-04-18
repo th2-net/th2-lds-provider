@@ -94,7 +94,15 @@ class HttpServer(private val context: Context) {
                 sseResponseBuilder,
                 context.convExecutor,
                 context.requestsDataMeasurement,
-            )
+            ),
+            FileDownloadHandler(
+                configuration,
+                context.convExecutor,
+                sseResponseBuilder,
+                context.keepAliveHandler,
+                context.searchMessagesHandler,
+                context.requestsDataMeasurement,
+            ),
         )
 
         app = Javalin.create {

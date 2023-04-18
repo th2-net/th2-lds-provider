@@ -27,6 +27,7 @@ import com.exactpro.cradle.messages.MessageToStore
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
 import com.exactpro.th2.lwdataprovider.metrics.DataMeasurementImpl
 import io.prometheus.client.CollectorRegistry
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.TestInstance
@@ -75,6 +76,13 @@ abstract class AbstractCradleIntegrationTest {
             cradleManager = cradleManager,
             DataMeasurementImpl.create(CollectorRegistry(), "test"),
         )
+    }
+
+    @AfterAll
+    fun tearDown() {
+        if (::cradleStorage.isInitialized) {
+            cradleStorage.dispose()
+        }
     }
 
     @Suppress("TestFunctionName")

@@ -32,6 +32,7 @@ import com.exactpro.th2.lwdataprovider.db.CradleGroupRequest
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
+import com.exactpro.th2.lwdataprovider.entities.requests.GetGroupMessageRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
@@ -146,6 +147,31 @@ class SearchMessagesHandler(
             } catch (e: Exception) {
                 logger.error(e) { "error getting messages" }
                 rootSink.onError(e, request.msgId.toReportId())
+            }
+        }
+    }
+
+    fun loadOneMessageByGroup(request: GetGroupMessageRequest, requestContext: MessageResponseHandler, dataMeasurement: DataMeasurement) {
+        threadPool.execute {
+            val rootSink = RootMessagesDataSink(
+                requestContext,
+                if (request.rawOnly) {
+                    RawStoredMessageHandler(requestContext)
+                } else {
+                    if (configuration.useDemoMode) {
+                        DemoParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
+                    } else {
+                        ParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
+                    }
+                }
+            )
+            try {
+                rootSink.use { sink ->
+                    cradleMsgExtractor.getMessage(request.group, request.messageId, sink)
+                }
+            } catch (e: Exception) {
+                logger.error(e) { "error getting messages" }
+                rootSink.onError(e, request.messageId.toReportId())
             }
         }
     }

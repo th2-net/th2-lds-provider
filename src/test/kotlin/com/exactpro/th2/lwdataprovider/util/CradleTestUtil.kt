@@ -36,8 +36,9 @@ fun createCradleStoredMessage(
     index: Long,
     content: String = "hello",
     timestamp: Instant? = Instant.now(),
+    book: String = "test",
 ): StoredMessage = MessageToStoreBuilder()
-    .bookId(BookId("test"))
+    .bookId(BookId(book))
     .direction(direction)
     .sessionAlias(streamName)
     .sequence(index)

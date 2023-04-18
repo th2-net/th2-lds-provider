@@ -192,7 +192,7 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
             }.apply {
                 val handler = createHandler()
                 handler.setup(this, JavalinContext(flushAfter = 0/*auto flush*/))
-            }.also(HttpServer.Companion::setupConverters),
+            }.also(HttpServer.Companion::setupConverters).also(HttpServer.Companion::setupExceptionHandlers),
             config = testConfig,
             testCase,
         )

@@ -274,6 +274,8 @@ class CradleMessageExtractor(
                     sink.onNext(group, it)
                     return@measureTimeMillis
                 }
+            } else {
+                logger.info { "Empty response from cradle" }
             }
             sink.onError("Message with id $msgId not found", msgId.toReportId())
             logger.error { "Message with id $msgId was not found for group $group" }

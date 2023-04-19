@@ -122,10 +122,9 @@ class GetSingleMessageByGroupAndId(
             LOGGER.error(ex) { "cannot load message $msgId for group $groupName" }
             handler.writeErrorMessage(ex.message ?: ex.toString())
             handler.complete()
-        } finally {
-            LOGGER.info { "Processing message request finished" }
         }
         ctx.waitAndWrite(queue) { newMsgId.failureReason(it) }
+        LOGGER.info { "Processing message request finished" }
     }
 
     companion object {

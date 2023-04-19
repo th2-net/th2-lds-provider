@@ -267,7 +267,9 @@ class CradleMessageExtractor(
 
             if (batches != null && batches.hasNext()) {
                 val batch = batches.next()
-                batch.messages.find { it.id == msgId }?.also {
+                val messages = batch.messages
+                logger.info { "Checking message in batch ${batch.group} (${messages.size} messages - ${batch.firstMessage.id}..${batch.lastMessage.id})" }
+                messages.find { it.id == msgId }?.also {
                     logger.debug { "Found message in batch (${batch.firstMessage.id}..${batch.lastMessage.id})" }
                     sink.onNext(group, it)
                     return@measureTimeMillis

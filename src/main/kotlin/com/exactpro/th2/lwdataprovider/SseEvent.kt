@@ -25,6 +25,7 @@ import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53Transport
 import com.exactpro.th2.lwdataprovider.entities.responses.ResponseMessage
 import com.fasterxml.jackson.databind.ObjectMapper
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import java.util.*
 
@@ -84,6 +85,15 @@ sealed class SseEvent(
 
     companion object {
 
+        @OptIn(ExperimentalSerializationApi::class)
+        private val JSON: ThreadLocal<Json> = object : ThreadLocal<Json>() {
+            override fun initialValue(): Json {
+                return Json {
+                    explicitNulls = false
+                }
+            }
+        }
+
         fun build(jacksonMapper: ObjectMapper, event: Event, counter: Long): SseEvent {
             return EventData(
                 jacksonMapper.writeValueAsString(event),
@@ -94,8 +104,8 @@ sealed class SseEvent(
         fun build(jacksonMapper: ObjectMapper, message: ResponseMessage, counter: Long): SseEvent {
             return MessageData(
                 when(message) {
-                    is ProviderMessage53 -> Json.encodeToString(ProviderMessage53.serializer(), message)
-                    is ProviderMessage53Transport -> Json.encodeToString(ProviderMessage53Transport.serializer(), message)
+                    is ProviderMessage53 -> JSON.get().encodeToString(ProviderMessage53.serializer(), message)
+                    is ProviderMessage53Transport -> JSON.get().encodeToString(ProviderMessage53Transport.serializer(), message)
                     else -> jacksonMapper.writeValueAsString(message)
                 },
                 counter.toString(),

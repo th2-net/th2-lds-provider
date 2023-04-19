@@ -150,6 +150,64 @@ internal class TestGetMessageGroupsServletTransportMode : AbstractHttpHandlerTes
     }
 
     @Test
+    fun `returns raw message`() {
+        val start = Instant.now().truncatedTo(ChronoUnit.MILLIS)
+        val end = start.plus(1, ChronoUnit.HOURS)
+        val messageTimestamp = start.plus(30, ChronoUnit.MINUTES)
+        val messageBatch = StoredGroupedMessageBatch(
+            SESSION_GROUP,
+            listOf(
+                createCradleStoredMessage(
+                    streamName = SESSION_ALIAS,
+                    direction = Direction.FIRST,
+                    index = 1,
+                    content = "test content",
+                    timestamp = messageTimestamp,
+                )
+            ),
+            PageId(BookId(BOOK_NAME), PAGE_NAME),
+            Instant.now(),
+        )
+
+        doReturn(ImmutableListCradleResult(emptyList<StoredMessage>())).whenever(storage).getGroupedMessageBatches(any())
+        doReturn(ImmutableListCradleResult(listOf(messageBatch)))
+            .whenever(storage).getGroupedMessageBatches(argThat {
+                groupName == SESSION_GROUP && bookId.name == BOOK_NAME
+                        && from.value == start && to.value == end
+            })
+
+        startTest { _, client ->
+            val response = client.sse(
+                "/search/sse/messages/group?" +
+                        "startTimestamp=${start.toEpochMilli()}" +
+                        "&endTimestamp=${end.toEpochMilli()}" +
+                        "&bookId=$BOOK_NAME" +
+                        "&group=$SESSION_GROUP" +
+                        "&responseFormat=BASE_64"
+            )
+            val expectedData =
+                "{\"timestamp\":{\"epochSecond\":${messageTimestamp.epochSecond},\"nano\":${messageTimestamp.nano}},\"direction\":\"IN\",\"sessionId\":\"$SESSION_ALIAS\"," +
+                        "\"attachedEventIds\":[]," +
+                        "\"bodyBase64\":\"dGVzdCBjb250ZW50\",\"messageId\":\"$BOOK_NAME:$SESSION_ALIAS:1:${StoredMessageIdUtils.timestampToString(messageTimestamp)}:1\"}"
+            expectThat(response) {
+                get { code } isEqualTo HttpStatus.OK.code
+                get { body?.bytes()?.toString(Charsets.UTF_8) }
+                    .isNotNull()
+                    .isEqualTo("""
+                      id: 1
+                      event: message
+                      data: $expectedData
+                    
+                      event: close
+                      data: empty data
+
+
+                      """.trimIndent())
+            }
+        }
+    }
+
+    @Test
     fun `finishes the request if error happened during sending a batch`() {
         val start = Instant.now().truncatedTo(ChronoUnit.MILLIS)
         val end = start.plus(1, ChronoUnit.HOURS)

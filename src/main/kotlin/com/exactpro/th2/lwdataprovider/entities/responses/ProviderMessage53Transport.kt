@@ -31,12 +31,12 @@ data class ProviderMessage53Transport constructor(
     @Serializable(with = InstantSerializer::class) val timestamp: Instant,
     val direction: Direction?,
     val sessionId: String,
-    val messageType: String,
+    val messageType: String?,
 
     val attachedEventIds: Set<String>,
 
     @Serializable(with = TransportMessageContainerSerializer::class)
-    val body: TransportMessageContainer,
+    val body: TransportMessageContainer?,
 
     val bodyBase64: String?,
 
@@ -47,16 +47,16 @@ data class ProviderMessage53Transport constructor(
     constructor(
         rawStoredMessage: StoredMessage,
         sessionGroup: String,
-        body: ParsedMessage,
+        body: ParsedMessage?,
         base64Body: String?,
         events: Set<String> = Collections.emptySet()
     ) : this(
         timestamp = rawStoredMessage.timestamp ?: Instant.ofEpochMilli(0),
         direction = Direction.fromStored(rawStoredMessage.direction ?: FIRST),
         sessionId = rawStoredMessage.sessionAlias ?: "",
-        messageType = body.type,
+        messageType = body?.type,
         attachedEventIds = events,
-        body = TransportMessageContainer(sessionGroup, body),
+        body = body?.run { TransportMessageContainer(sessionGroup, this) },
         bodyBase64 = base64Body,
         messageId = rawStoredMessage.id
     )

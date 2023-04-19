@@ -14,69 +14,67 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.lwdataprovider.demo
+package com.exactpro.th2.lwdataprovider.transport
 
-import com.exactpro.cradle.BookId
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageId
-import com.exactpro.th2.common.grpc.Direction
+import com.exactpro.th2.common.grpc.Direction as ProtoDirection
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.message.toTimestamp
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoDirection
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageId
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoParsedMessage
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoRawMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageId
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.RawMessage
 import io.netty.buffer.Unpooled
 
-fun DemoDirection.toCradleDirection(): com.exactpro.cradle.Direction {
-    return if (this == DemoDirection.INCOMING)
+fun Direction.toCradleDirection(): com.exactpro.cradle.Direction {
+    return if (this == Direction.INCOMING)
         com.exactpro.cradle.Direction.FIRST
     else
         com.exactpro.cradle.Direction.SECOND
 }
 
-fun DemoDirection.toProtoDirection(): Direction {
-    return if (this == DemoDirection.INCOMING)
-        Direction.FIRST
+fun Direction.toProtoDirection(): ProtoDirection {
+    return if (this == Direction.INCOMING)
+        ProtoDirection.FIRST
     else
-        Direction.SECOND
+        ProtoDirection.SECOND
 }
 
-fun com.exactpro.cradle.Direction.toDemoDirection(): DemoDirection {
+fun com.exactpro.cradle.Direction.toDirection(): Direction {
     return if (this == com.exactpro.cradle.Direction.FIRST)
-        DemoDirection.INCOMING
+        Direction.INCOMING
     else
-        DemoDirection.OUTGOING
+        Direction.OUTGOING
 }
 
-fun DemoMessageId.toProtoMessageId(): MessageID = MessageID.newBuilder().apply {
+fun MessageId.toProtoMessageId(book: String, sessionGroup: String): MessageID = MessageID.newBuilder().apply {
     connectionIdBuilder.apply {
-        this.sessionGroup = this@toProtoMessageId.sessionGroup
+        this.sessionGroup = sessionGroup
         this.sessionAlias = this@toProtoMessageId.sessionAlias
     }
-    this.bookName = this@toProtoMessageId.book
+    this.bookName = book
     this.direction = this@toProtoMessageId.direction.toProtoDirection()
     this.timestamp = this@toProtoMessageId.timestamp.toTimestamp()
     this.sequence = this@toProtoMessageId.sequence
     this@toProtoMessageId.subsequence.forEach {
-        this.addSubsequence(it.toInt())
+        this.addSubsequence(it)
     }
 }.build()
 
-fun StoredMessageId.toDemoMessageId(): DemoMessageId {
-    return DemoMessageId(
-        bookId.name,
+fun StoredMessageId.toMessageId(): MessageId {
+    return MessageId(
         sessionAlias = sessionAlias,
-        direction = direction.toDemoDirection(),
+        direction = direction.toDirection(),
         sequence = sequence,
         timestamp = timestamp
     )
 }
 
-fun StoredMessage.toDemoRawMessage(): DemoRawMessage {
-    return DemoRawMessage(
-        id.toDemoMessageId(),
+fun StoredMessage.toRawMessage(): RawMessage {
+    return RawMessage(
+        id.toMessageId(),
         null,
         metadata.toMap(),
         protocol ?: "",
@@ -84,9 +82,9 @@ fun StoredMessage.toDemoRawMessage(): DemoRawMessage {
     )
 }
 
-fun DemoParsedMessage.toProtoMessage(): Message = Message.newBuilder().apply {
+fun ParsedMessage.toProtoMessage(book: String, sessionGroup: String): Message = Message.newBuilder().apply {
     metadataBuilder.apply {
-        this.id = this@toProtoMessage.id.toProtoMessageId()
+        this.id = this@toProtoMessage.id.toProtoMessageId(book, sessionGroup)
         this.protocol = this@toProtoMessage.protocol
         this.messageType = this@toProtoMessage.type
         if (this@toProtoMessage.metadata.isNotEmpty()) {

@@ -17,10 +17,10 @@
 package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoGroupBatch
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 
 interface Decoder {
     fun sendBatchMessage(batchBuilder: MessageGroupBatch.Builder, requests: Collection<RequestedMessageDetails>, session: String)
-    fun sendBatchMessage(batchBuilder: DemoGroupBatch, requests: Collection<RequestedMessageDetails>, session: String)
+    fun sendBatchMessage(batchBuilder: GroupBatch, requests: Collection<RequestedMessageDetails>, session: String)
     fun sendMessage(message: RequestedMessageDetails, session: String)
 }

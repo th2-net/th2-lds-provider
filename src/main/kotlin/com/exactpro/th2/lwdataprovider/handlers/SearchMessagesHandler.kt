@@ -77,10 +77,10 @@ class SearchMessagesHandler(
                 if (request.responseFormats.hasRowOnly()) {
                     RawStoredMessageHandler(requestContext)
                 } else {
-                    if (configuration.useDemoMode) {
-                        DemoParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
+                    if (configuration.useTransportMode) {
+                        TransportParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
                     } else {
-                        ParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
+                        ProtoParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
                     }
                 },
                 limit = request.resultCountLimit
@@ -133,10 +133,10 @@ class SearchMessagesHandler(
                 if (request.onlyRaw) {
                     RawStoredMessageHandler(requestContext)
                 } else {
-                    if (configuration.useDemoMode) {
-                        DemoParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
+                    if (configuration.useTransportMode) {
+                        TransportParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
                     } else {
-                        ParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
+                        ProtoParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
                     }
                 }
             )
@@ -158,10 +158,10 @@ class SearchMessagesHandler(
                 if (request.rawOnly) {
                     RawStoredMessageHandler(requestContext)
                 } else {
-                    if (configuration.useDemoMode) {
-                        DemoParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
+                    if (configuration.useTransportMode) {
+                        TransportParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
                     } else {
-                        ParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
+                        ProtoParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
                     }
                 }
             )
@@ -188,10 +188,10 @@ class SearchMessagesHandler(
                 if (request.responseFormats.hasRowOnly()) {
                     RawStoredMessageHandler(requestContext)
                 } else {
-                    if (configuration.useDemoMode) {
-                        DemoParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
+                    if (configuration.useTransportMode) {
+                        TransportParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
                     } else {
-                        ParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
+                        ProtoParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
                     }
                 },
                 markerAsGroup = true,

@@ -22,12 +22,12 @@ import com.exactpro.cradle.PageId
 import com.exactpro.cradle.messages.StoredGroupedMessageBatch
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageIdUtils
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageId
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoParsedMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageId
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.configuration.CustomConfigurationClass
-import com.exactpro.th2.lwdataprovider.producers.MessageProducer53Demo
+import com.exactpro.th2.lwdataprovider.producers.MessageProducer53Transport
 import com.exactpro.th2.lwdataprovider.util.ImmutableListCradleResult
 import com.exactpro.th2.lwdataprovider.util.createCradleStoredMessage
 import io.javalin.http.HttpStatus
@@ -44,16 +44,16 @@ import strikt.assertions.isNotNull
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
-internal class TestGetMessageGroupsServletDemoMode : AbstractHttpHandlerTest<GetMessageGroupsServlet>() {
+internal class TestGetMessageGroupsServletTransportMode : AbstractHttpHandlerTest<GetMessageGroupsServlet>() {
     override val configuration: Configuration
         get() = Configuration(
             CustomConfigurationClass(
                 decodingTimeout = 100,
-                useDemoMode = true
+                useTransportMode = true
             )
         )
 
-    override val sseResponseBuilder = SseResponseBuilder(context.jacksonMapper, MessageProducer53Demo.Companion::createMessage)
+    override val sseResponseBuilder = SseResponseBuilder(context.jacksonMapper, MessageProducer53Transport.Companion::createMessage)
 
     override fun createHandler(): GetMessageGroupsServlet {
         return GetMessageGroupsServlet(
@@ -103,9 +103,11 @@ internal class TestGetMessageGroupsServletDemoMode : AbstractHttpHandlerTest<Get
                         "&responseFormat=BASE_64" +
                         "&responseFormat=JSON_PARSED"
             )
-            receiveDemoMessages(DemoParsedMessage(
-                id = DemoMessageId(
-                    book = BOOK_NAME,
+            receiveTransportMessages(
+                BOOK_NAME,
+                SESSION_GROUP,
+                ParsedMessage(
+                id = MessageId(
                     sessionAlias = SESSION_ALIAS,
                     sequence = 1,
                     timestamp = messageTimestamp
@@ -172,7 +174,7 @@ internal class TestGetMessageGroupsServletDemoMode : AbstractHttpHandlerTest<Get
                 groupName == SESSION_GROUP && bookId.name == BOOK_NAME
                         && from.value == start && to.value == end
             })
-        whenever(demoMessageRouter.send(any(), anyVararg())).doThrow(IllegalStateException("fake"))
+        whenever(transportMessageRouter.send(any(), anyVararg())).doThrow(IllegalStateException("fake"))
 
         startTest { _, client ->
             val response = client.sse(

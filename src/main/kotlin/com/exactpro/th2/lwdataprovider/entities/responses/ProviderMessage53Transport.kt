@@ -19,7 +19,7 @@ package com.exactpro.th2.lwdataprovider.entities.responses
 import com.exactpro.cradle.Direction.FIRST
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageId
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoParsedMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 import com.exactpro.th2.lwdataprovider.entities.internal.Direction
 import kotlinx.serialization.Serializable
 import java.time.Instant
@@ -27,7 +27,7 @@ import java.util.*
 
 @Deprecated("same format as rpt-data-provider5.3")
 @Serializable
-data class ProviderMessage53Demo constructor(
+data class ProviderMessage53Transport constructor(
     @Serializable(with = InstantSerializer::class) val timestamp: Instant,
     val direction: Direction?,
     val sessionId: String,
@@ -35,8 +35,8 @@ data class ProviderMessage53Demo constructor(
 
     val attachedEventIds: Set<String>,
 
-    @Serializable(with = DemoParsedMessageSerializer::class)
-    val body: DemoParsedMessage,
+    @Serializable(with = TransportMessageContainerSerializer::class)
+    val body: TransportMessageContainer,
 
     val bodyBase64: String?,
 
@@ -46,7 +46,8 @@ data class ProviderMessage53Demo constructor(
 
     constructor(
         rawStoredMessage: StoredMessage,
-        body: DemoParsedMessage,
+        sessionGroup: String,
+        body: ParsedMessage,
         base64Body: String?,
         events: Set<String> = Collections.emptySet()
     ) : this(
@@ -55,7 +56,7 @@ data class ProviderMessage53Demo constructor(
         sessionId = rawStoredMessage.sessionAlias ?: "",
         messageType = body.type,
         attachedEventIds = events,
-        body = body,
+        body = TransportMessageContainer(sessionGroup, body),
         bodyBase64 = base64Body,
         messageId = rawStoredMessage.id
     )

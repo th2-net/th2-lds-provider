@@ -19,7 +19,7 @@ package com.exactpro.th2.lwdataprovider.producers
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.message.addFields
 import com.exactpro.th2.common.message.messageType
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoParsedMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 import com.exactpro.th2.lwdataprovider.RequestedMessage
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import mu.KotlinLogging
@@ -36,22 +36,24 @@ class MessageProducer53 {
             formatter: JsonFormatter?,
             includeRaw: Boolean,
         ): ProviderMessage53 {
-            val convertToOneMessage = rawMessage.parsedMessage?.let { convertToOneMessage(it) }
-            val convertToOneDemoMessage = rawMessage.demoParsedMessage?.let { convertDemoToOneMessage(it) }
+            val convertToOneProtoMessage = rawMessage.protoMessage?.let { convertToOneProtoMessage(it) }
+            val convertToOneTransportMessage = rawMessage.transportMessage?.let { convertToOnTransportMessage(it) }
             return ProviderMessage53(
                 rawMessage.storedMessage,
                 if (formatter == null) null else {
-                    convertToOneMessage?.let(formatter::print)
-                        ?: convertToOneDemoMessage?.let(formatter::print)
+                    convertToOneProtoMessage?.let(formatter::print)
+                        ?: convertToOneTransportMessage?.let {
+                            formatter.print(rawMessage.sessionGroup, it)
+                        }
                 },
                 if (includeRaw) {
                     rawMessage.storedMessage.let { Base64.getEncoder().encodeToString(it.content) }
                 } else null,
-                convertToOneMessage?.metadata?.messageType ?: convertToOneDemoMessage?.type ?: ""
+                convertToOneProtoMessage?.metadata?.messageType ?: convertToOneTransportMessage?.type ?: ""
             )
         }
 
-        private fun convertToOneMessage(messages: List<Message>): Message {
+        private fun convertToOneProtoMessage(messages: List<Message>): Message {
             return when (messages.size) {
                 1 -> messages[0]
                 else -> messages[0].toBuilder().run {
@@ -64,7 +66,7 @@ class MessageProducer53 {
             }
         }
 
-        private fun convertDemoToOneMessage(messages: List<DemoParsedMessage>): DemoParsedMessage {
+        private fun convertToOnTransportMessage(messages: List<ParsedMessage>): ParsedMessage {
             return when (messages.size) {
                 1 -> messages[0]
                 else -> messages[0].also {

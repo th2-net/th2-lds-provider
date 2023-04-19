@@ -18,39 +18,38 @@ package com.exactpro.th2.lwdataprovider.workers
 
 import com.exactpro.th2.common.schema.message.DeliveryMetadata
 import com.exactpro.th2.common.schema.message.MessageListener
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoDirection
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoGroupBatch
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageGroup
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageId
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoParsedMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageId
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 import mu.KotlinLogging
 
-class DemoCodecMessageListener(
+class TransportCodecMessageListener(
     private val decodeQueue: RequestsBuffer,
-) : MessageListener<DemoGroupBatch>  {
+) : MessageListener<GroupBatch>  {
 
-    override fun handle(deliveryMetadata: DeliveryMetadata, message: DemoGroupBatch) {
+    override fun handle(deliveryMetadata: DeliveryMetadata, message: GroupBatch) {
 
         message.groups.forEach { group ->
-            if (group.messages.any { it !is DemoParsedMessage }) {
-                reportIncorrectGroup(group)
+            if (group.messages.any { it !is ParsedMessage }) {
+                reportIncorrectGroup(message.book, group)
                 return@forEach
             }
-            val messageIdStr = group.messages.first().id.buildMessageIdString()
+            val messageIdStr = group.messages.first().id.buildMessageIdString(message.book)
 
-            decodeQueue.responseDemoReceived(messageIdStr) {
-                group.messages.map { anyMsg -> anyMsg as DemoParsedMessage }
+            decodeQueue.responseTransportReceived(messageIdStr) {
+                group.messages.map { anyMsg -> anyMsg as ParsedMessage }
             }
         }
     }
 
-    private fun DemoMessageId.buildMessageIdString() : RequestId = DemoRequestId(this)
+    private fun MessageId.buildMessageIdString(book: String): RequestId = TransportRequestId(book, this)
 
-    private fun reportIncorrectGroup(group: DemoMessageGroup) {
+    private fun reportIncorrectGroup(book: String, group: MessageGroup) {
         K_LOGGER.error {
             "some messages in group are not parsed: ${
                 group.messages.joinToString(",") {
-                    "${it::class.java} ${it.id.buildMessageIdString()}"
+                    "${it::class.java} ${it.id.buildMessageIdString(book)}"
                 }
             }"
         }

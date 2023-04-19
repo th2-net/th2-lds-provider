@@ -20,7 +20,7 @@ import com.exactpro.cradle.CradleManager
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.MessageRouter
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoGroupBatch
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.CradleEventExtractor
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
@@ -56,13 +56,13 @@ class Context(
     val jacksonMapper: ObjectMapper = createObjectMapper(),
 
     val cradleManager: CradleManager,
-    val messageRouter: MessageRouter<MessageGroupBatch>,
-    val demoMessageRouter: MessageRouter<DemoGroupBatch>,
+    val protoMessageRouter: MessageRouter<MessageGroupBatch>,
+    val transportMessageRouter: MessageRouter<GroupBatch>,
     val eventRouter: MessageRouter<EventBatch>,
     val keepAliveHandler: KeepAliveHandler = KeepAliveHandler(configuration),
     val mqDecoder: RabbitMqDecoder = RabbitMqDecoder(
-        messageRouter,
-        demoMessageRouter,
+        protoMessageRouter,
+        transportMessageRouter,
         configuration.maxBufferDecodeQueue,
         configuration.codecUsePinAttributes
     ),
@@ -99,7 +99,7 @@ class Context(
     ),
     val queueMessageHandler: QueueMessagesHandler = QueueMessagesHandler(
         cradleMsgExtractor,
-        messageRouter,
+        protoMessageRouter,
         configuration.batchSize,
         configuration.codecUsePinAttributes,
         execExecutor,

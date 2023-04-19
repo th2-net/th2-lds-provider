@@ -19,9 +19,9 @@ package com.exactpro.th2.lwdataprovider
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.MessageMetadata
 import com.exactpro.th2.common.grpc.Value
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageId
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoParsedMessage
-import com.exactpro.th2.lwdataprovider.demo.toProtoDirection
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageId
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
+import com.exactpro.th2.lwdataprovider.transport.toProtoDirection
 import com.exactpro.th2.lwdataprovider.producers.JsonFormatter
 import com.google.gson.Gson
 import java.time.Instant
@@ -35,9 +35,9 @@ abstract class AbstractJsonFormatter : JsonFormatter {
         return sb1.toString()
     }
 
-    override fun print(message: DemoParsedMessage): String {
+    override fun print(sessionGroup: String, message: ParsedMessage): String {
         sb1.setLength(0)
-        printDM(message, sb1)
+        printTM(sessionGroup, message, sb1)
         return sb1.toString()
     }
 
@@ -78,9 +78,9 @@ abstract class AbstractJsonFormatter : JsonFormatter {
         sb.append('}').append('}')
     }
 
-    private fun printDM(msg: DemoParsedMessage, sb: StringBuilder) {
+    private fun printTM(sessionGroup: String, msg: ParsedMessage, sb: StringBuilder) {
         sb.append("{")
-        printDemoMetadata(msg, sb)
+        printMetadata(sessionGroup, msg, sb)
         sb.append(',')
         sb.append("\"fields\":{")
         if (msg.body.isNotEmpty()) {
@@ -154,16 +154,16 @@ abstract class AbstractJsonFormatter : JsonFormatter {
         sb.append("}")
     }
 
-    private fun printDemoMetadata(msg: DemoParsedMessage, sb: StringBuilder) {
+    private fun printMetadata(sessionGroup: String, msg: ParsedMessage, sb: StringBuilder) {
         sb.append("\"metadata\":{")
         var first = true
-        if (msg.id !== DemoMessageId.DEFAULT_INSTANCE) {
+        if (msg.id !== MessageId.DEFAULT_INSTANCE) {
             sb.append("\"id\":{")
             val id = msg.id
-            if (id.sessionAlias.isNotEmpty() || id.sessionGroup.isNotEmpty()) {
+            if (id.sessionAlias.isNotEmpty() || sessionGroup.isNotEmpty()) {
                 sb.append("\"connectionId\":{")
-                if (id.sessionGroup.isNotEmpty()) {
-                    sb.append("\"sessionGroup\":\"").append(id.sessionGroup).append("\"")
+                if (sessionGroup.isNotEmpty()) {
+                    sb.append("\"sessionGroup\":\"").append(sessionGroup).append("\"")
                     if (id.sessionAlias.isNotEmpty()) {
                         sb.append(",")
                     }

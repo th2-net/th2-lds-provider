@@ -24,7 +24,7 @@ import com.exactpro.th2.common.schema.message.DeliveryMetadata
 import com.exactpro.th2.common.schema.message.MessageListener
 import mu.KotlinLogging
 
-class CodecMessageListener(
+class ProtoCodecMessageListener(
     private val decodeQueue: RequestsBuffer,
 ) : MessageListener<MessageGroupBatch>  {
     
@@ -36,7 +36,7 @@ class CodecMessageListener(
             }
             val messageIdStr = group.messagesList.first().message.metadata.id.buildRequestId()
 
-            decodeQueue.responseReceived(messageIdStr) {
+            decodeQueue.responseProtoReceived(messageIdStr) {
                 group.messagesList.map { anyMsg -> anyMsg.message }
             }
         }

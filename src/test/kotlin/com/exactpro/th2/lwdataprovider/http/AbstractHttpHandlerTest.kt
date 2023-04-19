@@ -25,9 +25,9 @@ import com.exactpro.th2.common.message.plusAssign
 import com.exactpro.th2.common.schema.message.DeliveryMetadata
 import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.common.schema.message.MessageRouter
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoGroupBatch
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageGroup
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoParsedMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 import com.exactpro.th2.lwdataprovider.Context
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
@@ -47,19 +47,9 @@ import mu.KotlinLogging
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.Assertions
-import org.junit.jupiter.api.BeforeAll
-import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.api.*
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.kotlin.any
-import org.mockito.kotlin.anyVararg
-import org.mockito.kotlin.doAnswer
-import org.mockito.kotlin.doReturn
-import org.mockito.kotlin.mock
-import org.mockito.kotlin.reset
-import org.mockito.kotlin.whenever
+import org.mockito.kotlin.*
 import strikt.api.Assertion
 import strikt.assertions.isNotNull
 import java.util.concurrent.ConcurrentHashMap
@@ -86,28 +76,28 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
         semaphore.release()
     }
 
-    private val messageListeners = ConcurrentHashMap.newKeySet<MessageListener<MessageGroupBatch>>()
-    private val demoMessageListeners = ConcurrentHashMap.newKeySet<MessageListener<DemoGroupBatch>>()
-    protected val messageRouter: MessageRouter<MessageGroupBatch> = mock {
+    private val protoMessageListeners = ConcurrentHashMap.newKeySet<MessageListener<MessageGroupBatch>>()
+    private val transportMessageListeners = ConcurrentHashMap.newKeySet<MessageListener<GroupBatch>>()
+    protected val protoMessageRouter: MessageRouter<MessageGroupBatch> = mock {
         on { subscribeAll(any(), anyVararg()) } doAnswer {
             val listener = it.getArgument<MessageListener<MessageGroupBatch>>(0)
-            messageListeners += listener
+            protoMessageListeners += listener
             mock {
                 on { unsubscribe() } doAnswer {
-                    messageListeners -= listener
+                    protoMessageListeners -= listener
                 }
             }
         }
         on { send(any(), anyVararg()) } doAnswer { receivedRequest(it) }
         on { sendAll(any(), anyVararg()) } doAnswer { receivedRequest(it) }
     }
-    protected val demoMessageRouter: MessageRouter<DemoGroupBatch> = mock {
+    protected val transportMessageRouter: MessageRouter<GroupBatch> = mock {
         on { subscribeAll(any(), anyVararg()) } doAnswer {
-            val listener = it.getArgument<MessageListener<DemoGroupBatch>>(0)
-            demoMessageListeners += listener
+            val listener = it.getArgument<MessageListener<GroupBatch>>(0)
+            transportMessageListeners += listener
             mock {
                 on { unsubscribe() } doAnswer {
-                    demoMessageListeners -= listener
+                    transportMessageListeners -= listener
                 }
             }
         }
@@ -122,8 +112,8 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
             configuration,
             registry = CollectorRegistry(),
             cradleManager = manager,
-            messageRouter = messageRouter,
-            demoMessageRouter = demoMessageRouter,
+            protoMessageRouter = protoMessageRouter,
+            transportMessageRouter = transportMessageRouter,
             eventRouter = eventRouter,
             execExecutor = executor,
             convExecutor = executor,
@@ -147,37 +137,37 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
     @BeforeEach
     fun cleanup() {
         semaphore.drainPermits()
-        reset(storage, messageRouter, eventRouter)
-        configureMessageRouter()
-        configureDemoMessageRouter()
+        reset(storage, protoMessageRouter, eventRouter)
+        configureProtoMessageRouter()
+        configureTransportMessageRouter()
     }
 
-    private fun configureMessageRouter() {
-        whenever(messageRouter.subscribeAll(any(), anyVararg())) doAnswer {
+    private fun configureProtoMessageRouter() {
+        whenever(protoMessageRouter.subscribeAll(any(), anyVararg())) doAnswer {
             val listener = it.getArgument<MessageListener<MessageGroupBatch>>(0)
-            messageListeners += listener
+            protoMessageListeners += listener
             mock {
                 on { unsubscribe() } doAnswer {
-                    messageListeners -= listener
+                    protoMessageListeners -= listener
                 }
             }
         }
-        whenever(messageRouter.send(any(), anyVararg())) doAnswer { receivedRequest(it) }
-        whenever(messageRouter.sendAll(any(), anyVararg())) doAnswer { receivedRequest(it) }
+        whenever(protoMessageRouter.send(any(), anyVararg())) doAnswer { receivedRequest(it) }
+        whenever(protoMessageRouter.sendAll(any(), anyVararg())) doAnswer { receivedRequest(it) }
     }
 
-    private fun configureDemoMessageRouter() {
-        whenever(demoMessageRouter.subscribeAll(any(), anyVararg())) doAnswer {
-            val listener = it.getArgument<MessageListener<DemoGroupBatch>>(0)
-            demoMessageListeners += listener
+    private fun configureTransportMessageRouter() {
+        whenever(transportMessageRouter.subscribeAll(any(), anyVararg())) doAnswer {
+            val listener = it.getArgument<MessageListener<GroupBatch>>(0)
+            transportMessageListeners += listener
             mock {
                 on { unsubscribe() } doAnswer {
-                    demoMessageListeners -= listener
+                    transportMessageListeners -= listener
                 }
             }
         }
-        whenever(demoMessageRouter.send(any(), anyVararg())) doAnswer { receivedRequest(it) }
-        whenever(demoMessageRouter.sendAll(any(), anyVararg())) doAnswer { receivedRequest(it) }
+        whenever(transportMessageRouter.send(any(), anyVararg())) doAnswer { receivedRequest(it) }
+        whenever(transportMessageRouter.sendAll(any(), anyVararg())) doAnswer { receivedRequest(it) }
     }
 
     protected fun startTest(testConfig: TestConfig = TestConfig(
@@ -211,17 +201,17 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
         Assertions.assertTrue(semaphore.tryAcquire(500, TimeUnit.MILLISECONDS)) {
             "request for decoding was not received during 500 mls"
         }
-        LOGGER.info { "Notify ${messageListeners.size} listener(s)" }
-        messageListeners.forEach { it.handle(metadata, batch) }
+        LOGGER.info { "Notify ${protoMessageListeners.size} proto listener(s)" }
+        protoMessageListeners.forEach { it.handle(metadata, batch) }
     }
 
-    protected fun receiveDemoMessages(vararg messages: DemoParsedMessage) {
-        val first = messages.first()
-        val batch = DemoGroupBatch(
-            first.id.book,
-            first.id.sessionGroup,
+    protected fun receiveTransportMessages(book: String, sessionGroup: String, vararg messages: ParsedMessage) {
+        messages.first()
+        val batch = GroupBatch(
+            book,
+            sessionGroup,
             messages.asSequence()
-                .map { DemoMessageGroup(mutableListOf(it)) }
+                .map { MessageGroup(mutableListOf(it)) }
                 .toMutableList()
         )
         val metadata = DeliveryMetadata("test", isRedelivered = false)
@@ -229,8 +219,8 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
         Assertions.assertTrue(semaphore.tryAcquire(500, TimeUnit.MILLISECONDS)) {
             "request for decoding was not received during 500 mls"
         }
-        LOGGER.info { "Notify ${demoMessageListeners.size} demo listener(s)" }
-        demoMessageListeners.forEach { it.handle(metadata, batch) }
+        LOGGER.info { "Notify ${transportMessageListeners.size} transport listener(s)" }
+        transportMessageListeners.forEach { it.handle(metadata, batch) }
     }
     abstract fun createHandler(): T
 

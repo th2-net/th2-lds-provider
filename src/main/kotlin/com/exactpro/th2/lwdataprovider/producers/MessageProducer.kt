@@ -18,7 +18,7 @@ package com.exactpro.th2.lwdataprovider.producers
 
 import com.exactpro.th2.lwdataprovider.RequestedMessage
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
-import com.exactpro.th2.lwdataprovider.demo.toProtoMessageId
+import com.exactpro.th2.lwdataprovider.transport.toProtoMessageId
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderParsedMessage
 import java.util.Base64
@@ -30,26 +30,17 @@ class MessageProducer {
         fun createMessage(rawMessage: RequestedMessage, formatter: JsonFormatter?, includeRaw: Boolean): ProviderMessage {
             return ProviderMessage(
                 rawMessage.storedMessage,
-                rawMessage.parsedMessage?.takeIf { formatter != null }?.asSequence()?.map { msg ->
+                rawMessage.protoMessage?.takeIf { formatter != null }?.asSequence()?.map { msg ->
                     ProviderParsedMessage(msg.metadata.id, formatter!!.print(msg))
-                }?.toList() ?: rawMessage.demoParsedMessage?.takeIf { formatter != null }?.asSequence()?.map { msg ->
-                    ProviderParsedMessage(msg.id.toProtoMessageId(), formatter!!.print(msg))
+                }?.toList() ?: rawMessage.transportMessage?.takeIf { formatter != null }?.asSequence()?.map { msg ->
+                    val book = rawMessage.requestId.bookName
+                    val sessionGroup = rawMessage.sessionGroup
+                    ProviderParsedMessage(msg.id.toProtoMessageId(book, sessionGroup), formatter!!.print(sessionGroup, msg))
                 }?.toList() ?: emptyList(),
                 rawMessage.storedMessage.takeIf { includeRaw }?.let {
                     Base64.getEncoder().encodeToString(it.content)
                 }
             )
         }
-
-        fun createOnlyRawMessage(rawMessage: RequestedMessageDetails): ProviderMessage {
-            return ProviderMessage(
-                rawMessage.storedMessage,
-                emptyList(),
-                rawMessage.storedMessage.let {
-                    Base64.getEncoder().encodeToString(it.content)
-                }
-            )
-        }
     }
-    
 }

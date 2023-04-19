@@ -17,7 +17,7 @@
 package com.exactpro.th2.lwdataprovider.workers
 
 import com.exactpro.th2.common.grpc.Message
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoParsedMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.metrics.DecodingMetrics
 import mu.KotlinLogging
@@ -72,22 +72,22 @@ class DecodeQueueBuffer(
         LOGGER.trace { "Decode request for $size message(s) is submitted" }
     }
 
-    override fun responseReceived(id: RequestId, response: () -> List<Message>) {
+    override fun responseProtoReceived(id: RequestId, response: () -> List<Message>) {
         processResponse(id, response, RequestedMessageDetails::responseFinished)
     }
 
-    override fun responseDemoReceived(id: RequestId, response: () -> List<DemoParsedMessage>) {
-        processResponse(id, response, RequestedMessageDetails::responseDemoFinished)
+    override fun responseTransportReceived(id: RequestId, response: () -> List<ParsedMessage>) {
+        processResponse(id, response, RequestedMessageDetails::responseTransportFinished)
     }
 
-    override fun bulkResponsesReceived(responses: Map<RequestId, () -> List<Message>>) {
+    override fun bulkResponsesProtoReceived(responses: Map<RequestId, () -> List<Message>>) {
         // TODO: maybe we should use something optimized for bulk removal instead of simple map
-        responses.forEach(this::responseReceived)
+        responses.forEach(this::responseProtoReceived)
     }
 
-    override fun bulkResponsesDemoReceived(responses: Map<RequestId, () -> List<DemoParsedMessage>>) {
+    override fun bulkResponsesTransportReceived(responses: Map<RequestId, () -> List<ParsedMessage>>) {
         // TODO: maybe we should use something optimized for bulk removal instead of simple map
-        responses.forEach(this::responseDemoReceived)
+        responses.forEach(this::responseTransportReceived)
     }
 
     override fun removeOlderThan(timeout: Long): Long {
@@ -175,17 +175,17 @@ class DecodeQueueBuffer(
 }
 
 private fun RequestedMessageDetails.timeout() {
-    parsedMessage = null
-    demoParsedMessage = null
+    protoParsedMessages = null
+    transportParsedMessages = null
     responseMessage()
 }
 
 private fun RequestedMessageDetails.responseFinished(response: List<Message>) {
-    parsedMessage = response
+    protoParsedMessages = response
     responseMessage()
 }
 
-private fun RequestedMessageDetails.responseDemoFinished(response: List<DemoParsedMessage>) {
-    demoParsedMessage = response
+private fun RequestedMessageDetails.responseTransportFinished(response: List<ParsedMessage>) {
+    transportParsedMessages = response
     responseMessage()
 }

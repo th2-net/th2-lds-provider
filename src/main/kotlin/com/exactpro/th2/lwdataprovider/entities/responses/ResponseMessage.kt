@@ -17,8 +17,8 @@
 package com.exactpro.th2.lwdataprovider.entities.responses
 
 import com.exactpro.cradle.messages.StoredMessageId
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoParsedMessage
-import com.exactpro.th2.lwdataprovider.demo.toProtoDirection
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
+import com.exactpro.th2.lwdataprovider.transport.toProtoDirection
 import kotlinx.serialization.ContextualSerializer
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
@@ -59,10 +59,15 @@ val SERIALIZERS_MODULE = SerializersModule {
     contextual(FieldSerializer)
 }
 
-val SUBSEQUENCE_SERIALIZER = serializer<List<Long>>()
+val SUBSEQUENCE_SERIALIZER = serializer<List<Int>>()
 val METADATA_SERIALIZER = serializer<Map<String, String>>()
 val MESSAGE_SERIALIZER = SERIALIZERS_MODULE.serializer<Map<String, Any>>()
 val COLLECTION_SERIALIZER = SERIALIZERS_MODULE.serializer<List<Any>>()
+
+class TransportMessageContainer(
+    val sessionGroup: String,
+    val parsedMessage: ParsedMessage
+)
 
 @OptIn(ExperimentalSerializationApi::class)
 @Serializer(forClass = Instant::class)
@@ -113,7 +118,7 @@ object FieldSerializer : KSerializer<Any> {
     }
 }
 
-object DemoParsedMessageSerializer : KSerializer<DemoParsedMessage> {
+object TransportMessageContainerSerializer : KSerializer<TransportMessageContainer> {
     private val connectionIdDescriptor = buildClassSerialDescriptor("ConnectionId") {
         element<String>("sessionGroup", isOptional = true)
         element<String>("sessionAlias")
@@ -136,19 +141,19 @@ object DemoParsedMessageSerializer : KSerializer<DemoParsedMessage> {
         element<String>("protocol")
     }
 
-    override val descriptor: SerialDescriptor = buildClassSerialDescriptor("DemoParsedMessage") {
+    override val descriptor: SerialDescriptor = buildClassSerialDescriptor("TransportMessage") {
         element("metadata", metadataDescriptor)
         element("fields", MESSAGE_SERIALIZER.descriptor)
     }
 
-    override fun serialize(encoder: Encoder, value: DemoParsedMessage) {
+    override fun serialize(encoder: Encoder, value: TransportMessageContainer) {
         encoder.encodeStructure(descriptor) {
-            with(value) {
+            with(value.parsedMessage) {
                 encodeInlineElement(descriptor, 0).encodeStructure(metadataDescriptor) {
                     encodeInlineElement(metadataDescriptor, 0).encodeStructure(idDescriptor) {
                         with(id) {
                             encodeInlineElement(idDescriptor, 0).encodeStructure(connectionIdDescriptor) {
-                                encodeStringElementIfNotEmpty(connectionIdDescriptor, 0, sessionGroup)
+                                encodeStringElementIfNotEmpty(connectionIdDescriptor, 0, value.sessionGroup)
                                 encodeStringElementIfNotEmpty(connectionIdDescriptor, 1, sessionAlias)
                             }
                             encodeStringElementIfNotEmpty(idDescriptor, 1, direction.toProtoDirection().name)
@@ -171,7 +176,7 @@ object DemoParsedMessageSerializer : KSerializer<DemoParsedMessage> {
         }
     }
 
-    override fun deserialize(decoder: Decoder): DemoParsedMessage = error("Unsupported decoding")
+    override fun deserialize(decoder: Decoder): TransportMessageContainer = error("Unsupported transport message container decoding")
 }
 
 object UnwrappingJsonListSerializer :

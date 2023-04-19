@@ -17,7 +17,7 @@
 package com.exactpro.th2.lwdataprovider.producers
 
 import com.exactpro.th2.common.grpc.Message
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoParsedMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 import com.exactpro.th2.lwdataprovider.CustomProtoJsonFormatter
 import com.exactpro.th2.lwdataprovider.CustomSimpleJsonFormatter
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
@@ -35,5 +35,5 @@ object ParsedFormats {
 interface JsonFormatter {
     fun print(message: Message): String
 
-    fun print(message: DemoParsedMessage): String
+    fun print(sessionGroup: String, message: ParsedMessage): String
 }

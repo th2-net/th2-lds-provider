@@ -24,7 +24,7 @@ import com.exactpro.th2.common.message.toTimestamp
 import com.exactpro.th2.dataprovider.lw.grpc.MessageGroupItem
 import com.exactpro.th2.dataprovider.lw.grpc.MessageGroupResponse
 import com.exactpro.th2.lwdataprovider.RequestedMessage
-import com.exactpro.th2.lwdataprovider.demo.toProtoMessage
+import com.exactpro.th2.lwdataprovider.transport.toProtoMessage
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.google.protobuf.Timestamp
 import java.time.Instant
@@ -45,10 +45,12 @@ class GrpcMessageProducer {
                     bodyRaw = rawMessage.rawMessage.value.body
                 }
                 if (responseFormats.isEmpty() || ResponseFormat.PROTO_PARSED in responseFormats) {
-                    rawMessage.parsedMessage?.forEach {
+                    rawMessage.protoMessage?.forEach {
                         addMessageItem(MessageGroupItem.newBuilder().setMessage(it).build())
-                    } ?: rawMessage.demoParsedMessage?.forEach {
-                        addMessageItem(MessageGroupItem.newBuilder().setMessage(it.toProtoMessage()).build())
+                    } ?: rawMessage.transportMessage?.forEach {
+                        val book = rawMessage.requestId.bookName
+                        val sessionGroup = rawMessage.sessionGroup
+                        addMessageItem(MessageGroupItem.newBuilder().setMessage(it.toProtoMessage(book, sessionGroup)).build())
                     }
                 }
             }.build()

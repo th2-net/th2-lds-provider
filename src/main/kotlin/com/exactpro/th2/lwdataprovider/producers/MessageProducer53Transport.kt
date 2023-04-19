@@ -17,21 +17,21 @@
 package com.exactpro.th2.lwdataprovider.producers
 
 import com.exactpro.th2.lwdataprovider.RequestedMessage
-import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53Demo
+import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53Transport
 import java.util.*
 
 @Deprecated("for 5.3 messages")
-class MessageProducer53Demo {
+class MessageProducer53Transport {
 
     companion object {
         fun createMessage(
             rawMessage: RequestedMessage,
             formatter: JsonFormatter?,
             includeRaw: Boolean,
-        ): ProviderMessage53Demo {
-            return ProviderMessage53Demo(
-                rawMessage.storedMessage,
-                requireNotNull(rawMessage.demoParsedMessage)[0],
+        ): ProviderMessage53Transport {
+            return ProviderMessage53Transport(
+                rawMessage.storedMessage, rawMessage.sessionGroup,
+                requireNotNull(rawMessage.transportMessage)[0],
                 if (includeRaw) {
                     rawMessage.storedMessage.let { Base64.getEncoder().encodeToString(it.content) }
                 } else null,

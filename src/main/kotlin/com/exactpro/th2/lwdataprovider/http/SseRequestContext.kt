@@ -66,7 +66,7 @@ class HttpMessagesRequestHandler(
         if (!isAlive) return
         val counter = indexer.nextIndex()
         val future: CompletableFuture<SseEvent> = data.completed.thenApplyAsync({ requestedMessage: RequestedMessage ->
-            if (jsonFormatter != null && requestedMessage.parsedMessage == null && requestedMessage.demoParsedMessage == null) {
+            if (jsonFormatter != null && requestedMessage.protoMessage == null && requestedMessage.transportMessage == null) {
                 builder.codecTimeoutError(requestedMessage.storedMessage.id, counter)
             } else {
                 builder.build(

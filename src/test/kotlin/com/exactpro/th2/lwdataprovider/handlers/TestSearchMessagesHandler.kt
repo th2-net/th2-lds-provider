@@ -28,7 +28,7 @@ import com.exactpro.th2.common.message.message
 import com.exactpro.th2.common.message.messageType
 import com.exactpro.th2.common.message.sequence
 import com.exactpro.th2.common.message.sessionAlias
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoGroupBatch
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 import com.exactpro.th2.lwdataprovider.Decoder
 import com.exactpro.th2.lwdataprovider.RequestedMessage
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
@@ -234,19 +234,19 @@ internal class TestSearchMessagesHandler {
         verify(decoder, timeout(200).times(1)).sendBatchMessage(any<MessageGroupBatch.Builder>(), any(), any())
         verify(handler, never()).complete()
 
-        expectThat(decoder.queue.size).isEqualTo(3)
+        expectThat(decoder.protoQueue.size).isEqualTo(3)
         val offset = 3
         repeat(offset) {
-            decoder.queue.poll()?.apply {
-                parsedMessage = listOf(message("Test$it").build())
+            decoder.protoQueue.poll()?.apply {
+                protoParsedMessages = listOf(message("Test$it").build())
                 responseMessage()
             }
         }
         future.get(100, TimeUnit.MILLISECONDS)
 
-        expectThat(decoder.queue.size).isEqualTo(2)
-        decoder.queue.forEachIndexed { index, details ->
-            details.parsedMessage = listOf(message("Test${index + offset}").build())
+        expectThat(decoder.protoQueue.size).isEqualTo(2)
+        decoder.protoQueue.forEachIndexed { index, details ->
+            details.protoParsedMessages = listOf(message("Test${index + offset}").build())
             details.responseMessage()
         }
 
@@ -283,9 +283,9 @@ internal class TestSearchMessagesHandler {
         verify(decoder, times(2)).sendBatchMessage(any<MessageGroupBatch.Builder>(), any(), any())
         verify(handler, never()).complete()
 
-        expectThat(decoder.queue.size).isEqualTo(4)
-        decoder.queue.forEachIndexed { index, details ->
-            details.parsedMessage = listOf(message("Test$index").build())
+        expectThat(decoder.protoQueue.size).isEqualTo(4)
+        decoder.protoQueue.forEachIndexed { index, details ->
+            details.protoParsedMessages = listOf(message("Test$index").build())
             details.responseMessage()
         }
 
@@ -345,9 +345,9 @@ internal class TestSearchMessagesHandler {
 
         verify(handler, never()).complete()
 
-        expectThat(decoder.queue.size).isEqualTo(2)
-        decoder.queue.forEachIndexed { index, details ->
-            details.parsedMessage = listOf(message("Test$index").build())
+        expectThat(decoder.protoQueue.size).isEqualTo(2)
+        decoder.protoQueue.forEachIndexed { index, details ->
+            details.protoParsedMessages = listOf(message("Test$index").build())
             details.responseMessage()
         }
 
@@ -361,7 +361,7 @@ internal class TestSearchMessagesHandler {
     }
 
     @Test
-    fun `returns parsed messages demo mode`() {
+    fun `returns parsed messages transport mode`() {
         val decoder = spy(TestDecoder())
         val searchHandler = createSearchMessagesHandler(decoder, true)
 
@@ -394,10 +394,10 @@ internal class TestSearchMessagesHandler {
 
         verify(handler, never()).complete()
 
-        assertEquals(messagesCount, decoder.demoQueue.size)
-        assertEquals(0, decoder.queue.size)
-        decoder.demoQueue.forEachIndexed { index, details ->
-            details.parsedMessage = listOf(message("Test$index").build())
+        assertEquals(messagesCount, decoder.transportQueue.size)
+        assertEquals(0, decoder.protoQueue.size)
+        decoder.transportQueue.forEachIndexed { index, details ->
+            details.protoParsedMessages = listOf(message("Test$index").build())
             details.responseMessage()
         }
 
@@ -409,7 +409,7 @@ internal class TestSearchMessagesHandler {
         assertEquals(messagesCount, messages.size) {
             val missing: List<StoredMessage> = (batches.asSequence() + batches.asSequence()).flatMap { it.messages }.filter { stored ->
                 messages.none {
-                    val raw = it.rawMessage.value
+                    val raw = it.protoRawMessage.value
                     raw.sessionAlias == stored.sessionAlias && raw.sequence == stored.sequence && raw.direction.toCradleDirection() == stored.direction
                 }
             }.toList()
@@ -438,9 +438,9 @@ internal class TestSearchMessagesHandler {
 
         verify(handler, never()).complete()
 
-        expectThat(decoder.queue.size).isEqualTo(1)
-        decoder.queue.forEachIndexed { index, details ->
-            details.parsedMessage = listOf(message("Test$index").build())
+        expectThat(decoder.protoQueue.size).isEqualTo(1)
+        decoder.protoQueue.forEachIndexed { index, details ->
+            details.protoParsedMessages = listOf(message("Test$index").build())
             details.responseMessage()
         }
 
@@ -549,7 +549,7 @@ internal class TestSearchMessagesHandler {
         assertEquals(messagesCount, messages.size) {
             val missing: List<StoredMessage> = (firstBatches.asSequence() + lastBatches.asSequence()).flatMap { it.messages }.filter { stored ->
                 messages.none {
-                    val raw = it.rawMessage.value
+                    val raw = it.protoRawMessage.value
                     raw.sessionAlias == stored.sessionAlias && raw.sequence == stored.sequence && raw.direction.toCradleDirection() == stored.direction
                 }
             }.toList()
@@ -560,7 +560,7 @@ internal class TestSearchMessagesHandler {
 
     private fun createSearchMessagesHandler(
         decoder: Decoder,
-        useDemoMode: Boolean
+        useTransportMode: Boolean
     ) = SearchMessagesHandler(
         CradleMessageExtractor(10, manager, DummyDataMeasurement),
         decoder,
@@ -568,7 +568,7 @@ internal class TestSearchMessagesHandler {
         Configuration(
             CustomConfigurationClass(
                 batchSize = 3,
-                useDemoMode = useDemoMode,
+                useTransportMode = useTransportMode,
             )
         )
     )
@@ -587,7 +587,7 @@ internal class TestSearchMessagesHandler {
         index: Int = 0,
     ) {
         get { requestId } isEqualTo CradleRequestId(storedMessage.id)
-        get { parsedMessage }.apply {
+        get { protoMessage }.apply {
             if (isParsed) {
                 isNotNull().single()
                     .get { messageType } isEqualTo "Test$index"
@@ -613,19 +613,21 @@ internal class TestSearchMessagesHandler {
 private open class TestDecoder(
     capacity: Int = 10
 ) : Decoder {
-    val queue: Queue<RequestedMessageDetails> = ArrayBlockingQueue(capacity)
-    val demoQueue: Queue<RequestedMessageDetails> = ArrayBlockingQueue(capacity)
+    val protoQueue: Queue<RequestedMessageDetails> = ArrayBlockingQueue(capacity)
+    val transportQueue: Queue<RequestedMessageDetails> = ArrayBlockingQueue(capacity)
     override fun sendBatchMessage(batchBuilder: MessageGroupBatch.Builder, requests: Collection<RequestedMessageDetails>, session: String) {
-        queue.addAll(requests)
+        protoQueue.addAll(requests)
     }
 
-    override fun sendBatchMessage(batchBuilder: DemoGroupBatch, requests: Collection<RequestedMessageDetails>, session: String) {
-        demoQueue.addAll(requests)
+    override fun sendBatchMessage(batchBuilder: GroupBatch, requests: Collection<RequestedMessageDetails>, session: String) {
+        transportQueue.addAll(requests)
     }
 
     override fun sendMessage(message: RequestedMessageDetails, session: String) {
-        queue.add(message)
+        protoQueue.add(message)
     }
+
+    //FIXME: implement for transport
 }
 
 private open class MessageResponseHandlerTestImpl(

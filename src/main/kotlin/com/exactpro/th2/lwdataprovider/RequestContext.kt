@@ -18,10 +18,10 @@ package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.th2.common.grpc.Message
-import com.exactpro.th2.common.grpc.RawMessage
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoParsedMessage
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoRawMessage
-import com.exactpro.th2.lwdataprovider.demo.toDemoRawMessage
+import com.exactpro.th2.common.grpc.RawMessage as ProtoRawMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.RawMessage
+import com.exactpro.th2.lwdataprovider.transport.toRawMessage
 import com.exactpro.th2.lwdataprovider.grpc.toRawMessage
 import com.exactpro.th2.lwdataprovider.metrics.DecodingMetrics
 import com.exactpro.th2.lwdataprovider.workers.CradleRequestId
@@ -32,16 +32,16 @@ import java.util.concurrent.TimeoutException
 
 class RequestedMessageDetails(
     val storedMessage: StoredMessage,
-    val group: String? = null,
+    val sessionGroup: String? = null,
     private val onResponse: ((RequestedMessageDetails) -> Unit)? = null
 ) {
     val requestId: RequestId = CradleRequestId(storedMessage.id)
-    val rawMessage: Lazy<RawMessage> = lazy(LazyThreadSafetyMode.NONE, storedMessage::toRawMessage)
-    val demoRawMessage: Lazy<DemoRawMessage> = lazy(LazyThreadSafetyMode.NONE, storedMessage::toDemoRawMessage)
+    val protoRawMessage: Lazy<ProtoRawMessage> = lazy(LazyThreadSafetyMode.NONE, storedMessage::toRawMessage)
+    val transportRawMessage: Lazy<RawMessage> = lazy(LazyThreadSafetyMode.NONE, storedMessage::toRawMessage)
     @Volatile
     var time: Long = 0
-    var parsedMessage: List<Message>? = null
-    var demoParsedMessage: List<DemoParsedMessage>? = null
+    var protoParsedMessages: List<Message>? = null
+    var transportParsedMessages: List<ParsedMessage>? = null
     val completed = CompletableFuture<RequestedMessage>()
     init {
         if (onResponse == null) {
@@ -65,16 +65,16 @@ class RequestedMessageDetails(
     }
 
     private fun complete() {
-        //FIXME: raw message initialized independently
-        completed.complete(RequestedMessage(requestId, storedMessage, rawMessage, parsedMessage, demoParsedMessage))
+        completed.complete(RequestedMessage(requestId, sessionGroup ?: "", storedMessage, protoRawMessage, protoParsedMessages, transportParsedMessages))
         DecodingMetrics.incDecoded()
     }
 }
 
 class RequestedMessage(
     val requestId: RequestId,
+    val sessionGroup: String,
     val storedMessage: StoredMessage,
-    val rawMessage: Lazy<RawMessage>,
-    val parsedMessage: List<Message>?,
-    val demoParsedMessage: List<DemoParsedMessage>?,
+    val rawMessage: Lazy<com.exactpro.th2.common.grpc.RawMessage>,
+    val protoMessage: List<Message>?,
+    val transportMessage: List<ParsedMessage>?,
 )

@@ -17,17 +17,17 @@
 package com.exactpro.th2.lwdataprovider.workers
 
 import com.exactpro.th2.common.grpc.Message
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoParsedMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 
 interface RequestsBuffer {
     /**
      * @param id [RequestId] for which the response was received
      * @param response the supplier function that will be invoked it the [id] is in the decoding queue
      */
-    fun responseReceived(id: RequestId, response: () -> List<Message>)
-    fun responseDemoReceived(id: RequestId, response: () -> List<DemoParsedMessage>)
-    fun bulkResponsesReceived(responses: Map<RequestId, () -> List<Message>>)
-    fun bulkResponsesDemoReceived(responses: Map<RequestId, () -> List<DemoParsedMessage>>)
+    fun responseProtoReceived(id: RequestId, response: () -> List<Message>)
+    fun responseTransportReceived(id: RequestId, response: () -> List<ParsedMessage>)
+    fun bulkResponsesProtoReceived(responses: Map<RequestId, () -> List<Message>>)
+    fun bulkResponsesTransportReceived(responses: Map<RequestId, () -> List<ParsedMessage>>)
 
     /**
      * @return the sending time of the oldest message request or current time in epoch millis

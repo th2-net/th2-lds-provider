@@ -17,6 +17,7 @@
 plugins {
     id 'com.exactpro.th2.common-convensions'
     id 'application'
+    id 'java-test-fixtures'
     id 'com.palantir.docker' version '0.25.0'
     id "io.github.gradle-nexus.publish-plugin" version "1.1.0"
     id 'org.jetbrains.kotlin.kapt'
@@ -26,7 +27,8 @@ plugins {
 
 ext {
     dockerImageVersion = release_version
-    cradleApiVersion = '5.0.0-separate-executor-4540242539-6c92e55-SNAPSHOT'
+    cradleApiVersion = '5.1.0-separate-executor-4678409529-5d1e60e-SNAPSHOT'
+    commonVersion = '5.2.0-separate-executor-4740442036-3398cd8-SNAPSHOT'
     javalin = '5.4.2'
 }
 
@@ -42,8 +44,7 @@ dependencyCheck {
 }
 
 dependencies {
-    
-    implementation('com.exactpro.th2:common:5.2.0-separate-executor-4555019526-a4a4572-SNAPSHOT') {
+    implementation("com.exactpro.th2:common:${commonVersion}") {
         exclude group: 'com.exactpro.th2', module: 'cradle-core'
         exclude group: 'com.exactpro.th2', module: 'cradle-cassandra'
     }
@@ -90,11 +91,25 @@ dependencies {
 
     testImplementation "io.javalin:javalin-testtools:$javalin"
 
+    testImplementation(testFixtures("com.exactpro.th2:common:${commonVersion}"))
     testImplementation platform('org.testcontainers:testcontainers-bom:1.18.0')
     testImplementation 'org.testcontainers:junit-jupiter'
     testImplementation "org.testcontainers:cassandra"
 
     testImplementation 'com.datastax.oss:java-driver-core'
+}
+
+test {
+    useJUnitPlatform {
+        excludeTags('integration-test')
+    }
+}
+
+tasks.register('integrationTest', Test) {
+    group = 'verification'
+    useJUnitPlatform {
+        includeTags('integration-test')
+    }
 }
 
 applicationName = 'service'

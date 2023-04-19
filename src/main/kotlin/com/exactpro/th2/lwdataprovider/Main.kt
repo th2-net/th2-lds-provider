@@ -62,8 +62,8 @@ class Main {
             cradleManager = configurationFactory.cradleManager.also {
                 resources += AutoCloseable { it.close() }
             },
-            messageRouter = configurationFactory.messageRouterMessageGroupBatch,
-            demoMessageRouter = configurationFactory.demoMessageBatchRouter,
+            protoMessageRouter = configurationFactory.messageRouterMessageGroupBatch,
+            transportMessageRouter = configurationFactory.transportGroupBatchRouter,
             eventRouter = configurationFactory.eventBatchRouter,
             applicationName = configurationFactory.boxConfiguration?.boxName ?: "lw-data-provider",
         )

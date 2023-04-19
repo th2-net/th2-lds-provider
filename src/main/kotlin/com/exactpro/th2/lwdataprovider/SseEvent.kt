@@ -22,7 +22,7 @@ import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.exactpro.th2.lwdataprovider.entities.responses.PageInfo
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
-import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53Demo
+import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53Transport
 import com.exactpro.th2.lwdataprovider.entities.responses.ResponseMessage
 import com.fasterxml.jackson.databind.ObjectMapper
 import kotlinx.serialization.json.Json
@@ -95,7 +95,7 @@ sealed class SseEvent(
             return MessageData(
                 when(message) {
                     is ProviderMessage53 -> Json.encodeToString(ProviderMessage53.serializer(), message)
-                    is ProviderMessage53Demo -> Json.encodeToString(ProviderMessage53Demo.serializer(), message)
+                    is ProviderMessage53Transport -> Json.encodeToString(ProviderMessage53Transport.serializer(), message)
                     else -> jacksonMapper.writeValueAsString(message)
                 },
                 counter.toString(),

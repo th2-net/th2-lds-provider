@@ -18,7 +18,7 @@ package com.exactpro.th2.lwdataprovider.handlers
 
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoGroupBatch
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 import com.exactpro.th2.lwdataprovider.Decoder
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.ResponseHandler
@@ -72,7 +72,7 @@ internal abstract class AbstractParsedStoredMessageHandler(
     }
 }
 
-internal class ParsedStoredMessageHandler(
+internal class ProtoParsedStoredMessageHandler(
     handler: MessageResponseHandler,
     private val decoder: Decoder,
     measurement: DataMeasurement,
@@ -93,7 +93,7 @@ internal class ParsedStoredMessageHandler(
     }
 }
 
-internal class DemoParsedStoredMessageHandler(
+internal class TransportParsedStoredMessageHandler(
     handler: MessageResponseHandler,
     private val decoder: Decoder,
     measurement: DataMeasurement,
@@ -103,7 +103,7 @@ internal class DemoParsedStoredMessageHandler(
     measurement,
     batchSize
 ) {
-    private val batch: DemoGroupBatch = DemoGroupBatch.newMutable()
+    private val batch: GroupBatch = GroupBatch.newMutable()
 
     override fun sendBatchMessage(details: MutableList<RequestedMessageDetails>) {
         try {
@@ -111,7 +111,7 @@ internal class DemoParsedStoredMessageHandler(
             val sessionAlias = first.storedMessage.sessionAlias
 
             batch.book = first.storedMessage.bookId.name
-            batch.sessionGroup = defaultIfBlank(first.group, sessionAlias)
+            batch.sessionGroup = defaultIfBlank(first.sessionGroup, sessionAlias)
             decoder.sendBatchMessage(batch, details, sessionAlias)
         } finally {
             batch.softClean()

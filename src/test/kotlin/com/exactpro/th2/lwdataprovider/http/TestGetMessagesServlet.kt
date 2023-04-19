@@ -235,7 +235,7 @@ internal class TestGetMessagesServlet : AbstractHttpHandlerTest<GetMessagesServl
                         && timestampFrom.value == start && timestampTo.value == end
                         && direction == Direction.FIRST
             })
-        whenever(messageRouter.send(any(), anyVararg())).doThrow(IllegalStateException("fake"))
+        whenever(protoMessageRouter.send(any(), anyVararg())).doThrow(IllegalStateException("fake"))
 
         startTest { _, client ->
             val response = client.sse(

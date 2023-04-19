@@ -21,10 +21,10 @@ import com.exactpro.cradle.Direction
 import com.exactpro.cradle.messages.GroupedMessageBatchToStore
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageId
+import com.exactpro.th2.common.annotations.IntegrationTest
 import com.exactpro.th2.lwdataprovider.db.MessageDataSink
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.DynamicTest
-import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
@@ -38,6 +38,7 @@ import strikt.assertions.isEqualTo
 import strikt.assertions.single
 import java.time.Instant
 
+@IntegrationTest
 class TestCradleMessageExtractorIntegration : AbstractCradleIntegrationTest() {
     private val testGroup = "test_group"
     private lateinit var batchToStore: GroupedMessageBatchToStore

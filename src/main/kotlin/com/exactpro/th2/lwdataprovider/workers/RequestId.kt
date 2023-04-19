@@ -18,15 +18,15 @@ package com.exactpro.th2.lwdataprovider.workers
 
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.messages.StoredMessageIdUtils
-import com.exactpro.th2.common.grpc.Direction
+import com.exactpro.th2.common.grpc.Direction as ProtoDirection
 import com.exactpro.th2.common.grpc.MessageID
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoDirection
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageId
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageId
 import com.exactpro.th2.lwdataprovider.grpc.toInstant
 import java.time.Instant
 
 sealed class RequestId {
-    protected abstract val bookName: String
+    abstract val bookName: String
     protected abstract val sessionAlias: String
     protected abstract val directionNum: Int
     protected abstract val epochSecond: Long
@@ -75,7 +75,7 @@ class ProtoRequestId(
     override val sessionAlias: String
         get() = messageID.connectionId.sessionAlias
     override val directionNum: Int
-        get() = if (messageID.direction == Direction.FIRST) 1 else 2
+        get() = if (messageID.direction == ProtoDirection.FIRST) 1 else 2
     override val epochSecond: Long
         get() = messageID.timestamp.seconds
     override val nano: Int
@@ -89,15 +89,14 @@ class ProtoRequestId(
     override val hashCode: Int = calculateHashCode()
 }
 
-class DemoRequestId(
-    private val messageID: DemoMessageId,
+class TransportRequestId(
+    override val bookName: String,
+    private val messageID: MessageId,
 ) : RequestId() {
-    override val bookName: String
-        get() = messageID.book
     override val sessionAlias: String
         get() = messageID.sessionAlias
     override val directionNum: Int
-        get() = if (messageID.direction == DemoDirection.INCOMING) 1 else 2
+        get() = if (messageID.direction == Direction.INCOMING) 1 else 2
     override val epochSecond: Long
         get() = messageID.timestamp.epochSecond
     override val nano: Int

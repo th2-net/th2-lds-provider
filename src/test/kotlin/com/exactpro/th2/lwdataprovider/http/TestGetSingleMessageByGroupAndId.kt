@@ -171,7 +171,6 @@ class TestGetSingleMessageByGroupAndId : AbstractHttpHandlerTest<GetSingleMessag
                         "}," +
                         "\"fields\":{\"a\":\"42\"}" +
                     "}," +
-                    "\"bodyBase64\":null," +
                     "\"messageId\":\"test-book:test-0:1:${msgTimestamp}:4\"" +
                     "}"
             expectThat(response.get(1, TimeUnit.SECONDS)) {

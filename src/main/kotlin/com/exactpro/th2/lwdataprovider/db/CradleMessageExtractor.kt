@@ -38,6 +38,7 @@ import com.exactpro.th2.lwdataprovider.toReportId
 import mu.KotlinLogging
 import java.time.Duration
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.LinkedList
 import kotlin.system.measureTimeMillis
 
@@ -265,17 +266,24 @@ class CradleMessageExtractor(
                 )
             }
 
-            if (batches != null && batches.hasNext()) {
-                val batch = batches.next()
+            if (!batches.hasNext()) {
+                logger.info { "Empty response from cradle" }
+            }
+            val lowerBound = msgId.timestamp.minus(1, ChronoUnit.MINUTES)
+            val upperBound = msgId.timestamp
+            logger.info { "Upper bound: $upperBound; Lower bound: $lowerBound" }
+            for (batch in batches) {
                 val messages = batch.messages
                 logger.info { "Checking message in batch ${batch.group} (${messages.size} messages - ${batch.firstMessage.id}..${batch.lastMessage.id})" }
+                if (batch.firstTimestamp > upperBound || batch.lastTimestamp < lowerBound) {
+                    logger.info { "Batch is out of range for message id $msgId" }
+                    break
+                }
                 messages.find { it.id == msgId }?.also {
                     logger.debug { "Found message in batch (${batch.firstMessage.id}..${batch.lastMessage.id})" }
                     sink.onNext(group, it)
                     return@measureTimeMillis
                 }
-            } else {
-                logger.info { "Empty response from cradle" }
             }
             sink.onError("Message with id $msgId not found", msgId.toReportId())
             logger.error { "Message with id $msgId was not found for group $group" }

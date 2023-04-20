@@ -37,6 +37,9 @@ import strikt.api.expectThat
 import strikt.assertions.isEqualTo
 import strikt.assertions.single
 import java.time.Instant
+import java.time.temporal.ChronoUnit
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.locks.LockSupport
 
 @IntegrationTest
 class TestCradleMessageExtractorIntegration : AbstractCradleIntegrationTest() {
@@ -45,11 +48,11 @@ class TestCradleMessageExtractorIntegration : AbstractCradleIntegrationTest() {
 
     @BeforeAll
     fun setupData() {
-        val startTime = Instant.now().minusSeconds(120)
-        val bookInfo = cradleStorage.addBook(BookToAdd("test_book", startTime))
+        var startTime = Instant.now().minus(1, ChronoUnit.MINUTES)
+        val bookInfo = cradleStorage.addBook(BookToAdd("test_book1", startTime))
         cradleStorage.addPage(bookInfo.id, "test_page", startTime, "comment")
-        batchToStore = cradleStorage.entitiesFactory.groupedMessageBatch(testGroup).apply {
-            val initIndex = System.currentTimeMillis()
+        val initIndex = System.currentTimeMillis()
+        cradleStorage.entitiesFactory.groupedMessageBatch(testGroup).apply {
             repeat(5) {
                 addMessage(
                     MessageToStore(
@@ -57,9 +60,33 @@ class TestCradleMessageExtractorIntegration : AbstractCradleIntegrationTest() {
                         sessionAlias = "test-$it",
                         direction = Direction.FIRST,
                         sequence = initIndex + it,
-                        timestamp = startTime.plusSeconds((5 * it).toLong())
+                        timestamp = startTime,
                     )
                 )
+                startTime = startTime.plusNanos(5)
+            }
+        }.also(cradleStorage::storeGroupedMessageBatch)
+        // We need to have multiple pages for proper testing
+        // But because of the verifications in cradle we cannot create pages in the past
+        // So we increase timestamp into the future to create a new page
+        val offsetMills: Long = 100
+        startTime = Instant.now().plusMillis(offsetMills)
+        cradleStorage.addPage(bookInfo.id, "test_page2", startTime, "comment")
+        // but we cannot write into the future...
+        // so we wait until the current time matches the page start time
+        LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(offsetMills))
+        batchToStore = cradleStorage.entitiesFactory.groupedMessageBatch(testGroup).apply {
+            repeat(5) {
+                addMessage(
+                    MessageToStore(
+                        bookId = bookInfo.id,
+                        sessionAlias = "test-$it",
+                        direction = Direction.FIRST,
+                        sequence = initIndex + it + 6,
+                        timestamp = startTime,
+                    )
+                )
+                startTime = startTime.plusNanos(1)
             }
         }
         cradleStorage.storeGroupedMessageBatch(batchToStore)

@@ -107,7 +107,7 @@ abstract class AbstractCradleIntegrationTest {
 
     companion object {
         @Container
-        private val cassandraContainer = CassandraContainer<Nothing>(DockerImageName.parse("cassandra:3.11"))
+        private val cassandraContainer = CassandraContainer<Nothing>(DockerImageName.parse("cassandra:4.0.5"))
             .apply {
                 withLogConsumer(Slf4jLogConsumer(LoggerFactory.getLogger("cassandra")))
             }

@@ -272,6 +272,7 @@ internal class TestCradleMessageExtractor {
         val sink = spy(StoredMessageDataSink())
         extractor.getMessagesGroup(
             GroupedMessageFilter.builder()
+                .bookId(BookId("book"))
                 .groupName("test")
                 .timestampFrom().isGreaterThanOrEqualTo(startTimestamp)
                 .timestampTo().isLessThan(endTimestamp)

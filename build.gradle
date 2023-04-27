@@ -27,7 +27,7 @@ plugins {
 
 ext {
     dockerImageVersion = release_version
-    cradleApiVersion = '5.1.0-separate-executor-4678409529-5d1e60e-SNAPSHOT'
+    cradleApiVersion = '5.1.0-separate-executor-4783246997-dda4d35-SNAPSHOT'
     commonVersion = '5.2.0-separate-executor-4740442036-3398cd8-SNAPSHOT'
     javalin = '5.4.2'
 }
@@ -109,6 +109,9 @@ tasks.register('integrationTest', Test) {
     group = 'verification'
     useJUnitPlatform {
         includeTags('integration-test')
+    }
+    testLogging {
+        showStandardStreams = true
     }
 }
 

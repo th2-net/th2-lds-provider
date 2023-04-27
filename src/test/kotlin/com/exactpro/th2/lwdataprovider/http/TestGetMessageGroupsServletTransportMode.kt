@@ -43,6 +43,8 @@ import strikt.assertions.isEqualTo
 import strikt.assertions.isNotNull
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
 
 internal class TestGetMessageGroupsServletTransportMode : AbstractHttpHandlerTest<GetMessageGroupsServlet>() {
     override val configuration: Configuration
@@ -94,15 +96,17 @@ internal class TestGetMessageGroupsServletTransportMode : AbstractHttpHandlerTes
             })
 
         startTest { _, client ->
-            val response = client.sse(
-                "/search/sse/messages/group?" +
-                        "startTimestamp=${start.toEpochMilli()}" +
-                        "&endTimestamp=${end.toEpochMilli()}" +
-                        "&bookId=$BOOK_NAME" +
-                        "&group=$SESSION_GROUP" +
-                        "&responseFormat=BASE_64" +
-                        "&responseFormat=JSON_PARSED"
-            )
+            val response = CompletableFuture.supplyAsync {
+                client.sse(
+                    "/search/sse/messages/group?" +
+                            "startTimestamp=${start.toEpochMilli()}" +
+                            "&endTimestamp=${end.toEpochMilli()}" +
+                            "&bookId=$BOOK_NAME" +
+                            "&group=$SESSION_GROUP" +
+                            "&responseFormat=BASE_64" +
+                            "&responseFormat=JSON_PARSED"
+                )
+            }
             receiveTransportMessages(
                 BOOK_NAME,
                 SESSION_GROUP,
@@ -131,7 +135,7 @@ internal class TestGetMessageGroupsServletTransportMode : AbstractHttpHandlerTes
                         "\"body\":{\"metadata\":{\"id\":{\"connectionId\":{\"sessionAlias\":\"$SESSION_ALIAS\"},\"direction\":\"FIRST\",\"sequence\":1,\"timestamp\":{\"seconds\":${messageTimestamp.epochSecond},\"nanos\":${messageTimestamp.nano}},\"subsequence\":[]}," +
                         "\"messageType\":\"$MESSAGE_TYPE\"},\"fields\":{\"unprintable\":\"\\u000135=123\\u0001\",\"int\":\"1\",\"instant\":\"$messageTimestamp\",\"stringList\":[\"a\",\"b\"],\"subMessage\":{\"string\":\"abc\"},\"subMessageList\":[{\"string\":\"def\"},{\"string\":\"ghi\"}]}}," +
                         "\"bodyBase64\":\"dGVzdCBjb250ZW50\",\"messageId\":\"$BOOK_NAME:$SESSION_ALIAS:1:${StoredMessageIdUtils.timestampToString(messageTimestamp)}:1\"}"
-            expectThat(response) {
+            expectThat(response.get(1, TimeUnit.SECONDS)) {
                 get { code } isEqualTo HttpStatus.OK.code
                 get { body?.bytes()?.toString(Charsets.UTF_8) }
                     .isNotNull()

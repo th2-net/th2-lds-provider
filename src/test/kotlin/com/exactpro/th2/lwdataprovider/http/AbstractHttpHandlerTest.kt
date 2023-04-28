@@ -196,6 +196,21 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
                 }
             }
         }.build()
+        notifyListeners(batch)
+    }
+
+    protected fun receiveMessagesGroup(vararg messages: Message) {
+        val batch = MessageGroupBatch.newBuilder().apply {
+            for (msg in messages) {
+                addGroupsBuilder().apply {
+                    this += msg
+                }
+            }
+        }.build()
+        notifyListeners(batch)
+    }
+
+    private fun notifyListeners(batch: MessageGroupBatch?) {
         val metadata = DeliveryMetadata("test", isRedelivered = false)
         LOGGER.info { "Await for codec request" }
         Assertions.assertTrue(semaphore.tryAcquire(500, TimeUnit.MILLISECONDS)) {

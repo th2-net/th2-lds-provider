@@ -195,7 +195,7 @@ class SearchMessagesHandler(
                     }
                 },
                 markerAsGroup = true,
-                limit = null,
+                limit = request.limit,
             )
             try {
                 rootSink.use { sink ->

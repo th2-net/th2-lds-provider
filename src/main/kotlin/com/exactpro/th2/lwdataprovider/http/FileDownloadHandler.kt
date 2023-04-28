@@ -119,7 +119,12 @@ class FileDownloadHandler(
                 STREAM,
                 type = Array<String>::class,
                 description = "list of streams (optionally with direction) to include in the response",
-            )
+            ),
+            OpenApiParam(
+                LIMIT,
+                type = Int::class,
+                description = "limit for messages in the response. No limit if not specified",
+            ),
         ],
         methods = [HttpMethod.GET],
         responses = [
@@ -154,6 +159,9 @@ class FileDownloadHandler(
             includeStreams = ctx.queryParams(STREAM).takeIf(List<*>::isNotEmpty)
                 ?.let(::convertToMessageStreams)
                 ?.toSet() ?: emptySet(),
+            limit = ctx.queryParamAsClass<Int>(LIMIT).allowNullable().check({
+                it == null || it >= 0
+            }, "NEGATIVE_LIMIT").get(),
         )
 
         val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
@@ -229,6 +237,7 @@ class FileDownloadHandler(
         private const val BOOK_ID_PARAM = "bookId"
         private const val RESPONSE_FORMAT = "responseFormat"
         private const val STREAM = "stream"
+        private const val LIMIT = "limit"
         private val LOGGER = KotlinLogging.logger { }
         const val ROUTE_MESSAGES = "/download/messages"
     }

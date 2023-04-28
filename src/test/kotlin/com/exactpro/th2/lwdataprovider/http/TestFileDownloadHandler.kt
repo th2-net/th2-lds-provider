@@ -182,4 +182,60 @@ class TestFileDownloadHandler : AbstractHttpHandlerTest<FileDownloadHandler>() {
             }
         }
     }
+
+    @Test
+    fun `response with limit raw messages`() {
+        var index = 1L
+        val start = Instant.now()
+        doReturn(
+            CradleResult(
+                GroupBatch(
+                    "test-group",
+                    book = "test-book",
+                    messages = buildList {
+                        repeat(6) {
+                            add(
+                                createCradleStoredMessage(
+                                    "test-${it % 3}",
+                                    Direction.FIRST,
+                                    index++,
+                                    timestamp = start,
+                                    book = "test-book",
+                                )
+                            )
+                        }
+                    },
+                )
+            )
+        ).whenever(storage).getGroupedMessageBatches(argThat {
+            groupName == "test-group" && bookId.name == "test-book"
+        })
+
+        startTest { _, client ->
+            val response = client.get(
+                "/download/messages?" +
+                        "startTimestamp=${start.toEpochMilli()}&endTimestamp=${Instant.now().toEpochMilli()}" +
+                        "&group=test-group" +
+                        "&bookId=test-book" +
+                        "&responseFormat=BASE_64" +
+                        "&limit=4"
+            )
+
+            val expectedTimestamp = StoredMessageIdUtils.timestampToString(start)
+            val seconds = start.epochSecond
+            val nanos = start.nano
+            expectThat(response) {
+                get { code } isEqualTo HttpStatus.OK.code
+                get { body?.bytes()?.toString(Charsets.UTF_8) }
+                    .isNotNull()
+                    .isEqualTo(
+                        """{"timestamp":{"epochSecond":${seconds},"nano":${nanos}},"direction":"IN","sessionId":"test-0","messageType":"","attachedEventIds":[],"body":{},"bodyBase64":"aGVsbG8=","messageId":"test-book:test-0:1:${expectedTimestamp}:1"}
+                          |{"timestamp":{"epochSecond":${seconds},"nano":${nanos}},"direction":"IN","sessionId":"test-1","messageType":"","attachedEventIds":[],"body":{},"bodyBase64":"aGVsbG8=","messageId":"test-book:test-1:1:${expectedTimestamp}:2"}
+                          |{"timestamp":{"epochSecond":${seconds},"nano":${nanos}},"direction":"IN","sessionId":"test-2","messageType":"","attachedEventIds":[],"body":{},"bodyBase64":"aGVsbG8=","messageId":"test-book:test-2:1:${expectedTimestamp}:3"}
+                          |{"timestamp":{"epochSecond":${seconds},"nano":${nanos}},"direction":"IN","sessionId":"test-0","messageType":"","attachedEventIds":[],"body":{},"bodyBase64":"aGVsbG8=","messageId":"test-book:test-0:1:${expectedTimestamp}:4"}
+                          |""".trimMargin(marginPrefix = "|")
+                    )
+            }
+        }
+    }
 }

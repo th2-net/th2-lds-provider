@@ -232,4 +232,59 @@ internal class TestGetMessageGroupsServlet : AbstractHttpHandlerTest<GetMessageG
             }
         }
     }
+
+    @Test
+    fun `response as limited messages number`() {
+        var index = 1L
+        val start = Instant.now()
+        doReturn(
+            CradleResult(
+                GroupBatch(
+                    "test-group",
+                    book = "test-book",
+                    messages = buildList {
+                        repeat(6) {
+                            add(createCradleStoredMessage("test-${it % 3}", Direction.FIRST, index++, timestamp = start))
+                        }
+                    },
+                )
+            )
+        ).whenever(storage).getGroupedMessageBatches(argThat {
+            groupName == "test-group" && bookId.name == "test-book"
+        })
+
+        startTest { _, client ->
+            val response = client.sse(
+                "/search/sse/messages/group?" +
+                        "startTimestamp=${start.toEpochMilli()}&endTimestamp=${Instant.now().toEpochMilli()}" +
+                        "&group=test-group" +
+                        "&bookId=test-book" +
+                        "&responseFormat=BASE_64" +
+                        "&limit=2"
+            )
+
+            val expectedTimestamp = StoredMessageIdUtils.timestampToString(start)
+            val seconds = start.epochSecond
+            val nanos = start.nano
+            expectThat(response) {
+                get { code } isEqualTo HttpStatus.OK.code
+                get { body?.bytes()?.toString(Charsets.UTF_8) }
+                    .isNotNull()
+                    .isEqualTo(
+                        """id: 1
+                          |event: message
+                          |data: {"timestamp":{"epochSecond":${seconds},"nano":${nanos}},"direction":"IN","sessionId":"test-0","messageType":"","attachedEventIds":[],"body":{},"bodyBase64":"aGVsbG8=","messageId":"test:test-0:1:${expectedTimestamp}:1"}
+                          |
+                          |id: 2
+                          |event: message
+                          |data: {"timestamp":{"epochSecond":${seconds},"nano":${nanos}},"direction":"IN","sessionId":"test-1","messageType":"","attachedEventIds":[],"body":{},"bodyBase64":"aGVsbG8=","messageId":"test:test-1:1:${expectedTimestamp}:2"}
+                          |
+                          |event: close
+                          |data: empty data
+                          |
+                          |""".trimMargin(marginPrefix = "|")
+                    )
+            }
+        }
+    }
 }

@@ -32,6 +32,7 @@ data class MessagesGroupRequest(
     val bookId: BookId,
     val responseFormats: Set<ResponseFormat>? = null,
     val includeStreams: Set<ProviderMessageStream> = emptySet(),
+    val limit: Int? = null,
 ) {
     init {
         require(startTimestamp <= endTimestamp) { "$START_TIMESTAMP_PARAM must be greater than $END_TIMESTAMP_PARAM" }

@@ -22,6 +22,7 @@ import com.exactpro.th2.lwdataprovider.transport.toProtoDirection
 import kotlinx.serialization.ContextualSerializer
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.Serializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.descriptors.PrimitiveKind
@@ -64,6 +65,7 @@ val METADATA_SERIALIZER = serializer<Map<String, String>>()
 val MESSAGE_SERIALIZER = SERIALIZERS_MODULE.serializer<Map<String, Any>>()
 val COLLECTION_SERIALIZER = SERIALIZERS_MODULE.serializer<List<Any>>()
 
+@Serializable(with = TransportMessageContainerSerializer::class)
 class TransportMessageContainer(
     val sessionGroup: String,
     val parsedMessage: ParsedMessage

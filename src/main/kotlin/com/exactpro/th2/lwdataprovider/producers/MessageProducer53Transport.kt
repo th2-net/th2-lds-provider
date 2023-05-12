@@ -31,7 +31,7 @@ class MessageProducer53Transport {
         ): ProviderMessage53Transport {
             return ProviderMessage53Transport(
                 rawMessage.storedMessage, rawMessage.sessionGroup,
-                if (formatter != null) requireNotNull(rawMessage.transportMessage)[0] else null, // FIXME: return only first message instead of merge
+                if (formatter != null) requireNotNull(rawMessage.transportMessage) else null, // FIXME: return only first message instead of merge
                 if (includeRaw) rawMessage.storedMessage.let { Base64.getEncoder().encodeToString(it.content) } else null,
             )
         }

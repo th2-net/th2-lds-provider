@@ -145,7 +145,7 @@ object TransportMessageContainerSerializer : KSerializer<TransportMessageContain
 
     override val descriptor: SerialDescriptor = buildClassSerialDescriptor("TransportMessage") {
         element("metadata", metadataDescriptor)
-        element("fields", MESSAGE_SERIALIZER.descriptor)
+        element("fields", UnwrappingJsonListSerializer.descriptor)
     }
 
     override fun serialize(encoder: Encoder, value: TransportMessageContainer) {
@@ -173,7 +173,11 @@ object TransportMessageContainerSerializer : KSerializer<TransportMessageContain
                     if (metadata.isNotEmpty()) encodeSerializableElement(metadataDescriptor, 2, METADATA_SERIALIZER, metadata)
                     encodeStringElementIfNotEmpty(metadataDescriptor, 3, protocol)
                 }
-                if (body.isNotEmpty()) encodeSerializableElement(descriptor, 1, MESSAGE_SERIALIZER, body)
+                if (rawBody.isReadable) {
+                    val body = ByteArray(rawBody.readableBytes()).also(rawBody::readBytes).toString(Charsets.UTF_8)
+                    rawBody.resetReaderIndex()
+                    encodeSerializableElement(descriptor, 1, UnwrappingJsonListSerializer, body)
+                }
             }
         }
     }

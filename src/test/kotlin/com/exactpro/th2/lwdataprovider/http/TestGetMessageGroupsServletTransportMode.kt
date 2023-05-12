@@ -31,6 +31,7 @@ import com.exactpro.th2.lwdataprovider.producers.MessageProducer53Transport
 import com.exactpro.th2.lwdataprovider.util.ImmutableListCradleResult
 import com.exactpro.th2.lwdataprovider.util.createCradleStoredMessage
 import io.javalin.http.HttpStatus
+import io.netty.buffer.Unpooled
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyVararg
@@ -117,17 +118,12 @@ internal class TestGetMessageGroupsServletTransportMode : AbstractHttpHandlerTes
                     timestamp = messageTimestamp
                 ),
                 type = MESSAGE_TYPE,
-                body = mutableMapOf(
-                    "unprintable" to "\u000135=123\u0001",
-                    "int" to 1,
-                    "instant" to messageTimestamp,
-                    "stringList" to listOf("a", "b"),
-                    "subMessage" to mutableMapOf("string" to "abc"),
-                    "subMessageList" to listOf(
-                        mutableMapOf("string" to "def"),
-                        mutableMapOf("string" to "ghi"),
-                    ),
-                )
+                rawBody = Unpooled.buffer().apply {
+                    writeCharSequence(
+                        "{\"unprintable\":\"\\u000135=123\\u0001\",\"int\":\"1\",\"instant\":\"$messageTimestamp\",\"stringList\":[\"a\",\"b\"],\"subMessage\":{\"string\":\"abc\"},\"subMessageList\":[{\"string\":\"def\"},{\"string\":\"ghi\"}]}",
+                        Charsets.UTF_8,
+                    )
+                }
             ))
             val expectedData =
                 "{\"timestamp\":{\"epochSecond\":${messageTimestamp.epochSecond},\"nano\":${messageTimestamp.nano}},\"direction\":\"IN\",\"sessionId\":\"$SESSION_ALIAS\"," +

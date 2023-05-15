@@ -121,23 +121,11 @@ object FieldSerializer : KSerializer<Any> {
 }
 
 object TransportMessageContainerSerializer : KSerializer<TransportMessageContainer> {
-    private val connectionIdDescriptor = buildClassSerialDescriptor("ConnectionId") {
-        element<String>("sessionGroup", isOptional = true)
-        element<String>("sessionAlias")
-    }
-    private val timestampDescriptor = buildClassSerialDescriptor("Timestamp") {
-        element<Long>("seconds")
-        element<Int>("nanos")
-    }
     private val idDescriptor = buildClassSerialDescriptor("Id") {
-        element("connectionId", connectionIdDescriptor)
-        element<String>("direction")
-        element<Long>("sequence")
-        element("timestamp", timestampDescriptor)
         element<List<Long>>("subsequence", isOptional = true)
     }
     private val metadataDescriptor = buildClassSerialDescriptor("Metadata") {
-        element("id", idDescriptor)
+        element("id", idDescriptor, isOptional = true)
         element<String>("messageType")
         element<Map<String, String>>("properties", isOptional = true)
         element<String>("protocol")
@@ -152,21 +140,13 @@ object TransportMessageContainerSerializer : KSerializer<TransportMessageContain
         encoder.encodeStructure(descriptor) {
             with(value.parsedMessage) {
                 encodeInlineElement(descriptor, 0).encodeStructure(metadataDescriptor) {
-                    encodeInlineElement(metadataDescriptor, 0).encodeStructure(idDescriptor) {
-                        with(id) {
-                            encodeInlineElement(idDescriptor, 0).encodeStructure(connectionIdDescriptor) {
-                                encodeStringElementIfNotEmpty(connectionIdDescriptor, 0, value.sessionGroup)
-                                encodeStringElementIfNotEmpty(connectionIdDescriptor, 1, sessionAlias)
-                            }
-                            encodeStringElementIfNotEmpty(idDescriptor, 1, direction.toProtoDirection().name)
-                            encodeLongElement(idDescriptor, 2, sequence)
-                            encodeInlineElement(idDescriptor, 3).encodeStructure(timestampDescriptor) {
-                                with(timestamp) {
-                                    encodeLongElement(timestampDescriptor, 0, epochSecond)
-                                    encodeIntElement(timestampDescriptor, 1, nano)
+                    with(id) {
+                        if (id.subsequence.isNotEmpty()) {
+                            encodeInlineElement(metadataDescriptor, 0).apply {
+                                encodeStructure(idDescriptor) {
+                                    encodeSerializableElement(idDescriptor, 0, SUBSEQUENCE_SERIALIZER, subsequence)
                                 }
                             }
-                            encodeSerializableElement(idDescriptor, 4, SUBSEQUENCE_SERIALIZER, subsequence)
                         }
                     }
                     encodeStringElementIfNotEmpty(metadataDescriptor, 1, type)

@@ -243,6 +243,7 @@ private fun createGzipHandler(): GzipHandler {
         setExcludedMimeTypes(*excludedMimeTypes.asSequence()
             .filter { it != "text/event-stream" }
             .toList().toTypedArray())
-        isSyncFlush = true
+        //FIXME: THIS MUST BE ENABLED TO SUPPORT SSE COMPRESSION
+        isSyncFlush = false
     }
 }

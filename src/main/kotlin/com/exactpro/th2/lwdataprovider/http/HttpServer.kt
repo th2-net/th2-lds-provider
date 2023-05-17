@@ -132,7 +132,7 @@ class HttpServer(private val context: Context) {
             for (handler in handlers) {
                 handler.setup(this, javalinContext)
             }
-            jettyServer()?.server()?.insertHandler(createGzipHandler())
+            jettyServer()?.server()?.also(::configureGzip)
         }.start(configuration.hostname, configuration.port)
 
         logger.info { "serving on: http://${configuration.hostname}:${configuration.port}" }
@@ -243,7 +243,7 @@ private fun createGzipHandler(): GzipHandler {
         setExcludedMimeTypes(*excludedMimeTypes.asSequence()
             .filter { it != "text/event-stream" }
             .toList().toTypedArray())
-        //FIXME: THIS MUST BE ENABLED TO SUPPORT SSE COMPRESSION
+        //FIXME: The sync flush should be used in case of streaming
         isSyncFlush = false
     }
 }

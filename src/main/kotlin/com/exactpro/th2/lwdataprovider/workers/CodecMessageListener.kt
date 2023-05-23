@@ -44,10 +44,14 @@ class CodecMessageListener(
     
     override fun handle(deliveryMetadata: DeliveryMetadata, message: MessageGroupBatch) {
 
-        message.groupsList.forEach { group ->
+        message.groupsList.forEachIndexed { index, group ->
             if (group.messagesList.any { !it.hasMessage() }) {
-                reportIncorrectGroup(group)
-                return@forEach
+                reportIncorrectGroup(group, index)
+                return@forEachIndexed
+            }
+            if (group.messagesList.isEmpty()) {
+                logger.warn { "Received empty group[$index]. Metadata: $deliveryMetadata" }
+                return@forEachIndexed
             }
             val messageIdStr = buildMessageIdString(group.messagesList.first().message.metadata.id)
 
@@ -57,10 +61,10 @@ class CodecMessageListener(
         }
     }
 
-    private fun reportIncorrectGroup(group: MessageGroup) {
+    private fun reportIncorrectGroup(group: MessageGroup, index: Int) {
         logger.error {
-            "some messages in group are not parsed: ${
-                group.messagesList.joinToString(",") {
+            "some messages in group[$index] are not parsed: ${
+                group.messagesList.joinToString(separator = ",", prefix = "[", postfix = "]") {
                     "${it.kindCase} ${
                         when (it.kindCase) {
                             AnyMessage.KindCase.MESSAGE -> buildMessageIdString(it.message.metadata.id)

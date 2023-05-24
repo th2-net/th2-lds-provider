@@ -111,13 +111,14 @@ fun createBatches(
     startTimestamp: Instant,
     end: Instant,
     aliasIndexOffset: Int = 0,
+    group: String = "test",
 ): List<StoredGroupedMessageBatch> =
     ArrayList<StoredGroupedMessageBatch>().apply {
         val startSeconds = startTimestamp.epochSecond
         repeat(batchesCount) {
             val start = Instant.ofEpochSecond(startSeconds + it * increase * (messagesPerBatch - overlapCount), startTimestamp.nano.toLong())
             add(StoredGroupedMessageBatch(
-                "test",
+                group,
                 createStoredMessages(
                     "test${it + aliasIndexOffset}",
                     Instant.now().run { epochSecond * 1_000_000_000 + nano },

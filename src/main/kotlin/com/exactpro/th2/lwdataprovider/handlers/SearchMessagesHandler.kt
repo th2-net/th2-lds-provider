@@ -24,6 +24,7 @@ import com.exactpro.cradle.messages.MessageFilterBuilder
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.lwdataprovider.BasicResponseHandler
 import com.exactpro.th2.lwdataprovider.Decoder
 import com.exactpro.th2.lwdataprovider.ProviderStreamInfo
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
@@ -153,7 +154,7 @@ class SearchMessagesHandler(
                 if (request.rawOnly) {
                     RawStoredMessageHandler(requestContext)
                 } else {
-                    ParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
+                    ParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize, markerAsGroup = true)
                 },
                 markerAsGroup = true,
                 limit = null,
@@ -161,15 +162,17 @@ class SearchMessagesHandler(
                 try {
                     val parameters = CradleGroupRequest(request.sort)
                     request.groups.forEach { group ->
-                        val filter = GroupedMessageFilter.builder()
-                            .groupName(group)
-                            .bookId(request.bookId)
-                            .timestampFrom().isGreaterThanOrEqualTo(request.startTimestamp)
-                            .timestampTo().isLessThan(request.endTimestamp)
-                            .build()
-                        logger.debug { "Executing request for group $group" }
-                        cradleMsgExtractor.getMessagesGroup(filter, parameters, sink, dataMeasurement)
-                        logger.debug { "Executing of request for group $group has been finished" }
+                        sink.subSink().use { subSink ->
+                            val filter = GroupedMessageFilter.builder()
+                                .groupName(group)
+                                .bookId(request.bookId)
+                                .timestampFrom().isGreaterThanOrEqualTo(request.startTimestamp)
+                                .timestampTo().isLessThan(request.endTimestamp)
+                                .build()
+                            logger.info { "Executing request for group $group" }
+                            cradleMsgExtractor.getMessagesGroup(filter, parameters, subSink, dataMeasurement)
+                            logger.info { "Executing of request for group $group has been finished" }
+                        }
                     }
 
                     if (request.keepOpen) {
@@ -214,14 +217,16 @@ class SearchMessagesHandler(
         )
         parametersByBookId.forEach { (bookGroup, params) ->
             val (newStart, reqParams) = params
-            val filter = GroupedMessageFilter.builder()
-                .groupName(bookGroup.group)
-                .bookId(bookGroup.bookId)
-                .timestampFrom().isGreaterThanOrEqualTo(newStart)
-                .timestampTo().isLessThan(request.endTimestamp)
-                .build()
-            cradleMsgExtractor.getMessagesGroup(filter, reqParams, sink, dataMeasurement)
-            logger.info { "Data has been loaded for group $bookGroup" }
+            sink.subSink().use { subSink ->
+                val filter = GroupedMessageFilter.builder()
+                    .groupName(bookGroup.group)
+                    .bookId(bookGroup.bookId)
+                    .timestampFrom().isGreaterThanOrEqualTo(newStart)
+                    .timestampTo().isLessThan(request.endTimestamp)
+                    .build()
+                cradleMsgExtractor.getMessagesGroup(filter, reqParams, subSink, dataMeasurement)
+                logger.info { "Data has been loaded for group $bookGroup" }
+            }
         }
         return allLoaded.size != request.groups.size
     }
@@ -281,7 +286,7 @@ class SearchMessagesHandler(
         sink: RootMessagesDataSink,
         dataMeasurement: DataMeasurement,
     ) {
-        sink.subSink(resumeFromId.sessionAlias, resumeFromId.direction).use { subSink ->
+        sink.subSinkForStream(resumeFromId.sessionAlias, resumeFromId.direction).use { subSink ->
             val filter = MessageFilterBuilder().apply {
                 bookId(request.bookId)
                 sessionAlias(resumeFromId.sessionAlias)
@@ -308,7 +313,7 @@ class SearchMessagesHandler(
         sink: RootMessagesDataSink,
         dataMeasurement: DataMeasurement,
     ) {
-        sink.subSink(stream, direction).use { subSink ->
+        sink.subSinkForStream(stream, direction).use { subSink ->
             val filter = MessageFilterBuilder().apply {
                 bookId(request.bookId)
                 sessionAlias(stream)
@@ -355,7 +360,7 @@ class SearchMessagesHandler(
 
 private class RootMessagesDataSink(
     private val messageHandler: MessageResponseHandler,
-    handler: ResponseHandler<StoredMessage>,
+    handler: MarkedResponseHandler<String, StoredMessage>,
     private val markerAsGroup: Boolean = false,
     limit: Int? = null,
 ) : MessagesDataSink(handler, limit) {
@@ -367,8 +372,18 @@ private class RootMessagesDataSink(
         messageHandler.dataLoaded()
     }
 
-    fun subSink(alias: String, direction: Direction, group: String? = null): MessagesDataSink {
+    /**
+     * Register stream in the [messageHandler] and returns sub-sink to collect data
+     */
+    fun subSinkForStream(alias: String, direction: Direction, group: String? = null): MessagesDataSink {
         messageHandler.registerSession(alias, direction, group)
+        return subSink()
+    }
+
+    /**
+     * Returns sub-sink to collect data
+     */
+    fun subSink(): MessagesDataSink {
         return SubMessagesDataSink(handler, this::onNextData, limit?.minus(loadedData)?.toInt()) {
             loadedData += it
         }
@@ -386,7 +401,7 @@ private class RootMessagesDataSink(
 }
 
 private class SubMessagesDataSink(
-    handler: ResponseHandler<StoredMessage>,
+    handler: MarkedResponseHandler<String, StoredMessage>,
     private val onNextDataCall: (String, StoredMessage) -> Unit,
     limit: Int? = null,
     private val onComplete: (loadedMessages: Long) -> Unit,
@@ -400,9 +415,9 @@ private class SubMessagesDataSink(
 }
 
 private abstract class MessagesDataSink(
-    override val handler: ResponseHandler<StoredMessage>,
+    override val handler: MarkedResponseHandler<String, StoredMessage>,
     limit: Int? = null,
-) : AbstractMessageDataSink<String, StoredMessage>(handler, limit) {
+) : AbstractMessageDataSink<String, StoredMessage, MarkedResponseHandler<String, StoredMessage>>(handler, limit) {
 
     protected abstract fun onNextData(marker: String, data: StoredMessage)
 
@@ -426,9 +441,13 @@ private abstract class MessagesDataSink(
         if (limit != null && loadedData >= limit) return false
         loadedData++
         onNextData(marker, data)
-        handler.handleNext(data)
+        handler.handleNext(marker, data)
         return true
     }
+}
+
+private interface MarkedResponseHandler<M, V> : BasicResponseHandler {
+    fun handleNext(marker: M, data: V)
 }
 
 private class ParsedStoredMessageHandler(
@@ -436,7 +455,8 @@ private class ParsedStoredMessageHandler(
     private val decoder: Decoder,
     private val measurement: DataMeasurement,
     private val batchSize: Int,
-) : ResponseHandler<StoredMessage> {
+    private val markerAsGroup: Boolean = false,
+) : MarkedResponseHandler<String, StoredMessage> {
     private val batch: MessageGroupBatch.Builder = MessageGroupBatch.newBuilder()
     private val details: MutableList<RequestedMessageDetails> = arrayListOf()
     override val isAlive: Boolean
@@ -454,9 +474,9 @@ private class ParsedStoredMessageHandler(
         handler.writeErrorMessage(error, id, batchId)
     }
 
-    override fun handleNext(data: StoredMessage) {
+    override fun handleNext(marker: String, data: StoredMessage) {
         val step = measurement.start("decoding")
-        val detail = RequestedMessageDetails(data) {
+        val detail = RequestedMessageDetails(data, group = if (markerAsGroup) marker else null) {
             step.stop()
             handler.requestReceived()
         }
@@ -473,7 +493,7 @@ private class ParsedStoredMessageHandler(
         }
         try {
             handler.checkAndWaitForRequestLimit(details.size)
-            decoder.sendBatchMessage(batch, details, details.first().storedMessage.sessionAlias)
+            decoder.sendBatchMessage(batch, details, details.first().run { group ?: storedMessage.sessionAlias })
         } finally {
             details.clear()
             batch.clear()
@@ -483,7 +503,7 @@ private class ParsedStoredMessageHandler(
 
 private class RawStoredMessageHandler(
     private val handler: MessageResponseHandler,
-) : ResponseHandler<StoredMessage> {
+) : MarkedResponseHandler<String, StoredMessage> {
     override val isAlive: Boolean
         get() = handler.isAlive
 
@@ -498,7 +518,7 @@ private class RawStoredMessageHandler(
         handler.writeErrorMessage(error, id, batchId)
     }
 
-    override fun handleNext(data: StoredMessage) {
+    override fun handleNext(marker: String, data: StoredMessage) {
         handler.handleNext(RequestedMessageDetails(data))
     }
 

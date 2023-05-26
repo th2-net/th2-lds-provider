@@ -154,7 +154,7 @@ open class GrpcDataProviderImpl(
             return
         }
         val streamsRsp = MessageStreamsResponse.newBuilder()
-        for (name in searchMessagesHandler.extractStreamNames(request.bookId.toCradle())) {
+        for (name in searchMessagesHandler.extractAllStreamNames(request.bookId.toCradle())) {
             val currentBuilder = MessageStream.newBuilder().setName(name)
             streamsRsp.addMessageStream(currentBuilder.setDirection(Direction.SECOND))
             streamsRsp.addMessageStream(currentBuilder.setDirection(Direction.FIRST))

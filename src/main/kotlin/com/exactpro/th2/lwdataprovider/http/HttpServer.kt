@@ -94,8 +94,7 @@ class HttpServer(private val context: Context) {
             for (handler in handlers) {
                 handler.setup(this)
             }
-            exception(IllegalArgumentException::class.java) { ex, _ -> throw BadRequestResponse(ExceptionUtils.getRootCauseMessage(ex)) }
-            exception(InvalidRequestException::class.java) { ex, _ -> throw BadRequestResponse(ExceptionUtils.getRootCauseMessage(ex)) }
+            setupExceptionHandlers(this)
             jettyServer()?.server()?.insertHandler(createGzipHandler())
         }.start(configuration.hostname, configuration.port)
 
@@ -180,6 +179,12 @@ class HttpServer(private val context: Context) {
             JavalinValidation.register(SearchDirection::class.java, SearchDirection::valueOf)
             JavalinValidation.register(BookId::class.java, ::BookId)
             JavalinValidation.addValidationExceptionMapper(javalin)
+        }
+
+        @JvmStatic
+        fun setupExceptionHandlers(javalin: Javalin) {
+            javalin.exception(IllegalArgumentException::class.java) { ex, _ -> throw BadRequestResponse(ExceptionUtils.getRootCauseMessage(ex)) }
+            javalin.exception(InvalidRequestException::class.java) { ex, _ -> throw BadRequestResponse(ExceptionUtils.getRootCauseMessage(ex)) }
         }
     }
 }

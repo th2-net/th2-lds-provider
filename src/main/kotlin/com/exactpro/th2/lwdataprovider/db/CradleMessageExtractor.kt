@@ -20,6 +20,7 @@ import com.exactpro.cradle.BookId
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
 import com.exactpro.cradle.TimeRelation
+import com.exactpro.cradle.counters.Interval
 import com.exactpro.cradle.messages.GroupedMessageFilter
 import com.exactpro.cradle.messages.GroupedMessageFilterBuilder
 import com.exactpro.cradle.messages.MessageFilter
@@ -52,9 +53,17 @@ class CradleMessageExtractor(
             .thenComparingLong { it.sequence }
     }
 
-    fun getGroups(bookId: BookId): Set<String> = storage.getGroups(bookId).toSet()
+    fun getAllGroups(bookId: BookId): Set<String> = storage.getGroups(bookId).toSet()
 
-    fun getStreams(bookId: BookId): Collection<String> = storage.getSessionAliases(bookId)
+    fun getGroups(bookId: BookId, from: Instant, to: Instant): Iterator<String> =
+        storage.getSessionGroups(bookId, Interval(from, to))
+
+    fun getAllStreams(bookId: BookId): Collection<String> = storage.getSessionAliases(bookId)
+
+    fun getStreams(bookId: BookId, from: Instant, to: Instant): Iterator<String> {
+        require(from.isBefore(to)) { "from '$from' must be before to '$to'" }
+        return storage.getSessionAliases(bookId, Interval(from, to))
+    }
 
     fun hasMessagesAfter(id: StoredMessageId): Boolean = hasMessages(id, TimeRelation.AFTER)
 

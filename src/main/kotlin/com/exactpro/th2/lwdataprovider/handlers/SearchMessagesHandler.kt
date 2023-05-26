@@ -59,11 +59,21 @@ class SearchMessagesHandler(
         private val logger = KotlinLogging.logger { }
     }
 
-    fun extractGroups(bookId: BookId): Set<String> = cradleMsgExtractor.getGroups(bookId)
+    fun extractAllGroups(bookId: BookId): Set<String> = cradleMsgExtractor.getAllGroups(bookId)
 
-    fun extractStreamNames(bookId: BookId): Collection<String> {
+    fun extractGroups(bookId: BookId, from: Instant, to: Instant): Iterator<String> {
+        require(from.isBefore(to)) { "from '$from' must be before to '$to'" }
+        return cradleMsgExtractor.getGroups(bookId, from, to)
+    }
+
+    fun extractAllStreamNames(bookId: BookId): Collection<String> {
         logger.info { "Getting stream names" }
-        return cradleMsgExtractor.getStreams(bookId)
+        return cradleMsgExtractor.getAllStreams(bookId)
+    }
+
+    fun extractStreamNames(bookId: BookId, from: Instant, to: Instant): Iterator<String> {
+        logger.info { "Getting stream names for interval [$from; $to)" }
+        return cradleMsgExtractor.getStreams(bookId, from, to)
     }
 
     fun loadMessages(request: SseMessageSearchRequest, requestContext: MessageResponseHandler, dataMeasurement: DataMeasurement) {

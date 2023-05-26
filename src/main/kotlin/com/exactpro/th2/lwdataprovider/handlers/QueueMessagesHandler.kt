@@ -150,7 +150,7 @@ class QueueMessagesHandler(
         crossinline paramSupplier: (BookGroup) -> CradleGroupRequest,
     ): Map<BookGroup, Pair<GroupedMessageFilter, CradleGroupRequest>> {
         return asSequence().flatMap { (bookId, groups) ->
-            groups.ifEmpty { extractor.getGroups(bookId) }.asSequence().map { group ->
+            groups.ifEmpty { extractor.getAllGroups(bookId) }.asSequence().map { group ->
                 val filter = groupedMessageFilter(bookId, group, start, end)
                 val bookGroup = BookGroup(group, bookId)
                 bookGroup to (filter to paramSupplier(bookGroup))

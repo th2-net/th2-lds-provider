@@ -68,6 +68,7 @@ import org.mockito.kotlin.verifyNoInteractions
 import org.mockito.kotlin.whenever
 import strikt.api.Assertion
 import strikt.api.expectThat
+import strikt.assertions.hasSize
 import strikt.assertions.isEqualTo
 import strikt.assertions.isNotNull
 import strikt.assertions.isNull
@@ -397,6 +398,62 @@ internal class TestSearchMessagesHandler {
             "Missing ${missing.size} message(s): $missing"
         }
         validateMessagesOrder(messages, messagesCount)
+    }
+
+    @Test
+    fun `different groups does not appear in the same batch`() {
+        val timestamp = Instant.now()
+        val endTimestamp = timestamp.plus(1, ChronoUnit.DAYS)
+        val firstGroupBatch = createBatches(
+            messagesPerBatch = 1,
+            batchesCount = 1,
+            overlapCount = 0,
+            increase = 10,
+            startTimestamp = timestamp,
+            end = endTimestamp,
+            group = "first",
+        )
+        val secondGroupBatch = createBatches(
+            messagesPerBatch = 1,
+            batchesCount = 1,
+            overlapCount = 0,
+            increase = 10,
+            startTimestamp = timestamp,
+            end = endTimestamp,
+            group = "second",
+        )
+
+        whenever(storage.getGroupedMessageBatches(argThat {
+            groupName == "first"
+        })) doReturn ImmutableListCradleResult(firstGroupBatch)
+
+        whenever(storage.getGroupedMessageBatches(argThat {
+            groupName == "second"
+        })) doReturn ImmutableListCradleResult(secondGroupBatch)
+
+        val request = MessagesGroupRequest(
+            groups = setOf("first", "second"),
+            startTimestamp = timestamp,
+            endTimestamp = endTimestamp,
+            sort = false,
+            rawOnly = false,
+            keepOpen = false,
+            bookId = BookId("test"),
+        )
+        val handler = spy(MessageResponseHandlerTestImpl(measurement))
+        searchHandler.loadMessageGroups(request, handler, measurement)
+
+        inOrder(decoder) {
+            verify(decoder, times(1)).sendBatchMessage(any(), any(), eq("first"))
+            verify(decoder, times(1)).sendBatchMessage(any(), any(), eq("second"))
+        }
+        expectThat(decoder.queue)
+            .hasSize(2)
+            .withElementAt(0) {
+                get { group } isEqualTo "first"
+            }.withElementAt(1) {
+                get { group } isEqualTo "second"
+            }
     }
 
     private fun Assertion.Builder<List<RequestedMessageDetails>>.elementsEquals(expected: List<StoredMessage>, isParsed: Boolean = true) {

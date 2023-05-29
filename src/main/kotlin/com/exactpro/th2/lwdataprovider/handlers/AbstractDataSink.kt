@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.lwdataprovider.handlers
 
+import com.exactpro.th2.lwdataprovider.BasicResponseHandler
 import com.exactpro.th2.lwdataprovider.ResponseHandler
 import com.exactpro.th2.lwdataprovider.db.EventDataSink
 import com.exactpro.th2.lwdataprovider.db.MessageDataSink
@@ -41,7 +42,7 @@ class SingleTypeDataSink<T>(
     limit: Int? = null,
 ) : GenericDataSink<T, T>(handler, limit, { it })
 
-abstract class AbstractMessageDataSink<M, T>(
-    override val handler: ResponseHandler<T>,
+abstract class AbstractMessageDataSink<M, T, H : BasicResponseHandler>(
+    override val handler: H,
     limit: Int? = null,
 ) : AbstractBasicDataSink(handler, limit), MessageDataSink<M, T>

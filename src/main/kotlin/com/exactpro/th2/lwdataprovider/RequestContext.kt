@@ -26,7 +26,9 @@ class RequestedMessageDetails(
     private val onResponse: ((RequestedMessageDetails) -> Unit)? = null
 ) {
     val id: String = storedMessage.id.toString()
-    val rawMessage: RawMessage = RawMessage.parseFrom(storedMessage.content)
+    val rawMessage: RawMessage = RawMessage.parseFrom(storedMessage.content).toBuilder()
+        .clearParentEventId() // we remove the parent event ID to avoid generating new events for the original parent
+        .build()
     @Volatile
     var time: Long = 0
     var parsedMessage: List<Message>? = null

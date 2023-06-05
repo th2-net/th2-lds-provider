@@ -20,6 +20,7 @@ import com.exactpro.cradle.BookId
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
 import com.exactpro.cradle.Order
+import com.exactpro.cradle.counters.Interval
 import com.exactpro.cradle.testevents.StoredTestEvent
 import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.cradle.testevents.TestEventFilter
@@ -48,8 +49,12 @@ class CradleEventExtractor(
         private val logger = KotlinLogging.logger { }
     }
 
-    fun getEventsScopes(bookId: BookId): Set<String> {
+    fun getAllEventsScopes(bookId: BookId): Set<String> {
         return storage.getScopes(bookId).toSet()
+    }
+
+    fun getScopes(bookId: BookId, start: Instant, end: Instant): Iterator<String> {
+        return storage.getScopes(bookId, Interval(start, end))
     }
 
     fun getEvents(filter: SseEventSearchRequest, sink: EventDataSink<Event>) {

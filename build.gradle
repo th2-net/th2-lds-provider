@@ -25,7 +25,7 @@ plugins {
 
 ext {
     dockerImageVersion = release_version
-    cradleApiVersion = '5.0.2-dev'
+    cradleApiVersion = '5.0.1-4927-new-api-5154917269-099a743-SNAPSHOT'
     javalin = '5.3.1'
 }
 
@@ -77,6 +77,8 @@ dependencies {
     implementation('io.prometheus:simpleclient') {
         because('need add custom metrics to provider')
     }
+
+    implementation('org.apache.commons:commons-lang3')
 
     implementation 'com.fasterxml.jackson.core:jackson-core'
     implementation 'com.fasterxml.jackson.module:jackson-module-kotlin'

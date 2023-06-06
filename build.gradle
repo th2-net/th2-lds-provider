@@ -27,7 +27,7 @@ plugins {
 
 ext {
     dockerImageVersion = release_version
-    cradleApiVersion = '5.1.0-separate-executor-4783246997-dda4d35-SNAPSHOT'
+    cradleApiVersion = '5.1.0-separate-executor-metrics-5191174758-a60b329-SNAPSHOT'
     commonVersion = '5.2.0-json-raw-body-4958342146-824798d-SNAPSHOT'
     javalin = '5.4.2'
 }
@@ -99,6 +99,14 @@ dependencies {
     testImplementation 'com.datastax.oss:java-driver-core'
 }
 
+//FIXME: Remove for any release
+configurations.configureEach {
+    resolutionStrategy {
+        force "com.exactpro.th2:cradle-core:$cradleApiVersion"
+        force "com.exactpro.th2:cradle-cassandra:$cradleApiVersion"
+    }
+}
+
 test {
     useJUnitPlatform {
         excludeTags('integration-test')
@@ -133,7 +141,7 @@ application {
     mainClass.set('com.exactpro.th2.lwdataprovider.MainKt')
 }
 
-configurations.all {
+configurations.configureEach {
     resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
     resolutionStrategy.cacheDynamicVersionsFor 0, 'seconds'
 }

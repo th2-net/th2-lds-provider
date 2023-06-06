@@ -94,6 +94,9 @@ id: event / message id | null | null | null | page id
 
 # Configuration
 schema component description example (lw-data-provider.yml):
+
+## CR V1
+
 ```yaml
 apiVersion: th2.exactpro.com/v1
 kind: Th2CoreBox
@@ -138,6 +141,69 @@ spec:
       ingress: 
         urlPaths: 
           - '/lw-dataprovider/(.*)'
+    envVariables:
+      JAVA_TOOL_OPTIONS: "-XX:+ExitOnOutOfMemoryError -Ddatastax-java-driver.advanced.connection.init-query-timeout=\"5000 milliseconds\""
+    resources:
+      limits:
+        memory: 2000Mi
+        cpu: 600m
+      requests:
+        memory: 300Mi
+        cpu: 50m
+```
+
+
+## CR V2
+
+```yaml
+apiVersion: th2.exactpro.com/v2
+kind: Th2CoreBox
+metadata:
+  name: lw-data-provider
+spec:
+  imageName: ghcr.io/th2-net/th2-lw-data-provider
+  imageVersion: 1.0.3
+  type: th2-rpt-data-provider
+  customConfig:
+    hostname: 0.0.0.0 # IP to listen to requests. 
+    port: 8080 
+    
+#   keepAliveTimeout: 5000 # timeout in milliseconds. keep_alive sending frequency
+#   maxBufferDecodeQueue: 10000 # buffer size for messages that sent to decode but anwers hasn't been received 
+#   decodingTimeout: 60000 # timeout expecting answers from codec. 
+#   batchSize: 100 # batch size from codecs
+#   codecUsePinAttributes: true # send raw message to specified codec (true) or send to all codecs (false) 
+#   responseFormats: string list # resolve data for selected formats only. (allowed values: BASE_64, PARSED)
+    
+
+  # pins are used to communicate with codec components to parse message data
+  pins:
+    mq:
+      publishers:
+      - name: to_codec
+        attributes:
+          - to_codec
+          - raw
+          - publish
+      subscribers:
+      - name: from_codec
+        attributes:
+          - from_codec
+          - parsed
+          - subscribe
+        linkTo:
+          - box: codec
+            pin: from_codec_decode_general
+  extendedSettings:
+    service:
+      enabled: true
+      nodePort:
+        - name: 'connect'
+          targetPort: 8080
+#          exposedPort: 30042 # if you need a constant port to be exposed
+      ingress: 
+        urlPaths: 
+          - '/lw-dataprovider/'
     envVariables:
       JAVA_TOOL_OPTIONS: "-XX:+ExitOnOutOfMemoryError -Ddatastax-java-driver.advanced.connection.init-query-timeout=\"5000 milliseconds\""
     resources:

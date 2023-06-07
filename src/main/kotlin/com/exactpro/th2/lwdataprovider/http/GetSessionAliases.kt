@@ -132,7 +132,7 @@ class GetSessionAliases(
     private fun handleSse(ctx: Context) {
         handleRequest(ctx) { groups ->
             val chunkSize = queryParamAsClass<Int>(CHUNK_SIZE).check({ it > 0 }, "NEGATIVE_CHUNK_SIZE").getOrDefault(50)
-            handleSseSequence(groups, "alias", chunkSize = chunkSize)
+            handleSseSequence(groups, "alias", LOGGER, chunkSize = chunkSize)
         }
     }
 

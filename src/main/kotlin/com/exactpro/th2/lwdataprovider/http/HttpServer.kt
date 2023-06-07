@@ -23,6 +23,7 @@ import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestExcepti
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.producers.MessageProducer
+import com.exactpro.th2.lwdataprovider.producers.MessageProducer53
 import com.exactpro.th2.lwdataprovider.producers.MessageProducer53Transport
 import io.javalin.Javalin
 import io.javalin.config.JavalinConfig
@@ -68,7 +69,20 @@ class HttpServer(private val context: Context) {
         val keepAliveHandler = this.context.keepAliveHandler
 
         val sseResponseBuilder = SseResponseBuilder(jacksonMapper,
-            if (configuration.listOfMessageAsSingleMessage) MessageProducer53Transport.Companion::createMessage else MessageProducer.Companion::createMessage)
+            if (configuration.listOfMessageAsSingleMessage) {
+                if (configuration.useTransportMode) {
+                    MessageProducer53Transport.Companion::createMessage
+                } else {
+                    MessageProducer.Companion::createMessage
+                }
+            } else {
+                if (configuration.useTransportMode) {
+                    error("transport mod does not support merging of multiple messages in a single one")
+                } else {
+                    MessageProducer53.Companion::createMessage
+                }
+            }
+        )
         val handlers: Collection<JavalinHandler> = listOf(
             GetMessagesServlet(
                 configuration, context.convExecutor, sseResponseBuilder,

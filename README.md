@@ -197,7 +197,7 @@ spec:
   extendedSettings:
     service:
       enabled: true
-      nodePort:
+      nodePort:  # Required if you use ingress url path
         - name: 'connect'
           targetPort: 8080
 #          exposedPort: 30042 # if you need a constant port to be exposed

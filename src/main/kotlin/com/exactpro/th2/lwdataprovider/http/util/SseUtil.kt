@@ -37,7 +37,7 @@ fun <T> Context.handleSseSequence(data: Sequence<T>, type: String, logger: KLogg
             data.chunked(chunkSize).forEachIndexed { index, chunk ->
                 if (client.terminated()) {
                     logger.info { "Request is terminated. Stop processing data" }
-                    return@forEachIndexed
+                    return@use
                 }
                 client.sendEvent(
                     id = (index + 1).toString(),

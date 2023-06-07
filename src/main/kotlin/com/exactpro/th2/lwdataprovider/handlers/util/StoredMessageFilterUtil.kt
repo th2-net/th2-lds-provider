@@ -25,7 +25,7 @@ fun MessageFilterBuilder.modifyFilterBuilderTimestamps(request: SseMessageSearch
         request.startTimestamp?.let { timestampFrom().isGreaterThanOrEqualTo(it) }
         request.endTimestamp?.let { timestampTo().isLessThan(it) }
     } else {
-        request.endTimestamp?.let { timestampFrom().isGreaterThanOrEqualTo(it) }
-        request.startTimestamp?.let { timestampTo().isLessThan(it) }
+        request.endTimestamp?.let { timestampFrom().isGreaterThan(it) }
+        request.startTimestamp?.let { timestampTo().isLessThanOrEqualTo(it) }
     }
 }

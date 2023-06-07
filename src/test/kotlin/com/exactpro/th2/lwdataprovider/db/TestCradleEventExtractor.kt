@@ -21,6 +21,7 @@ import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
 import com.exactpro.cradle.testevents.StoredTestEventBatch
 import com.exactpro.cradle.testevents.StoredTestEventId
+import com.exactpro.cradle.testevents.TestEventBatchToStore
 import com.exactpro.cradle.testevents.TestEventToStore
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
@@ -82,7 +83,7 @@ internal class TestCradleEventExtractor {
         val batchId = createEventId("batch", timestamp = start)
         doReturn(
             ListCradleResult(arrayListOf(
-                TestEventToStore.batchBuilder(10_000)
+                TestEventBatchToStore.builder(10_000, 1)
                     .id(batchId)
                     .parentId(createEventId("batchParent", timestamp = start))
                     .build().apply {
@@ -111,7 +112,7 @@ internal class TestCradleEventExtractor {
         val batchId = createEventId("batch", timestamp = start.minusSeconds(60))
         doReturn(
             ListCradleResult(arrayListOf(
-                TestEventToStore.batchBuilder(10_000)
+                TestEventBatchToStore.builder(10_000, 1)
                     .id(batchId)
                     .parentId(createEventId("batchParent", timestamp = start))
                     .build().apply {
@@ -141,7 +142,7 @@ internal class TestCradleEventExtractor {
         val batchId = createEventId("batch", timestamp = start.minusSeconds(60))
         doReturn(
             ListCradleResult(arrayListOf(
-                TestEventToStore.batchBuilder(10_000)
+                TestEventBatchToStore.builder(10_000, 1)
                     .id(batchId)
                     .parentId(createEventId("batchParent", timestamp = start))
                     .build().apply {
@@ -209,7 +210,7 @@ internal class TestCradleEventExtractor {
         val toStore = createEventStoredEvent(eventId = "test", start, end, parentEventId = createEventId("batchParent", timestamp = start))
         val batchId = createEventId("batch", timestamp = start)
         doReturn(
-            TestEventToStore.batchBuilder(10_000)
+            TestEventBatchToStore.builder(10_000, 1)
                 .id(batchId)
                 .parentId(createEventId("batchParent", timestamp = start))
                 .build().apply {

@@ -25,7 +25,7 @@ plugins {
 
 ext {
     dockerImageVersion = release_version
-    cradleApiVersion = '5.0.0-dev-version-5-4300900143-24582b4-SNAPSHOT'
+    cradleApiVersion = '5.0.2-dev'
     javalin = '5.3.1'
 }
 
@@ -42,7 +42,7 @@ dependencyCheck {
 
 dependencies {
     
-    implementation('com.exactpro.th2:common:5.2.0-dev') {
+    implementation('com.exactpro.th2:common:5.2.1-dev') {
         exclude group: 'org.apache.logging.log4j', module: 'log4j-slf4j-impl'
         exclude group: 'com.exactpro.th2', module: 'cradle-core'
         exclude group: 'com.exactpro.th2', module: 'cradle-cassandra'

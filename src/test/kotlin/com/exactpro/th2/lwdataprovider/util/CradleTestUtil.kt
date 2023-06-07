@@ -69,7 +69,7 @@ fun createEventStoredEvent(
     start: Instant,
     end: Instant,
     parentEventId: StoredTestEventId? = null
-): TestEventSingleToStore = TestEventToStore.singleBuilder()
+): TestEventSingleToStore = TestEventSingleToStore.builder(1)
     .id(BookId("test"), "test-scope", start.plusSeconds(1), eventId)
     .name("test_event")
     .type("test")

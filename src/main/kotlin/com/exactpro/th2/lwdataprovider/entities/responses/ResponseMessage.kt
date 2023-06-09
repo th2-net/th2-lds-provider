@@ -121,11 +121,8 @@ object FieldSerializer : KSerializer<Any> {
 }
 
 object TransportMessageContainerSerializer : KSerializer<TransportMessageContainer> {
-    private val idDescriptor = buildClassSerialDescriptor("Id") {
-        element<List<Long>>("subsequence", isOptional = true)
-    }
     private val metadataDescriptor = buildClassSerialDescriptor("Metadata") {
-        element("id", idDescriptor, isOptional = true)
+        element<List<Long>>("subsequence", isOptional = true)
         element<String>("messageType")
         element<Map<String, String>>("properties", isOptional = true)
         element<String>("protocol")
@@ -141,12 +138,8 @@ object TransportMessageContainerSerializer : KSerializer<TransportMessageContain
             with(value.parsedMessage) {
                 encodeInlineElement(descriptor, 0).encodeStructure(metadataDescriptor) {
                     with(id) {
-                        if (id.subsequence.isNotEmpty()) {
-                            encodeInlineElement(metadataDescriptor, 0).apply {
-                                encodeStructure(idDescriptor) {
-                                    encodeSerializableElement(idDescriptor, 0, SUBSEQUENCE_SERIALIZER, subsequence)
-                                }
-                            }
+                        if (subsequence.isNotEmpty()) {
+                            encodeSerializableElement(metadataDescriptor, 0, SUBSEQUENCE_SERIALIZER, subsequence)
                         }
                     }
                     encodeStringElementIfNotEmpty(metadataDescriptor, 1, type)

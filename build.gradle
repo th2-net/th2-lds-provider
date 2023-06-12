@@ -27,7 +27,7 @@ plugins {
 
 ext {
     dockerImageVersion = release_version
-    cradleApiVersion = '5.1.0-separate-executor-4783246997-dda4d35-SNAPSHOT'
+    cradleApiVersion = '5.1.0-separate-executor-5198878628-a17a14a-SNAPSHOT'
     commonVersion = '5.2.0-json-raw-body-4958342146-824798d-SNAPSHOT'
     javalin = '5.4.2'
 }
@@ -133,7 +133,7 @@ application {
     mainClass.set('com.exactpro.th2.lwdataprovider.MainKt')
 }
 
-configurations.all {
+configurations.configureEach {
     resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
     resolutionStrategy.cacheDynamicVersionsFor 0, 'seconds'
 }

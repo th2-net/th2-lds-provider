@@ -17,6 +17,8 @@
 package com.exactpro.th2.lwdataprovider.entities.responses
 
 import com.exactpro.cradle.messages.StoredMessageId
+import com.exactpro.cradle.utils.EscapeUtils
+import com.exactpro.cradle.utils.TimeUtils
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 import com.exactpro.th2.lwdataprovider.transport.toProtoDirection
 import kotlinx.serialization.ContextualSerializer
@@ -44,6 +46,8 @@ import kotlinx.serialization.json.*
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.contextual
 import kotlinx.serialization.serializer
+import kotlin.math.ceil
+import kotlin.math.log10
 
 /**
  * Marker interface to specify the message what can be sent in response to message request
@@ -103,8 +107,58 @@ object InstantSerializer : KSerializer<Instant> {
 @Serializer(forClass = StoredMessageId::class)
 object StoredMessageIdSerializer : KSerializer<StoredMessageId> {
     override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("StoredMessageId", PrimitiveKind.STRING)
-    override fun serialize(encoder: Encoder, value: StoredMessageId) = encoder.encodeString(value.toString())
+    override fun serialize(encoder: Encoder, value: StoredMessageId) {
+        encoder.encodeString(idToString(value))
+    }
+
+    internal fun idToString(value: StoredMessageId): String =
+        run {
+            // Here we try to avoid constant call for timestamp formatter that is used in StoredMessageId.toString()
+            // And build the ID ourselves
+            buildString {
+                with(value) {
+                    append(EscapeUtils.escape(bookId.toString()))
+                    append(EscapeUtils.DELIMITER)
+                    append(EscapeUtils.escape(sessionAlias))
+                    append(EscapeUtils.DELIMITER)
+                    append(direction.label)
+                    append(EscapeUtils.DELIMITER)
+                    appendTimestamp(timestamp)
+                    append(EscapeUtils.DELIMITER)
+                    append(sequence)
+                }
+            }
+        }
+
     override fun deserialize(decoder: Decoder): StoredMessageId = StoredMessageId.fromString(decoder.decodeString())
+
+    private fun StringBuilder.appendTimestamp(timestamp: Instant) {
+        TimeUtils.toLocalTimestamp(timestamp).apply {
+            appendNumber(year, 4)
+            appendTwoDigits(monthValue)
+            appendTwoDigits(dayOfMonth)
+            appendTwoDigits(hour)
+            appendTwoDigits(minute)
+            appendTwoDigits(second)
+            appendNumber(nano, 9)
+        }
+    }
+
+    private fun StringBuilder.appendTwoDigits(value: Int) {
+        if (value < 10) {
+            append(0)
+        }
+        append(value)
+    }
+    private fun StringBuilder.appendNumber(value: Int, size: Int) {
+        val digits = kotlin.math.max(ceil(log10(value.toDouble())).toInt(), 1)
+        if (digits < size) {
+            repeat(size - digits) {
+                append(0)
+            }
+        }
+        append(value)
+    }
 }
 
 object FieldSerializer : KSerializer<Any> {

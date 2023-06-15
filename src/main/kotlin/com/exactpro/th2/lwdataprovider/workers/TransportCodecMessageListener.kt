@@ -30,12 +30,19 @@ class TransportCodecMessageListener(
 
     override fun handle(deliveryMetadata: DeliveryMetadata, message: GroupBatch) {
 
-        message.groups.forEach { group ->
-            if (group.messages.any { it !is ParsedMessage }) {
-                reportIncorrectGroup(message.book, group)
-                return@forEach
+        message.groups.forEachIndexed { index, group ->
+            if (group.messages.isEmpty()) {
+                K_LOGGER.error { "Empty group with index $index is received" }
+                return@forEachIndexed
             }
             val messageIdStr = group.messages.first().id.buildMessageIdString(message.book)
+            if (index == 0) {
+                decodeQueue.batchReceived(messageIdStr)
+            }
+            if (group.messages.any { it !is ParsedMessage }) {
+                reportIncorrectGroup(message.book, group)
+                return@forEachIndexed
+            }
 
             decodeQueue.responseTransportReceived(messageIdStr) {
                 group.messages.map { anyMsg -> anyMsg as ParsedMessage }

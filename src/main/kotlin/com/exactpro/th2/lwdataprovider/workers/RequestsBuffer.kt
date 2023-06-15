@@ -21,6 +21,11 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMess
 
 interface RequestsBuffer {
     /**
+     * Notifies the [RequestsBuffer] that the batch with first group [RequestId] is received.
+     * Used to stop all internal measurements for that batch
+     */
+    fun batchReceived(firstRequestId: RequestId)
+    /**
      * @param id [RequestId] for which the response was received
      * @param response the supplier function that will be invoked it the [id] is in the decoding queue
      */

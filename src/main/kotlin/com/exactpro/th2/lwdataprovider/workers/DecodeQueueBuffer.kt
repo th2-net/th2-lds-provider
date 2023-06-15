@@ -40,7 +40,7 @@ class DecodeQueueBuffer(
     private val decodeCond = lock.newCondition()
     @GuardedBy("lock")
     private var locked: Boolean = false
-    
+
     fun add(details: RequestedMessageDetails, session: String) {
         lock.withLock {
             decodeQueue.computeIfAbsent(details.requestId) { ArrayList(1) }.add(details)
@@ -49,7 +49,18 @@ class DecodeQueueBuffer(
         }
     }
 
+    fun addAll(details: Collection<RequestedMessageDetails>, session: String) {
+        lock.withLock {
+            decodeTimers.computeIfAbsent(details.first().requestId) { DecodingMetrics.startTimer(session) }
+            for (detail in details) {
+                decodeQueue.computeIfAbsent(detail.requestId) { ArrayList(1) }.add(detail)
+            }
+            DecodingMetrics.currentWaiting(decodeQueue.size)
+        }
+    }
+
     fun checkAndWait(size: Int) {
+        // FIXME: won't actually work in multithreading scenario... We need to reserve that space
         if (maxDecodeQueueSize <= 0) return // unlimited
         check(size in 0..maxDecodeQueueSize) { "size of the single request must be less than the max queue size" }
         var submitted = false
@@ -70,6 +81,12 @@ class DecodeQueueBuffer(
             }
         } while (!submitted)
         LOGGER.trace { "Decode request for $size message(s) is submitted" }
+    }
+
+    override fun batchReceived(firstRequestId: RequestId) {
+        lock.withLock {
+            decodeTimers.remove(firstRequestId)?.close()
+        }
     }
 
     override fun responseProtoReceived(id: RequestId, response: () -> List<Message>) {
@@ -153,7 +170,6 @@ class DecodeQueueBuffer(
         responseFinished: RequestedMessageDetails.(List<M>) -> Unit
     ) {
         val details = withQueueLockAndRelease {
-            decodeTimers.remove(id)?.close()
             decodeQueue.remove(id)?.also {
                 DecodingMetrics.currentWaiting(decodeQueue.size)
             } ?: run {

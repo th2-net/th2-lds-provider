@@ -623,10 +623,6 @@ private open class TestDecoder(
         transportQueue.addAll(requests)
     }
 
-    override fun sendMessage(message: RequestedMessageDetails, session: String) {
-        protoQueue.add(message)
-    }
-
     //FIXME: implement for transport
 }
 

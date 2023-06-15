@@ -29,12 +29,19 @@ class ProtoCodecMessageListener(
 ) : MessageListener<MessageGroupBatch>  {
     
     override fun handle(deliveryMetadata: DeliveryMetadata, message: MessageGroupBatch) {
-        message.groupsList.forEach { group ->
-            if (group.messagesList.any { !it.hasMessage() }) {
-                reportIncorrectGroup(group)
-                return@forEach
+        message.groupsList.forEachIndexed { index, group ->
+            if (group.messagesList.isEmpty()) {
+                logger.error { "Empty group with index $index is received" }
+                return@forEachIndexed
             }
             val messageIdStr = group.messagesList.first().message.metadata.id.buildRequestId()
+            if (index == 0) {
+                decodeQueue.batchReceived(messageIdStr)
+            }
+            if (group.messagesList.any { !it.hasMessage() }) {
+                reportIncorrectGroup(group)
+                return@forEachIndexed
+            }
 
             decodeQueue.responseProtoReceived(messageIdStr) {
                 group.messagesList.map { anyMsg -> anyMsg.message }

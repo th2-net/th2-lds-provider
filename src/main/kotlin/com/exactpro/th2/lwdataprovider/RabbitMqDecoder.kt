@@ -43,9 +43,7 @@ class RabbitMqDecoder(
         checkAndWaitFreeBuffer(requests.size)
         LOGGER.trace { "Sending proto batch with messages to codec. IDs: ${requests.joinToString { it.requestId.toString() }}" }
         val currentTimeMillis = System.currentTimeMillis()
-        requests.forEach {
-            onMessageRequest(it, batchBuilder, session, currentTimeMillis)
-        }
+        onMessageRequest(requests, batchBuilder, session, currentTimeMillis)
         send(batchBuilder, session)
     }
     override fun sendBatchMessage(
@@ -56,18 +54,8 @@ class RabbitMqDecoder(
         checkAndWaitFreeBuffer(requests.size)
         LOGGER.trace { "Sending transport group batch with messages to codec. IDs: ${requests.joinToString { it.requestId.toString() }}" }
         val currentTimeMillis = System.currentTimeMillis()
-        requests.forEach {
-            onMessageRequest(it, batchBuilder, session, currentTimeMillis)
-        }
+        onMessageRequest(requests, batchBuilder, session, currentTimeMillis)
         send(batchBuilder, session)
-    }
-
-    override fun sendMessage(message: RequestedMessageDetails, session: String) {
-        checkAndWaitFreeBuffer(1)
-        LOGGER.trace { "Sending message to codec. ID: ${message.requestId}" }
-        val builder = MessageGroupBatch.newBuilder()
-        onMessageRequest(message, builder, session)
-        send(builder, session)
     }
 
     override fun removeOlderThen(timeout: Long): Long {
@@ -88,25 +76,29 @@ class RabbitMqDecoder(
     }
 
     private fun onMessageRequest(
-        details: RequestedMessageDetails,
+        details: Collection<RequestedMessageDetails>,
         batchBuilder: MessageGroupBatch.Builder,
         session: String,
         currentTimeMillis: Long = System.currentTimeMillis(),
     ) {
-        details.time = currentTimeMillis
-        registerMessage(details, session)
-        batchBuilder.addGroupsBuilder() += details.protoRawMessage.value
+        registerMessages(details, session)
+        details.forEach {
+            it.time = currentTimeMillis
+            batchBuilder.addGroupsBuilder() += it.protoRawMessage.value
+        }
     }
 
     private fun onMessageRequest(
-        details: RequestedMessageDetails,
+        details: Collection<RequestedMessageDetails>,
         batchBuilder: GroupBatch,
         session: String,
         currentTimeMillis: Long = System.currentTimeMillis(),
     ) {
-        details.time = currentTimeMillis
-        registerMessage(details, session)
-        batchBuilder.groups.add(MessageGroup(mutableListOf(details.transportRawMessage.value)))
+        registerMessages(details, session)
+        details.forEach {
+            it.time = currentTimeMillis
+            batchBuilder.groups.add(MessageGroup(mutableListOf(it.transportRawMessage.value)))
+        }
     }
 
     private fun send(batchBuilder: MessageGroupBatch.Builder, session: String) {
@@ -126,8 +118,8 @@ class RabbitMqDecoder(
         }
     }
 
-    private fun registerMessage(message: RequestedMessageDetails, session: String) {
-        this.decodeBuffer.add(message, session)
+    private fun registerMessages(messages: Collection<RequestedMessageDetails>, session: String) {
+        this.decodeBuffer.addAll(messages, session)
     }
 
     companion object {

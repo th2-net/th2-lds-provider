@@ -20,7 +20,7 @@ plugins {
     id 'com.palantir.docker' version '0.25.0'
     id "io.github.gradle-nexus.publish-plugin" version "1.1.0"
     id 'org.jetbrains.kotlin.kapt'
-    id "org.owasp.dependencycheck" version "8.1.2"
+    id "org.owasp.dependencycheck" version "8.2.1"
 }
 
 ext {
@@ -32,6 +32,7 @@ ext {
 dependencyCheck {
     formats=['SARIF', 'JSON', 'HTML']
     failBuildOnCVSS=5
+    skipConfigurations = ['kapt', 'kaptClasspath_kaptKotlin', 'kaptTest']
 
     analyzers {
         assemblyEnabled = false
@@ -48,6 +49,9 @@ dependencies {
         exclude group: 'com.exactpro.th2', module: 'cradle-cassandra'
     }
 
+    implementation(enforcedPlatform('org.eclipse.jetty:jetty-bom:11.0.15')) {
+        because('vulnerabilities in version 11.0.13. Can be removed after updating Javalin and Kotlin')
+    }
 
 
     implementation "io.javalin:javalin:$javalin"

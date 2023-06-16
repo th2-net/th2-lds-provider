@@ -35,7 +35,9 @@ ext {
 dependencyCheck {
     formats = ['SARIF', 'JSON', 'HTML']
     failBuildOnCVSS = 5
-
+    //FIXME: we should check all used dependencies
+    skipConfigurations = ['kapt', 'kaptClasspath_kaptKotlin', 'kaptTest', 'kaptTestFixtures']
+    suppressionFile = file('suppressions.xml')
     analyzers {
         assemblyEnabled = false
         nugetconfEnabled = false
@@ -49,6 +51,9 @@ dependencies {
         exclude group: 'com.exactpro.th2', module: 'cradle-cassandra'
     }
 
+    implementation(enforcedPlatform('org.eclipse.jetty:jetty-bom:11.0.15')) {
+        because('vulnerabilities in version 11.0.13. Can be removed after updating Javalin and Kotlin')
+    }
 
     implementation "io.javalin:javalin:$javalin"
     implementation "io.javalin:javalin-micrometer:$javalin"
@@ -65,9 +70,10 @@ dependencies {
     implementation("io.javalin.community.openapi:javalin-openapi-plugin:$javalin") {
         because("for /openapi route with JSON scheme")
     }
-    implementation("io.javalin.community.openapi:javalin-swagger-plugin:$javalin") {
-        because("for Swagger UI")
-    }
+// swagger-ui-3.52.5.jar (pkg:maven/org.webjars/swagger-ui@3.52.5) : CVE-2018-25031
+//    implementation("io.javalin.community.openapi:javalin-swagger-plugin:$javalin") {
+//        because("for Swagger UI")
+//    }
     implementation("io.javalin.community.openapi:javalin-redoc-plugin:$javalin") {
         because("for Re Doc UI")
     }

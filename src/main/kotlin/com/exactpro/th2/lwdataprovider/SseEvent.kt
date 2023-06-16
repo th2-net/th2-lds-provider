@@ -167,7 +167,7 @@ sealed class SseEvent(
 
 @OptIn(ExperimentalSerializationApi::class)
 private fun <T> Json.encodeToByteArray(serializer: SerializationStrategy<T>, value: T): ByteArray {
-    return ByteArrayOutputStream(1024*1024).use {
+    return ByteArrayOutputStream(1024*2).use {
         encodeToStream(serializer, value, it)
         it
     }.toByteArray()

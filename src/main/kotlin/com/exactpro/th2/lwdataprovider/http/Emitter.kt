@@ -38,14 +38,16 @@ class Emitter(
     var closed = false
         private set
 
-    fun emit(event: String, data: String, id: String?): Unit = lock.withLock {
+    fun emit(event: String, data: ByteArray, id: String?): Unit = lock.withLock {
         try {
             if (id != null) {
                 write("id: $id$NEW_LINE")
             }
             write("event: $event$NEW_LINE")
 
-            write("data: $data$NEW_LINE")
+            write("data: ")
+            write(data)
+            write(NEW_LINE)
 
             write(NEW_LINE)
             if (autoFlush) {
@@ -66,6 +68,10 @@ class Emitter(
     }
 
     private fun write(value: String) {
-        outputStream.write(value.toByteArray())
+        write(value.toByteArray())
+    }
+
+    private fun write(data: ByteArray) {
+        outputStream.write(data)
     }
 }

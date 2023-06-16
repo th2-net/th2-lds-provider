@@ -18,12 +18,12 @@ package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.th2.lwdataprovider.EventType
 import com.exactpro.th2.lwdataprovider.SseEvent
+import com.exactpro.th2.lwdataprovider.SseEvent.Companion.DATA_CHARSET
 import com.exactpro.th2.lwdataprovider.metrics.HttpWriteMetrics
 import com.exactpro.th2.lwdataprovider.metrics.ResponseQueue
-import io.javalin.http.Context
-import io.javalin.validation.Validator
 import mu.KotlinLogging
 import org.apache.commons.lang3.StringUtils
+import org.apache.commons.lang3.StringUtils.abbreviate
 import java.util.concurrent.BlockingQueue
 import java.util.function.Consumer
 import java.util.function.Supplier
@@ -62,7 +62,10 @@ abstract class AbstractSseRequestHandler : Consumer<SseClient>, JavalinHandler {
                     // flush after error to deliver it to the user
                     flush()
                 }
-                K_LOGGER.debug { "Sent sse event: type ${event.event}, metadata ${event.metadata}, data ${StringUtils.abbreviate(event.data, 50)}" }
+                K_LOGGER.debug {
+                    val abbreviate = abbreviate(event.data.toString(DATA_CHARSET), 50)
+                    "Sent sse event: type ${event.event}, metadata ${event.metadata}, data $abbreviate"
+                }
                 if (event.event == EventType.CLOSE) {
                     return
                 }

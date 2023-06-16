@@ -21,6 +21,7 @@ import com.exactpro.th2.lwdataprovider.RequestedMessage
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.ResponseHandler
 import com.exactpro.th2.lwdataprovider.SseEvent
+import com.exactpro.th2.lwdataprovider.SseEvent.Companion.DATA_CHARSET
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
@@ -87,7 +88,7 @@ class HttpMessagesRequestHandler(
 
     override fun writeErrorMessage(text: String, id: String?, batchId: String?) {
         if (!isAlive) return
-        buffer.put { SseEvent.ErrorData.SimpleError(failureReason(batchId, id, text)) }
+        buffer.put { SseEvent.ErrorData.SimpleError(failureReason(batchId, id, text).toByteArray(DATA_CHARSET)) }
     }
 
     override fun writeErrorMessage(error: Throwable, id: String?, batchId: String?) {
@@ -126,7 +127,7 @@ class HttpGenericResponseHandler<T>(
 
     override fun writeErrorMessage(text: String, id: String?, batchId: String?) {
         if (!isAlive) return
-        buffer.put { SseEvent.ErrorData.SimpleError(failureReason(batchId, id, text)) }
+        buffer.put { SseEvent.ErrorData.SimpleError(failureReason(batchId, id, text).toByteArray(DATA_CHARSET)) }
     }
 
     override fun writeErrorMessage(error: Throwable, id: String?, batchId: String?) {

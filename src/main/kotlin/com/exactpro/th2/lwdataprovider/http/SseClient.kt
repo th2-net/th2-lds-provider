@@ -75,7 +75,7 @@ class SseClient internal constructor(
         JavalinLogger.info("Sse client ${ctx.url()} has been closed")
     }
 
-    fun sendEvent(event: String, data: String, id: String? = null) {
+    fun sendEvent(event: String, data: ByteArray, id: String? = null) {
         if (terminated.get()) return logTerminated()
         emitter.emit(event, data, id)
         emitted++

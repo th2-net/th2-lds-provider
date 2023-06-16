@@ -19,6 +19,7 @@ package com.exactpro.th2.lwdataprovider.http
 import com.exactpro.cradle.BookId
 import com.exactpro.th2.lwdataprovider.EventType
 import com.exactpro.th2.lwdataprovider.SseEvent
+import com.exactpro.th2.lwdataprovider.SseEvent.Companion.DATA_CHARSET
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
@@ -208,8 +209,8 @@ class FileDownloadHandler(
                         break
                     }
                     else -> {
-                        LOGGER.debug { "Write event to output: ${StringUtils.abbreviate(sseEvent.data, 100)}" }
-                        output.write(sseEvent.data.toByteArray(responseCharset))
+                        LOGGER.debug { "Write event to output: ${StringUtils.abbreviate(sseEvent.data.toString(DATA_CHARSET), 100)}" }
+                        output.write(sseEvent.data)
                         output.write('\n'.code)
                         dataSent++
                     }

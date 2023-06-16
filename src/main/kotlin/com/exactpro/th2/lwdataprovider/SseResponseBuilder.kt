@@ -18,6 +18,7 @@ package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.cradle.Direction
 import com.exactpro.cradle.messages.StoredMessageId
+import com.exactpro.th2.lwdataprovider.SseEvent.Companion.DATA_CHARSET
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.exactpro.th2.lwdataprovider.entities.responses.PageInfo
@@ -60,7 +61,7 @@ class SseResponseBuilder(
 
     fun codecTimeoutError(id: StoredMessageId, lastEventId: Long): SseEvent =
         SseEvent.ErrorData.TimeoutError(
-            id.failureReason("Codec response wasn't received during timeout"),
+            id.failureReason("Codec response wasn't received during timeout").toByteArray(DATA_CHARSET),
             lastEventId.toString()
         )
 }

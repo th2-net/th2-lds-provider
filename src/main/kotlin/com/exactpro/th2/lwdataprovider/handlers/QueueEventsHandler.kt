@@ -67,7 +67,7 @@ class QueueEventsHandler(
                             endTimestamp,
                             syncInterval,
                             scopesByBook.mapValues { (bookId, scopes) ->
-                                scopes.ifEmpty { extractor.getEventsScopes(bookId) }
+                                scopes.ifEmpty { extractor.getAllEventsScopes(bookId) }
                             },
                             sink
                         )

@@ -17,14 +17,15 @@
 package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.cradle.BookId
-import com.exactpro.th2.lwdataprovider.ExceptionInfo
-import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
+import com.exactpro.th2.lwdataprovider.entities.requests.util.invalidRequest
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
+import com.exactpro.th2.lwdataprovider.http.util.EVENT_STREAM_CONTENT_TYPE
+import com.exactpro.th2.lwdataprovider.http.util.handleSseSequence
 import io.javalin.Javalin
 import io.javalin.http.Context
-import io.javalin.http.Handler
 import io.javalin.http.HttpStatus
 import io.javalin.http.pathParamAsClass
+import io.javalin.http.queryParamAsClass
 import io.javalin.openapi.ContentType
 import io.javalin.openapi.HttpMethod
 import io.javalin.openapi.OpenApi
@@ -32,16 +33,20 @@ import io.javalin.openapi.OpenApiContent
 import io.javalin.openapi.OpenApiParam
 import io.javalin.openapi.OpenApiResponse
 import mu.KotlinLogging
-import org.apache.commons.lang3.exception.ExceptionUtils
+import java.time.Instant
 
 class GetMessageGroups(
     private val handler: SearchMessagesHandler,
-) : Handler, JavalinHandler {
+) : JavalinHandler {
 
     @OpenApi(
-        path = ROUTE,
+        path = JSON_ROUTE,
         methods = [HttpMethod.GET],
-        description = "returns list of groups for specified $BOOK_ID_PARAM",
+        deprecated = true,
+        description = "DEPRECATED: please use $SSE_ROUTE instead. " +
+                "returns list of groups for specified $BOOK_ID_PARAM. " +
+                "If not $START_TIMESTAMP and $END_TIMESTAMP set returns all groups. " +
+                "Otherwise, returns groups in the specified time interval.",
         pathParams = [
             OpenApiParam(
                 name = BOOK_ID_PARAM,
@@ -50,6 +55,20 @@ class GetMessageGroups(
                 example = "bookId123",
             )
         ],
+        queryParams = [
+            OpenApiParam(
+                name = START_TIMESTAMP,
+                type = Long::class,
+                description = "start timestamp to search for groups: ${HttpServer.TIME_EXAMPLE}",
+                required = false,
+            ),
+            OpenApiParam(
+                name = END_TIMESTAMP,
+                type = Long::class,
+                description = "end timestamp to search for groups: ${HttpServer.TIME_EXAMPLE}",
+                required = false,
+            ),
+        ],
         responses = [
             OpenApiResponse(
                 status = "200",
@@ -57,29 +76,105 @@ class GetMessageGroups(
                     OpenApiContent(from = Array<String>::class, mimeType = ContentType.JSON)
                 ],
                 description = """set of groups for specified $BOOK_ID_PARAM. E.g. ["group1","group2"]"""
-            )
-        ]
+            ),
+        ],
     )
-    override fun handle(ctx: Context) {
-        val bookId = ctx.pathParamAsClass<BookId>(BOOK_ID_PARAM).get()
-        LOGGER.info { "Loading groups for book $bookId" }
-        try {
-            val groups: Set<String> = handler.extractGroups(bookId)
-            ctx.status(HttpStatus.OK).json(groups)
-        } catch (ex: Exception) {
-            ctx.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .json(ExceptionInfo(ex::class.java.canonicalName, ExceptionUtils.getRootCauseMessage(ex)))
+    private fun handleJson(ctx: Context) {
+        handleRequest(ctx) { groups ->
+            ctx.status(HttpStatus.OK).json(groups.toSet())
         }
     }
 
+
+    @OpenApi(
+        path = SSE_ROUTE,
+        methods = [HttpMethod.GET],
+        description = "returns list of groups for specified $BOOK_ID_PARAM. " +
+                "If not $START_TIMESTAMP and $END_TIMESTAMP set returns all groups. " +
+                "Otherwise, returns groups in the specified time interval",
+        pathParams = [
+            OpenApiParam(
+                name = BOOK_ID_PARAM,
+                required = true,
+                description = "book ID to request groups",
+                example = "bookId123",
+            )
+        ],
+        queryParams = [
+            OpenApiParam(
+                name = START_TIMESTAMP,
+                type = Long::class,
+                description = "start timestamp to search for groups: ${HttpServer.TIME_EXAMPLE}",
+                required = false,
+            ),
+            OpenApiParam(
+                name = END_TIMESTAMP,
+                type = Long::class,
+                description = "end timestamp to search for groups: ${HttpServer.TIME_EXAMPLE}",
+                required = false,
+            ),
+            OpenApiParam(
+                name = CHUNK_SIZE,
+                type = Int::class,
+                description = "the chunk size for response in SSE format. Default value is 50",
+                required = false
+            ),
+        ],
+        responses = [
+            OpenApiResponse(
+                status = "200",
+                content = [
+                    OpenApiContent(from = Array<String>::class, mimeType = EVENT_STREAM_CONTENT_TYPE)
+                ],
+                description = """set of groups for specified $BOOK_ID_PARAM. E.g. ["group1","group2"] in SSE format"""
+            ),
+        ],
+    )
+    private fun handleSse(ctx: Context) {
+        handleRequest(ctx) { groups ->
+            val chunkSize = queryParamAsClass<Int>(CHUNK_SIZE).check({ it > 0 }, "NEGATIVE_CHUNK_SIZE").getOrDefault(50)
+            handleSseSequence(groups, "group", LOGGER, chunkSize = chunkSize)
+        }
+    }
+
+    private inline fun handleRequest(ctx: Context, handlerFunction: Context.(Sequence<String>) -> Unit) {
+        val bookId = ctx.pathParamAsClass<BookId>(BOOK_ID_PARAM).get()
+        val startTimestamp = ctx.queryParamAsClass<Instant>(START_TIMESTAMP).allowNullable()
+            .get()
+        val endTimestamp = ctx.queryParamAsClass<Instant>(END_TIMESTAMP).allowNullable()
+            .get()
+        LOGGER.info { "Loading groups for book $bookId: (from: $startTimestamp, to: $endTimestamp)" }
+        val groups: Sequence<String> = runCatching {
+            when {
+                startTimestamp == null && endTimestamp == null ->
+                    handler.extractAllGroups(bookId).asSequence() // FIXME: should be an iterator
+                startTimestamp != null && endTimestamp != null ->
+                    handler.extractGroups(bookId, startTimestamp, endTimestamp).asSequence()
+
+                else -> {
+                    invalidRequest("either both $START_TIMESTAMP and $END_TIMESTAMP must be specified or neither of them")
+                }
+            }
+        }.onFailure {
+            LOGGER.error(it) { "cannot process groups request" }
+        }.getOrThrow()
+
+        ctx.handlerFunction(groups)
+    }
+
     override fun setup(app: Javalin) {
-        app.get(ROUTE, this)
+        app.get(JSON_ROUTE, this::handleJson)
+        app.get(SSE_ROUTE, this::handleSse)
     }
 
     companion object {
         private const val BOOK_ID_PARAM = "bookId"
+        private const val START_TIMESTAMP = "startTimestamp"
+        private const val END_TIMESTAMP = "endTimestamp"
+        private const val CHUNK_SIZE = "chunkedSize"
         private val LOGGER = KotlinLogging.logger { }
 
-        const val ROUTE = "/book/{$BOOK_ID_PARAM}/message/groups"
+        const val JSON_ROUTE = "/book/{$BOOK_ID_PARAM}/message/groups"
+        const val SSE_ROUTE = "/book/{$BOOK_ID_PARAM}/message/groups/sse"
     }
 }

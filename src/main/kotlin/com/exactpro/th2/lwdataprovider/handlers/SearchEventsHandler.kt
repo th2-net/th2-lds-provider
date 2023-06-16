@@ -23,8 +23,8 @@ import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import mu.KotlinLogging
+import java.time.Instant
 import java.util.concurrent.Executor
-import java.util.function.Function
 
 private val logger = KotlinLogging.logger { }
 class SearchEventsHandler(
@@ -32,7 +32,9 @@ class SearchEventsHandler(
     private val threadPool: Executor,
 ) {
 
-    fun loadScopes(bookId: BookId): Set<String> = cradle.getEventsScopes(bookId)
+    fun loadAllScopes(bookId: BookId): Set<String> = cradle.getAllEventsScopes(bookId)
+
+    fun loadScopes(bookId: BookId, start: Instant, end: Instant): Iterator<String> = cradle.getScopes(bookId, start, end)
 
     fun loadEvents(request: SseEventSearchRequest, requestContext: ResponseHandler<Event>) {
         threadPool.execute {

@@ -18,6 +18,7 @@ package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.cradle.BookId
 import com.exactpro.th2.lwdataprovider.Context
+import com.exactpro.th2.lwdataprovider.ExceptionInfo
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
@@ -25,6 +26,8 @@ import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import io.javalin.Javalin
 import io.javalin.config.JavalinConfig
 import io.javalin.http.BadRequestResponse
+import io.javalin.http.ContentType
+import io.javalin.http.HttpStatus
 import io.javalin.json.JavalinJackson
 import io.javalin.micrometer.MicrometerPlugin
 import io.javalin.openapi.OpenApiContact
@@ -94,8 +97,7 @@ class HttpServer(private val context: Context) {
             for (handler in handlers) {
                 handler.setup(this)
             }
-            exception(IllegalArgumentException::class.java) { ex, _ -> throw BadRequestResponse(ExceptionUtils.getRootCauseMessage(ex)) }
-            exception(InvalidRequestException::class.java) { ex, _ -> throw BadRequestResponse(ExceptionUtils.getRootCauseMessage(ex)) }
+            setupExceptionHandlers(this)
             jettyServer()?.server()?.insertHandler(createGzipHandler())
         }.start(configuration.hostname, configuration.port)
 
@@ -180,6 +182,20 @@ class HttpServer(private val context: Context) {
             JavalinValidation.register(SearchDirection::class.java, SearchDirection::valueOf)
             JavalinValidation.register(BookId::class.java, ::BookId)
             JavalinValidation.addValidationExceptionMapper(javalin)
+        }
+
+        @JvmStatic
+        fun setupExceptionHandlers(javalin: Javalin) {
+            val function: (exception: Exception, ctx: io.javalin.http.Context) -> Unit = { ex, ctx ->
+                ctx.contentType(ContentType.APPLICATION_JSON)
+                throw BadRequestResponse(ExceptionUtils.getRootCauseMessage(ex))
+            }
+            javalin.exception(IllegalArgumentException::class.java, function)
+            javalin.exception(InvalidRequestException::class.java, function)
+            javalin.exception(Exception::class.java) { ex, ctx ->
+                ctx.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .json(ExceptionInfo(ex::class.java.canonicalName, ExceptionUtils.getRootCauseMessage(ex)))
+            }
         }
     }
 }

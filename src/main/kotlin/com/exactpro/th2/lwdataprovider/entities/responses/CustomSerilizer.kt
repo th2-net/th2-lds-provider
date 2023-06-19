@@ -54,29 +54,30 @@ private val PROPERTIES_FILED = """"properties"""".toByteArray(UTF_8)
 private val PROTOCOL_FILED = """"protocol"""".toByteArray(UTF_8)
 private val FIELDS_FILED = """"fields"""".toByteArray(UTF_8)
 
-fun ProviderMessage53Transport.toJSONByteArray(): ByteArray = ByteArrayOutputStream().apply { // TODO: init size
-    write(OPENING_CURLY_BRACE)
-    writeTimestamp(timestamp)
-    write(COMMA)
-    direction?.let {
-        writeField(DIRECTION_FILED, direction.name)
+fun ProviderMessage53Transport.toJSONByteArray(): ByteArray =
+    ByteArrayOutputStream(1_024 * 2).apply { // TODO: init size
+        write(OPENING_CURLY_BRACE)
+        writeTimestamp(timestamp)
         write(COMMA)
-    }
-    writeField(SESSION_ID_FILED, sessionId)
-    write(COMMA)
-    writeAttachedEventIds(attachedEventIds)
-    body?.let {
+        direction?.let {
+            writeField(DIRECTION_FILED, direction.name)
+            write(COMMA)
+        }
+        writeField(SESSION_ID_FILED, sessionId)
         write(COMMA)
-        writeBody(body)
-    }
-    bodyBase64?.let {
+        writeAttachedEventIds(attachedEventIds)
+        body?.let {
+            write(COMMA)
+            writeBody(body)
+        }
+        bodyBase64?.let {
+            write(COMMA)
+            writeFieldWithoutEscaping(BODY_BASE_64_FILED, bodyBase64)
+        }
         write(COMMA)
-        writeFieldWithoutEscaping(BODY_BASE_64_FILED, bodyBase64)
-    }
-    write(COMMA)
-    writeMessageId(messageId)
-    write(CLOSING_CURLY_BRACE)
-}.toByteArray()
+        writeMessageId(messageId)
+        write(CLOSING_CURLY_BRACE)
+    }.toByteArray()
 
 private fun OutputStream.writeMessageId(messageId: StoredMessageId) {
     write(MESSAGE_ID_FILED)

@@ -1,5 +1,5 @@
-/*******************************************************************************
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+/*
+ * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,13 +12,12 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ */
 
 package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.cradle.Direction
 import com.exactpro.cradle.messages.StoredMessageId
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.toByteArray
 import com.exactpro.th2.lwdataprovider.SseEvent.Companion.DATA_CHARSET
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
@@ -26,16 +25,15 @@ import com.exactpro.th2.lwdataprovider.entities.responses.PageInfo
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53Transport
 import com.exactpro.th2.lwdataprovider.entities.responses.ResponseMessage
+import com.exactpro.th2.lwdataprovider.entities.responses.toJSONByteArray
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.google.common.io.ByteArrayDataOutput
-import io.netty.buffer.Unpooled
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
 import java.io.ByteArrayOutputStream
 import java.nio.charset.Charset
-import java.util.*
+import java.util.Locale
 
 /**
  * The data class representing an SSE Event that will be sent to the client.
@@ -50,6 +48,7 @@ enum class EventType {
 }
 
 private val EMPTY_DATA: ByteArray = "empty data".toByteArray(DATA_CHARSET)
+
 sealed class SseEvent(
     val event: EventType,
 ) {
@@ -81,6 +80,7 @@ sealed class SseEvent(
         override val data: ByteArray,
         override val metadata: String,
     ) : SseEvent(EventType.PAGE_INFO)
+
     sealed class ErrorData : SseEvent(EventType.ERROR) {
         class SimpleError(
             override val data: ByteArray
@@ -113,9 +113,10 @@ sealed class SseEvent(
 
         fun build(jacksonMapper: ObjectMapper, message: ResponseMessage, counter: Long): SseEvent {
             return MessageData(
-                when(message) {
+                when (message) {
+                    // FIXME: implement ProviderMessage53
                     is ProviderMessage53 -> JSON.get().encodeToByteArray(ProviderMessage53.serializer(), message)
-                    is ProviderMessage53Transport -> JSON.get().encodeToByteArray(ProviderMessage53Transport.serializer(), message)
+                    is ProviderMessage53Transport -> message.toJSONByteArray()
                     else -> jacksonMapper.writeValueAsBytes(message)
                 },
                 counter.toString(),
@@ -132,14 +133,14 @@ sealed class SseEvent(
                 counter.toString(),
             )
         }
-        
+
         fun build(jacksonMapper: ObjectMapper, e: Exception): SseEvent {
             var rootCause: Throwable? = e
             while (rootCause?.cause != null) {
                 rootCause = rootCause.cause
             }
             return ErrorData.SimpleError(
-                jacksonMapper.writeValueAsBytes(ExceptionInfo(e.javaClass.name,rootCause?.message ?: e.toString())),
+                jacksonMapper.writeValueAsBytes(ExceptionInfo(e.javaClass.name, rootCause?.message ?: e.toString())),
             )
         }
 
@@ -167,7 +168,7 @@ sealed class SseEvent(
 
 @OptIn(ExperimentalSerializationApi::class)
 private fun <T> Json.encodeToByteArray(serializer: SerializationStrategy<T>, value: T): ByteArray {
-    return ByteArrayOutputStream(1024*2).use {
+    return ByteArrayOutputStream(1024 * 2).use {
         encodeToStream(serializer, value, it)
         it
     }.toByteArray()

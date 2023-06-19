@@ -1,5 +1,5 @@
-/*******************************************************************************
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+/*
+ * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ */
 
 package com.exactpro.th2.lwdataprovider.entities.responses
 
@@ -35,7 +35,7 @@ data class ProviderMessage(
     @JsonIgnore
     val msgId: StoredMessageId
 ) : ResponseMessage {
-    
+
     val id: String
         get() = msgId.toString()
 
@@ -62,27 +62,27 @@ class ProviderParsedMessage(
 
     companion object {
 
-        private fun directionToString(dir: com.exactpro.th2.common.grpc.Direction) : String {
+        private fun directionToString(dir: com.exactpro.th2.common.grpc.Direction): String {
             return if (dir == com.exactpro.th2.common.grpc.Direction.FIRST) "first" else "second"
         }
 
-        private fun subseqToString(subColl: Collection<Int>) : String {
+        private fun subSeqToString(subColl: Collection<Int>): String {
             return if (subColl.isEmpty())
                 ""
             else if (subColl.size == 1) {
                 "." + subColl.iterator().next()
-            } else  {
+            } else {
                 val stringBuilder = StringBuilder()
                 subColl.forEach { stringBuilder.append(".").append(it) }
                 stringBuilder.toString()
             }
         }
-        
-        fun messageIdToString(msgId: MessageID) : String {
+
+        fun messageIdToString(msgId: MessageID): String {
             return msgId.connectionId.sessionAlias + ":" + directionToString(msgId.direction) + ":" +
-                    msgId.sequence + subseqToString(msgId.subsequenceList)
+                    msgId.sequence + subSeqToString(msgId.subsequenceList)
         }
     }
-    
-    constructor(msgId: MessageID, messageBody: String) : this (messageIdToString(msgId), messageBody)
+
+    constructor(msgId: MessageID, messageBody: String) : this(messageIdToString(msgId), messageBody)
 }

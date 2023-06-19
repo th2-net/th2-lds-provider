@@ -20,7 +20,6 @@ import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.utils.EscapeUtils
 import com.exactpro.cradle.utils.TimeUtils
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
-import com.exactpro.th2.lwdataprovider.transport.toProtoDirection
 import kotlinx.serialization.ContextualSerializer
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
@@ -41,11 +40,11 @@ import kotlinx.serialization.encoding.encodeStructure
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.JsonTransformingSerializer
-import java.time.Instant
-import kotlinx.serialization.json.*
+import kotlinx.serialization.json.JsonUnquotedLiteral
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.contextual
 import kotlinx.serialization.serializer
+import java.time.Instant
 import kotlin.math.ceil
 import kotlin.math.log10
 
@@ -83,10 +82,12 @@ object InstantSerializer : KSerializer<Instant> {
             element<Long>("epochSecond")
             element<Int>("nano")
         }
+
     override fun serialize(encoder: Encoder, value: Instant) = encoder.encodeStructure(descriptor) {
         encodeLongElement(descriptor, 0, value.epochSecond)
         encodeIntElement(descriptor, 1, value.nano)
     }
+
     override fun deserialize(decoder: Decoder): Instant = decoder.decodeStructure(descriptor) {
         var epochSecond = -1L
         var nano = -1
@@ -150,6 +151,7 @@ object StoredMessageIdSerializer : KSerializer<StoredMessageId> {
         }
         append(value)
     }
+
     private fun StringBuilder.appendNumber(value: Int, size: Int) {
         val digits = kotlin.math.max(ceil(log10(value.toDouble())).toInt(), 1)
         if (digits < size) {
@@ -166,7 +168,7 @@ object FieldSerializer : KSerializer<Any> {
     override val descriptor: SerialDescriptor = ContextualSerializer(Any::class, null, emptyArray()).descriptor
     override fun deserialize(decoder: Decoder): Any = error("Unsupported decoding")
     override fun serialize(encoder: Encoder, value: Any) {
-        when(value) {
+        when (value) {
             is List<*> -> encoder.encodeSerializableValue(COLLECTION_SERIALIZER, value as List<Any>)
             is Map<*, *> -> encoder.encodeSerializableValue(MESSAGE_SERIALIZER, value as Map<String, Any>)
             else -> encoder.encodeString(value.toString())
@@ -190,6 +192,9 @@ object TransportMessageContainerSerializer : KSerializer<TransportMessageContain
     override fun serialize(encoder: Encoder, value: TransportMessageContainer) {
         encoder.encodeStructure(descriptor) {
             with(value.parsedMessage) {
+                if (!rawBody.isReadable) {
+                    error("The $id message can't be serialized because its raw data is blank")
+                }
                 encodeInlineElement(descriptor, 0).encodeStructure(metadataDescriptor) {
                     with(id) {
                         if (subsequence.isNotEmpty()) {
@@ -197,19 +202,23 @@ object TransportMessageContainerSerializer : KSerializer<TransportMessageContain
                         }
                     }
                     encodeStringElementIfNotEmpty(metadataDescriptor, 1, type)
-                    if (metadata.isNotEmpty()) encodeSerializableElement(metadataDescriptor, 2, METADATA_SERIALIZER, metadata)
+                    if (metadata.isNotEmpty()) encodeSerializableElement(
+                        metadataDescriptor,
+                        2,
+                        METADATA_SERIALIZER,
+                        metadata
+                    )
                     encodeStringElementIfNotEmpty(metadataDescriptor, 3, protocol)
                 }
-                if (rawBody.isReadable) {
-                    val body = ByteArray(rawBody.readableBytes()).also(rawBody::readBytes).toString(Charsets.UTF_8)
-                    rawBody.resetReaderIndex()
-                    encodeSerializableElement(descriptor, 1, UnwrappingJsonListSerializer, body)
-                }
+                val body = ByteArray(rawBody.readableBytes()).also(rawBody::readBytes).toString(Charsets.UTF_8)
+                rawBody.resetReaderIndex()
+                encodeSerializableElement(descriptor, 1, UnwrappingJsonListSerializer, body)
             }
         }
     }
 
-    override fun deserialize(decoder: Decoder): TransportMessageContainer = error("Unsupported transport message container decoding")
+    override fun deserialize(decoder: Decoder): TransportMessageContainer =
+        error("Unsupported transport message container decoding")
 }
 
 object UnwrappingJsonListSerializer :

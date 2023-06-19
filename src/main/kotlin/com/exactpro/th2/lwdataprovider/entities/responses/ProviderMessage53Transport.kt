@@ -23,7 +23,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMess
 import com.exactpro.th2.lwdataprovider.entities.internal.Direction
 import kotlinx.serialization.Serializable
 import java.time.Instant
-import java.util.*
+import java.util.Collections
 
 @Deprecated("same format as rpt-data-provider5.3")
 @Serializable

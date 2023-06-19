@@ -20,6 +20,15 @@ import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 
 interface Decoder {
-    fun sendBatchMessage(batchBuilder: MessageGroupBatch.Builder, requests: Collection<RequestedMessageDetails>, session: String)
-    fun sendBatchMessage(batchBuilder: GroupBatch, requests: Collection<RequestedMessageDetails>, session: String)
+    fun sendBatchMessage(
+        batchBuilder: MessageGroupBatch.Builder,
+        requests: Collection<RequestedMessageDetails>,
+        session: String
+    )
+
+    fun sendBatchMessage(
+        batchBuilder: GroupBatch.Builder,
+        requests: Collection<RequestedMessageDetails>,
+        session: String
+    )
 }

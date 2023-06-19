@@ -1,5 +1,5 @@
-/*******************************************************************************
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+/*
+ * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ */
 
 package com.exactpro.th2.lwdataprovider.grpc
 
@@ -66,7 +66,7 @@ open class GrpcDataProviderImpl(
     private val searchEventsHandler: SearchEventsHandler,
     private val generalCradleHandler: GeneralCradleHandler,
     private val dataMeasurement: DataMeasurement,
-): DataProviderGrpc.DataProviderImplBase() {
+) : DataProviderGrpc.DataProviderImplBase() {
 
     companion object {
         private val LOGGER = KotlinLogging.logger { }
@@ -147,14 +147,17 @@ open class GrpcDataProviderImpl(
         }
     }
 
-    override fun getMessageStreams(request: MessageStreamsRequest, responseObserver: StreamObserver<MessageStreamsResponse>) {
+    override fun getMessageStreams(
+        request: MessageStreamsRequest,
+        responseObserver: StreamObserver<MessageStreamsResponse>
+    ) {
         LOGGER.info { "Extracting message streams" }
         if (!request.hasBookId()) {
             responseObserver.onError(Status.INVALID_ARGUMENT.withDescription("bookId is required").asRuntimeException())
             return
         }
         val streamsRsp = MessageStreamsResponse.newBuilder()
-        for (name in searchMessagesHandler.extractStreamNames(request.bookId.toCradle())) {
+        for (name in searchMessagesHandler.extractAllStreamNames(request.bookId.toCradle())) {
             val currentBuilder = MessageStream.newBuilder().setName(name)
             streamsRsp.addMessageStream(currentBuilder.setDirection(Direction.SECOND))
             streamsRsp.addMessageStream(currentBuilder.setDirection(Direction.FIRST))
@@ -165,12 +168,20 @@ open class GrpcDataProviderImpl(
         }
     }
 
-    override fun searchMessages(request: MessageSearchRequest, responseObserver: StreamObserver<MessageSearchResponse>) {
+    override fun searchMessages(
+        request: MessageSearchRequest,
+        responseObserver: StreamObserver<MessageSearchResponse>
+    ) {
 
         val queue = ArrayBlockingQueue<GrpcEvent>(configuration.responseQueueSize)
         val requestParams = SseMessageSearchRequest(request)
         LOGGER.info { "Loading messages $requestParams" }
-        val handler = GrpcMessageResponseHandler(queue, dataMeasurement, configuration.bufferPerQuery, requestParams.responseFormats ?: configuration.responseFormats)
+        val handler = GrpcMessageResponseHandler(
+            queue,
+            dataMeasurement,
+            configuration.bufferPerQuery,
+            requestParams.responseFormats ?: configuration.responseFormats
+        )
 //        val loadingStep = context.startStep("messages_loading")
         searchMessagesHandler.loadMessages(requestParams, handler, dataMeasurement)
         try {
@@ -181,7 +192,10 @@ open class GrpcDataProviderImpl(
         }
     }
 
-    override fun searchMessageGroups(request: MessageGroupsSearchRequest, responseObserver: StreamObserver<MessageSearchResponse>) {
+    override fun searchMessageGroups(
+        request: MessageGroupsSearchRequest,
+        responseObserver: StreamObserver<MessageSearchResponse>
+    ) {
         val queue = ArrayBlockingQueue<GrpcEvent>(configuration.responseQueueSize)
         val requestParams = MessagesGroupRequest.fromGrpcRequest(request)
         LOGGER.info { "Loading messages groups $requestParams" }
@@ -224,7 +238,9 @@ open class GrpcDataProviderImpl(
             responseObserver.onError(Status.INVALID_ARGUMENT.withDescription(ex.message).asRuntimeException())
         } catch (ex: Exception) {
             LOGGER.error(ex) { "cannot load pages for request ${request.toJson()}" }
-            responseObserver.onError(Status.INTERNAL.withDescription(ExceptionUtils.getMessage(ex)).asRuntimeException())
+            responseObserver.onError(
+                Status.INTERNAL.withDescription(ExceptionUtils.getMessage(ex)).asRuntimeException()
+            )
         }
     }
 
@@ -251,7 +267,7 @@ open class GrpcDataProviderImpl(
                 inProcess = false
                 LOGGER.warn { "Stream finished with exception" }
             } else {
-                converter.invoke(event)?.let {  responseObserver.onNext(it) }
+                converter.invoke(event)?.let { responseObserver.onNext(it) }
             }
         }
     }

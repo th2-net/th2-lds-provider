@@ -14,7 +14,7 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile) {
     }
 }
 
-configurations.all {
+configurations.configureEach {
     resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
     resolutionStrategy.cacheDynamicVersionsFor 0, 'seconds'
 }
@@ -27,7 +27,7 @@ if (!suffix.isEmpty()) {
 }
 
 dependencies {
-    implementation platform('com.exactpro.th2:bom:4.2.0')
+    implementation platform('com.exactpro.th2:bom:4.3.0')
     implementation 'org.slf4j:slf4j-api'
     implementation 'io.github.microutils:kotlin-logging:2.1.23'
 

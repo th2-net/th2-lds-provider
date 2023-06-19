@@ -27,20 +27,20 @@ import mu.KotlinLogging
 class ProtoCodecMessageListener(
     private val decodeQueue: RequestsBuffer,
 ) : MessageListener<MessageGroupBatch>  {
-    
+
     override fun handle(deliveryMetadata: DeliveryMetadata, message: MessageGroupBatch) {
         message.groupsList.forEachIndexed { index, group ->
+            if (group.messagesList.any { !it.hasMessage() }) {
+                reportIncorrectGroup(group, index)
+                return@forEachIndexed
+            }
             if (group.messagesList.isEmpty()) {
-                logger.error { "Empty group with index $index is received" }
+                logger.warn { "Received empty group[$index]. Metadata: $deliveryMetadata" }
                 return@forEachIndexed
             }
             val messageIdStr = group.messagesList.first().message.metadata.id.buildRequestId()
             if (index == 0) {
                 decodeQueue.batchReceived(messageIdStr)
-            }
-            if (group.messagesList.any { !it.hasMessage() }) {
-                reportIncorrectGroup(group)
-                return@forEachIndexed
             }
 
             decodeQueue.responseProtoReceived(messageIdStr) {
@@ -51,10 +51,10 @@ class ProtoCodecMessageListener(
 
     private fun MessageID.buildRequestId() : RequestId = ProtoRequestId(this)
 
-    private fun reportIncorrectGroup(group: MessageGroup) {
+    private fun reportIncorrectGroup(group: MessageGroup, index: Int) {
         logger.error {
-            "some messages in group are not parsed: ${
-                group.messagesList.joinToString(",") {
+            "some messages in group[$index] are not parsed: ${
+                group.messagesList.joinToString(separator = ",", prefix = "[", postfix = "]") {
                     "${it.kindCase} ${
                         when (it.kindCase) {
                             AnyMessage.KindCase.MESSAGE -> it.message.metadata.id.buildRequestId()

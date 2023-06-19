@@ -19,17 +19,17 @@ package com.exactpro.th2.lwdataprovider.handlers
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
+import com.exactpro.th2.lwdataprovider.BasicResponseHandler
 import com.exactpro.th2.lwdataprovider.Decoder
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
-import com.exactpro.th2.lwdataprovider.ResponseHandler
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
-import org.apache.commons.lang3.StringUtils.defaultIfBlank
 
 internal abstract class AbstractParsedStoredMessageHandler(
     private val handler: MessageResponseHandler,
     private val measurement: DataMeasurement,
     private val batchSize: Int,
-) : ResponseHandler<StoredMessage> {
+    private val markerAsGroup: Boolean = false,
+) : MarkedResponseHandler<String, StoredMessage> {
     private val details: MutableList<RequestedMessageDetails> = arrayListOf()
     override val isAlive: Boolean
         get() = handler.isAlive
@@ -46,8 +46,8 @@ internal abstract class AbstractParsedStoredMessageHandler(
         handler.writeErrorMessage(error, id, batchId)
     }
 
-    override fun handleNext(data: StoredMessage) {
-        val detail = RequestedMessageDetails(data) {
+    override fun handleNext(marker: String, data: StoredMessage) {
+        val detail = RequestedMessageDetails(data, sessionGroup = if (markerAsGroup) marker else null) {
             handler.requestReceived()
         }
         details += detail
@@ -72,21 +72,27 @@ internal abstract class AbstractParsedStoredMessageHandler(
     }
 }
 
+internal interface MarkedResponseHandler<M, V> : BasicResponseHandler {
+    fun handleNext(marker: M, data: V)
+}
+
 internal class ProtoParsedStoredMessageHandler(
     handler: MessageResponseHandler,
     private val decoder: Decoder,
     measurement: DataMeasurement,
     batchSize: Int,
+    markerAsGroup: Boolean = false,
 ) : AbstractParsedStoredMessageHandler(
     handler,
     measurement,
-    batchSize
+    batchSize,
+    markerAsGroup
 ) {
     private val batch: MessageGroupBatch.Builder = MessageGroupBatch.newBuilder()
 
     override fun sendBatchMessage(details: MutableList<RequestedMessageDetails>) {
         try {
-            decoder.sendBatchMessage(batch, details, details.first().storedMessage.sessionAlias)
+            decoder.sendBatchMessage(batch, details, details.first().run { sessionGroup ?: storedMessage.sessionAlias })
         } finally {
             batch.clear()
         }
@@ -98,23 +104,25 @@ internal class TransportParsedStoredMessageHandler(
     private val decoder: Decoder,
     measurement: DataMeasurement,
     batchSize: Int,
+    markerAsGroup: Boolean = false,
 ) : AbstractParsedStoredMessageHandler(
     handler,
     measurement,
-    batchSize
+    batchSize,
+    markerAsGroup
 ) {
-    private val batch: GroupBatch = GroupBatch.newMutable()
+    private var batch: GroupBatch.Builder = GroupBatch.builder()
 
     override fun sendBatchMessage(details: MutableList<RequestedMessageDetails>) {
         try {
             val first = details.first()
-            val sessionAlias = first.storedMessage.sessionAlias
+            val sessionAlias: String = first.storedMessage.sessionAlias
 
-            batch.book = first.storedMessage.bookId.name
-            batch.sessionGroup = defaultIfBlank(first.sessionGroup, sessionAlias)
-            decoder.sendBatchMessage(batch, details, sessionAlias)
+            batch.setBook(first.storedMessage.bookId.name)
+            batch.setSessionGroup(first.sessionGroup?.ifBlank { sessionAlias } ?: sessionAlias)
+            decoder.sendBatchMessage(batch, details, batch.sessionGroup)
         } finally {
-            batch.softClean()
+            batch = GroupBatch.builder()
         }
     }
 }

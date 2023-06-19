@@ -1,5 +1,5 @@
-/*******************************************************************************
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+/*
+ * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,16 +12,16 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ */
 
 package com.exactpro.th2.lwdataprovider.db
 
 import com.exactpro.cradle.BookId
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
-import com.exactpro.cradle.Direction
 import com.exactpro.cradle.Order
 import com.exactpro.cradle.TimeRelation
+import com.exactpro.cradle.counters.Interval
 import com.exactpro.cradle.messages.GroupedMessageFilter
 import com.exactpro.cradle.messages.GroupedMessageFilterBuilder
 import com.exactpro.cradle.messages.MessageFilter
@@ -32,13 +32,11 @@ import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.resultset.CradleResultSet
 import com.exactpro.th2.lwdataprovider.db.util.getGenericWithSyncInterval
 import com.exactpro.th2.lwdataprovider.db.util.withMeasurements
-import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
 import com.exactpro.th2.lwdataprovider.handlers.util.BookGroup
 import com.exactpro.th2.lwdataprovider.toReportId
 import mu.KotlinLogging
 import java.time.Duration
 import java.time.Instant
-import java.time.temporal.ChronoUnit
 import java.util.LinkedList
 import kotlin.system.measureTimeMillis
 
@@ -52,28 +50,40 @@ class CradleMessageExtractor(
 
     companion object {
         private val logger = KotlinLogging.logger { }
-        private val STORED_MESSAGE_COMPARATOR: Comparator<StoredMessage> = Comparator.comparing<StoredMessage, Instant> { it.timestamp }
-            .thenComparing({ it.direction }) { dir1, dir2 -> -(dir1.ordinal - dir2.ordinal) } // SECOND < FIRST
-            .thenComparing<String> { it.sessionAlias }
-            .thenComparingLong { it.sequence }
+        private val STORED_MESSAGE_COMPARATOR: Comparator<StoredMessage> =
+            Comparator.comparing<StoredMessage, Instant> { it.timestamp }
+                .thenComparing({ it.direction }) { dir1, dir2 -> -(dir1.ordinal - dir2.ordinal) } // SECOND < FIRST
+                .thenComparing<String> { it.sessionAlias }
+                .thenComparingLong { it.sequence }
     }
 
-    fun getGroups(bookId: BookId): Set<String> = measure("groups") { storage.getGroups(bookId) }.toSet()
+    fun getAllGroups(bookId: BookId): Set<String> = measure("groups") { storage.getGroups(bookId) }.toSet()
 
-    fun getStreams(bookId: BookId): Collection<String> = measure("aliases") { storage.getSessionAliases(bookId) }
+    fun getGroups(bookId: BookId, from: Instant, to: Instant): Iterator<String> =
+        storage.getSessionGroups(bookId, Interval(from, to))
+
+    fun getAllStreams(bookId: BookId): Collection<String> = storage.getSessionAliases(bookId)
+
+    fun getStreams(bookId: BookId, from: Instant, to: Instant): Iterator<String> {
+        require(from.isBefore(to)) { "from '$from' must be before to '$to'" }
+        return storage.getSessionAliases(bookId, Interval(from, to))
+    }
 
     fun hasMessagesAfter(id: StoredMessageId): Boolean = hasMessages(id, TimeRelation.AFTER)
 
     fun hasMessagesBefore(id: StoredMessageId): Boolean = hasMessages(id, TimeRelation.BEFORE)
 
     fun hasMessagesInGroupAfter(group: String, bookId: BookId, lastGroupTimestamp: Instant): Boolean {
-        val lastBatch: CradleResultSet<StoredGroupedMessageBatch> = storage.getGroupedMessageBatches(GroupedMessageFilterBuilder()
-            .bookId(bookId)
-            .groupName(group)
-            .limit(1)
-            .timestampFrom().isGreaterThanOrEqualTo(lastGroupTimestamp)
-            .build())
-        return lastBatch.hasNext() && lastBatch.next().run { firstTimestamp >= lastGroupTimestamp || lastTimestamp >= lastGroupTimestamp }
+        val lastBatch: CradleResultSet<StoredGroupedMessageBatch> = storage.getGroupedMessageBatches(
+            GroupedMessageFilterBuilder()
+                .bookId(bookId)
+                .groupName(group)
+                .limit(1)
+                .timestampFrom().isGreaterThanOrEqualTo(lastGroupTimestamp)
+                .build()
+        )
+        return lastBatch.hasNext() && lastBatch.next()
+            .run { firstTimestamp >= lastGroupTimestamp || lastTimestamp >= lastGroupTimestamp }
     }
 
     private fun hasMessages(id: StoredMessageId, order: TimeRelation): Boolean {
@@ -103,15 +113,20 @@ class CradleMessageExtractor(
     }
 
 
-    fun getMessagesGroup(filter: GroupedMessageFilter, parameters: CradleGroupRequest, sink: MessageDataSink<String, StoredMessage>) {
+    fun getMessagesGroup(
+        filter: GroupedMessageFilter,
+        parameters: CradleGroupRequest,
+        sink: MessageDataSink<String, StoredMessage>
+    ) {
         val group = filter.groupName
         val start = filter.from.value
         val end = filter.to.value
         val (
             sort: Boolean
         ) = parameters
-        val iterator: Iterator<StoredGroupedMessageBatch> = measure("init_groups") { storage.getGroupedMessageBatches(filter) }
-            .withMeasurements("groups", dataMeasurement)
+        val iterator: Iterator<StoredGroupedMessageBatch> =
+            measure("init_groups") { storage.getGroupedMessageBatches(filter) }
+                .withMeasurements("groups", dataMeasurement)
         if (!iterator.hasNext()) {
             logger.info { "Empty response received from cradle" }
             return
@@ -122,6 +137,7 @@ class CradleMessageExtractor(
         fun StoredMessage.inRange(): Boolean = timestamp >= start && timestamp < end
         fun Sequence<StoredMessage>.preFilter(): Sequence<StoredMessage> =
             parameters.preFilter?.let { filter(it) } ?: this
+
         fun Collection<StoredMessage>.preFilterTo(dest: MutableCollection<StoredMessage>): Collection<StoredMessage> {
             parameters.preFilter?.let { filterTo(dest, it) } ?: dest.addAll(this)
             return dest
@@ -159,7 +175,9 @@ class CradleMessageExtractor(
                 }
                 tryDrain(group, buffer, sort, sink)
             } else {
-                generateSequence { if (!sort || remaining.peek()?.timestampLess(currentBatch) == true) remaining.poll() else null }.toCollection(buffer)
+                generateSequence {
+                    if (!sort || remaining.peek()?.timestampLess(currentBatch) == true) remaining.poll() else null
+                }.toCollection(buffer)
 
                 val messageCount = prev.messageCount
                 prev.messages.forEachIndexed { index, msg ->
@@ -319,7 +337,9 @@ class CradleMessageExtractor(
                 val group = it.group
                 for (msg in it.messages) {
                     val process = filters[BookGroup(group, msg.bookId)]?.let { (filter, param) ->
-                        msg.timestamp >= filter.from.value && msg.timestamp < filter.to.value && param.preFilter?.invoke(msg) != false
+                        msg.timestamp >= filter.from.value && msg.timestamp < filter.to.value && param.preFilter?.invoke(
+                            msg
+                        ) != false
                     } ?: true
                     if (process) {
                         sink.onNext(group, msg)
@@ -336,7 +356,8 @@ class CradleMessageExtractor(
     private inline fun <T> measure(name: String, action: () -> T): T = dataMeasurement.start(name).use { action() }
 }
 
-private fun StoredGroupedMessageBatch.toShortInfo(): String = "${group}:${firstMessage.sequence}..${lastMessage.sequence} ($firstTimestamp..$lastTimestamp)"
+private fun StoredGroupedMessageBatch.toShortInfo(): String =
+    "${group}:${firstMessage.sequence}..${lastMessage.sequence} ($firstTimestamp..$lastTimestamp)"
 
 data class CradleGroupRequest(
     val sort: Boolean,

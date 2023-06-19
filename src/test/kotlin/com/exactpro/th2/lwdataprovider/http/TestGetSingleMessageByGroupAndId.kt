@@ -58,7 +58,16 @@ class TestGetSingleMessageByGroupAndId : AbstractHttpHandlerTest<GetSingleMessag
                 get { code } isEqualTo HttpStatus.BAD_REQUEST.code
                 get { body }.isNotNull()
                     .get { bytes().toString(Charsets.UTF_8) }
-                    .isEqualTo("CradleIdException: Message ID (messageID) should contain book ID, session alias, direction, timestamp and sequence number delimited with ':'")
+                    .isEqualTo(
+                        """
+                        {
+                            "title": "CradleIdException: Message ID (messageID) should contain book ID, session alias, direction, timestamp and sequence number delimited with ':'",
+                            "status": 400,
+                            "type": "https://javalin.io/documentation#badrequestresponse",
+                            "details": {}
+                        }
+                    """.trimIndent()
+                    )
             }
         }
     }
@@ -164,12 +173,12 @@ class TestGetSingleMessageByGroupAndId : AbstractHttpHandlerTest<GetSingleMessag
                     "\"messageType\":\"Test\"," +
                     "\"attachedEventIds\":[]," +
                     "\"body\":{" +
-                        "\"metadata\":{" +
-                            "\"id\":{\"connectionId\":{\"sessionAlias\":\"test-0\"},\"direction\":\"FIRST\",\"sequence\":\"4\"," +
-                                "\"timestamp\":{\"seconds\":\"$seconds\",\"nanos\":\"$nanos\"},\"subsequence\":[]}," +
-                            "\"messageType\":\"Test\"" +
-                        "}," +
-                        "\"fields\":{\"a\":\"42\"}" +
+                    "\"metadata\":{" +
+                    "\"id\":{\"connectionId\":{\"sessionAlias\":\"test-0\"},\"direction\":\"FIRST\",\"sequence\":\"4\"," +
+                    "\"timestamp\":{\"seconds\":\"$seconds\",\"nanos\":\"$nanos\"},\"subsequence\":[]}," +
+                    "\"messageType\":\"Test\"" +
+                    "}," +
+                    "\"fields\":{\"a\":\"42\"}" +
                     "}," +
                     "\"messageId\":\"test-book:test-0:1:${msgTimestamp}:4\"" +
                     "}"

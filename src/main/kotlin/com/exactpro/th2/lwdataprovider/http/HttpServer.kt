@@ -1,5 +1,5 @@
-/*******************************************************************************
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+/*
+ * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,12 +12,13 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ */
 
 package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.cradle.BookId
 import com.exactpro.th2.lwdataprovider.Context
+import com.exactpro.th2.lwdataprovider.ExceptionInfo
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
@@ -28,6 +29,8 @@ import com.exactpro.th2.lwdataprovider.producers.MessageProducer53Transport
 import io.javalin.Javalin
 import io.javalin.config.JavalinConfig
 import io.javalin.http.BadRequestResponse
+import io.javalin.http.ContentType
+import io.javalin.http.HttpStatus
 import io.javalin.json.JavalinJackson
 import io.javalin.micrometer.MicrometerPlugin
 import io.javalin.openapi.OpenApiContact
@@ -68,7 +71,8 @@ class HttpServer(private val context: Context) {
         val searchMessagesHandler = this.context.searchMessagesHandler
         val keepAliveHandler = this.context.keepAliveHandler
 
-        val sseResponseBuilder = SseResponseBuilder(jacksonMapper,
+        val sseResponseBuilder = SseResponseBuilder(
+            jacksonMapper,
             if (configuration.listOfMessageAsSingleMessage) {
                 if (configuration.useTransportMode) {
                     MessageProducer53Transport.Companion::createMessage
@@ -97,16 +101,22 @@ class HttpServer(private val context: Context) {
                 sseResponseBuilder, searchMessagesHandler, context.requestsDataMeasurement
             ),
             GetOneEvent(configuration, sseResponseBuilder, this.context.searchEventsHandler),
-            GetEventsServlet(configuration, sseResponseBuilder, keepAliveHandler,
-                this.context.searchEventsHandler),
+            GetEventsServlet(
+                configuration, sseResponseBuilder, keepAliveHandler,
+                this.context.searchEventsHandler
+            ),
             GetBookIDs(context.generalCradleHandler),
             GetSessionAliases(context.searchMessagesHandler),
             GetEventScopes(context.searchEventsHandler),
             GetMessageGroups(context.searchMessagesHandler),
-            GetPageInfosServlet(configuration, sseResponseBuilder,
-                keepAliveHandler, context.generalCradleHandler),
-            GetAllPageInfosServlet(configuration, sseResponseBuilder,
-                keepAliveHandler, context.generalCradleHandler),
+            GetPageInfosServlet(
+                configuration, sseResponseBuilder,
+                keepAliveHandler, context.generalCradleHandler
+            ),
+            GetAllPageInfosServlet(
+                configuration, sseResponseBuilder,
+                keepAliveHandler, context.generalCradleHandler
+            ),
             GetSingleMessageByGroupAndId(
                 searchMessagesHandler,
                 configuration,
@@ -141,12 +151,12 @@ class HttpServer(private val context: Context) {
             setupReDoc(it)
         }.apply {
             setupConverters(this)
-            setupExceptionHandlers(this)
             val javalinContext = JavalinContext(configuration.flushSseAfter)
             for (handler in handlers) {
                 handler.setup(this, javalinContext)
             }
-            jettyServer()?.server()?.also(::configureGzip)
+            setupExceptionHandlers(this)
+            jettyServer()?.server()?.insertHandler(createGzipHandler())
         }.start(configuration.hostname, configuration.port)
 
         logger.info { "serving on: http://${configuration.hostname}:${configuration.port}" }
@@ -182,7 +192,8 @@ class HttpServer(private val context: Context) {
 
                     openApiInfo.title = "Light Weight Data Provider"
                     openApiInfo.summary = "API for getting data from Cradle"
-                    openApiInfo.description = "Light Weight Data Provider provides you with fast access to data in Cradle"
+                    openApiInfo.description =
+                        "Light Weight Data Provider provides you with fast access to data in Cradle"
                     openApiInfo.contact = openApiContact
                     openApiInfo.license = openApiLicense
                     openApiInfo.version = "2.0.0"
@@ -197,10 +208,12 @@ class HttpServer(private val context: Context) {
     companion object {
         private val logger = KotlinLogging.logger {}
 
-        const val TIME_EXAMPLE = "Every value that is greater than 1_000_000_000 ^ 2 will be interpreted as nanos. Otherwise, as millis.\n" +
-                "Millis: 1676023329533, Nanos: 1676023329533590976"
+        const val TIME_EXAMPLE =
+            "Every value that is greater than 1_000_000_000 ^ 2 will be interpreted as nanos. Otherwise, as millis.\n" +
+                    "Millis: 1676023329533, Nanos: 1676023329533590976"
 
         internal const val NANOS_IN_SECOND = 1_000_000_000L
+
         /**
          * If we call current time millis it will look like this: 1_676_023_329_533
          * If we call current time nanos it will look like this:  1_676_023_329_533_590_976
@@ -234,9 +247,15 @@ class HttpServer(private val context: Context) {
 
         @JvmStatic
         fun setupExceptionHandlers(javalin: Javalin) {
-            javalin.apply {
-                exception(IllegalArgumentException::class.java) { ex, _ -> throw BadRequestResponse(ExceptionUtils.getRootCauseMessage(ex)) }
-                exception(InvalidRequestException::class.java) { ex, _ -> throw BadRequestResponse(ExceptionUtils.getRootCauseMessage(ex)) }
+            val function: (exception: Exception, ctx: io.javalin.http.Context) -> Unit = { ex, ctx ->
+                ctx.contentType(ContentType.APPLICATION_JSON)
+                throw BadRequestResponse(ExceptionUtils.getRootCauseMessage(ex))
+            }
+            javalin.exception(IllegalArgumentException::class.java, function)
+            javalin.exception(InvalidRequestException::class.java, function)
+            javalin.exception(Exception::class.java) { ex, ctx ->
+                ctx.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .json(ExceptionInfo(ex::class.java.canonicalName, ExceptionUtils.getRootCauseMessage(ex)))
             }
         }
     }

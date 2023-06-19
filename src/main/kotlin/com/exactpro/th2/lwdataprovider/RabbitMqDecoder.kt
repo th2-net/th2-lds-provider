@@ -1,4 +1,4 @@
-/*******************************************************************************
+/*
  * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,7 +12,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ */
 
 package com.exactpro.th2.lwdataprovider
 
@@ -22,10 +22,10 @@ import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.QueueAttribute
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
-import com.exactpro.th2.lwdataprovider.workers.ProtoCodecMessageListener
 import com.exactpro.th2.lwdataprovider.workers.DecodeQueueBuffer
-import com.exactpro.th2.lwdataprovider.workers.TransportCodecMessageListener
+import com.exactpro.th2.lwdataprovider.workers.ProtoCodecMessageListener
 import com.exactpro.th2.lwdataprovider.workers.TimeoutChecker
+import com.exactpro.th2.lwdataprovider.workers.TransportCodecMessageListener
 import mu.KotlinLogging
 
 class RabbitMqDecoder(
@@ -34,20 +34,30 @@ class RabbitMqDecoder(
     maxDecodeQueue: Int,
     private val codecUsePinAttributes: Boolean,
 ) : TimeoutChecker, Decoder, AutoCloseable {
-    
-    private val decodeBuffer = DecodeQueueBuffer(maxDecodeQueue)
-    private val protoMonitor = protoGroupBatchRouter.subscribeAll(ProtoCodecMessageListener(decodeBuffer), QueueAttribute.PARSED.value, FROM_CODEC_ATTR)
-    private val transportMonitor = transportGroupBatchRouter.subscribeAll(TransportCodecMessageListener(decodeBuffer), FROM_CODEC_ATTR)
 
-    override fun sendBatchMessage(batchBuilder: MessageGroupBatch.Builder, requests: Collection<RequestedMessageDetails>, session: String) {
+    private val decodeBuffer = DecodeQueueBuffer(maxDecodeQueue)
+    private val protoMonitor = protoGroupBatchRouter.subscribeAll(
+        ProtoCodecMessageListener(decodeBuffer),
+        QueueAttribute.PARSED.value,
+        FROM_CODEC_ATTR
+    )
+    private val transportMonitor =
+        transportGroupBatchRouter.subscribeAll(TransportCodecMessageListener(decodeBuffer), FROM_CODEC_ATTR)
+
+    override fun sendBatchMessage(
+        batchBuilder: MessageGroupBatch.Builder,
+        requests: Collection<RequestedMessageDetails>,
+        session: String
+    ) {
         checkAndWaitFreeBuffer(requests.size)
         LOGGER.trace { "Sending proto batch with messages to codec. IDs: ${requests.joinToString { it.requestId.toString() }}" }
         val currentTimeMillis = System.currentTimeMillis()
         onMessageRequest(requests, batchBuilder, session, currentTimeMillis)
         send(batchBuilder, session)
     }
+
     override fun sendBatchMessage(
-        batchBuilder: GroupBatch,
+        batchBuilder: GroupBatch.Builder,
         requests: Collection<RequestedMessageDetails>,
         session: String
     ) {
@@ -90,14 +100,14 @@ class RabbitMqDecoder(
 
     private fun onMessageRequest(
         details: Collection<RequestedMessageDetails>,
-        batchBuilder: GroupBatch,
+        batchBuilder: GroupBatch.Builder,
         session: String,
         currentTimeMillis: Long = System.currentTimeMillis(),
     ) {
         registerMessages(details, session)
         details.forEach {
             it.time = currentTimeMillis
-            batchBuilder.groups.add(MessageGroup(mutableListOf(it.transportRawMessage.value)))
+            batchBuilder.addGroup(MessageGroup(mutableListOf(it.transportRawMessage.value)))
         }
     }
 
@@ -110,11 +120,11 @@ class RabbitMqDecoder(
         }
     }
 
-    private fun send(batchBuilder: GroupBatch, session: String) {
+    private fun send(batchBuilder: GroupBatch.Builder, session: String) {
         if (codecUsePinAttributes) {
-            this.transportGroupBatchRouter.send(batchBuilder, session)
+            this.transportGroupBatchRouter.send(batchBuilder.build(), session)
         } else {
-            this.transportGroupBatchRouter.sendAll(batchBuilder)
+            this.transportGroupBatchRouter.sendAll(batchBuilder.build())
         }
     }
 

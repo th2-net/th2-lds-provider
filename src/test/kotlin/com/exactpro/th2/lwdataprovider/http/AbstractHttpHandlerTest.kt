@@ -63,12 +63,16 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
     private val manager: CradleManager = mock {
         on { storage } doReturn storage
     }
-    private val executor = Executors.newSingleThreadExecutor(ThreadFactoryBuilder()
-        .setNameFormat("test-executor-%d")
-        .build())
-    protected open val configuration = Configuration(CustomConfigurationClass(
-        decodingTimeout = 200,
-    ))
+    private val executor = Executors.newSingleThreadExecutor(
+        ThreadFactoryBuilder()
+            .setNameFormat("test-executor-%d")
+            .build()
+    )
+    protected open val configuration = Configuration(
+        CustomConfigurationClass(
+            decodingTimeout = 200,
+        )
+    )
 
     private val semaphore = Semaphore(0)
     private fun receivedRequest(invocation: InvocationOnMock) {
@@ -120,7 +124,8 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
             applicationName = "test-lw-data-provider",
         )
     }
-    protected open val sseResponseBuilder = SseResponseBuilder(context.jacksonMapper, MessageProducer53.Companion::createMessage)
+    protected open val sseResponseBuilder =
+        SseResponseBuilder(context.jacksonMapper, MessageProducer53.Companion::createMessage)
 
     @BeforeAll
     fun setup() {
@@ -170,11 +175,13 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
         whenever(transportMessageRouter.sendAll(any(), anyVararg())) doAnswer { receivedRequest(it) }
     }
 
-    protected fun startTest(testConfig: TestConfig = TestConfig(
-         okHttpClient = OkHttpClient.Builder()
-             .retryOnConnectionFailure(false) // otherwise, the client does retry on timeout response
-             .build()
-    ), testCase: TestCase) {
+    protected fun startTest(
+        testConfig: TestConfig = TestConfig(
+            okHttpClient = OkHttpClient.Builder()
+                .retryOnConnectionFailure(false) // otherwise, the client does retry on timeout response
+                .build()
+        ), testCase: TestCase
+    ) {
         JavalinTest.test(
             app = Javalin.create {
                 it.jsonMapper(JavalinJackson(MAPPER))
@@ -182,7 +189,8 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
             }.apply {
                 val handler = createHandler()
                 handler.setup(this, JavalinContext(flushAfter = 0/*auto flush*/))
-            }.also(HttpServer.Companion::setupConverters).also(HttpServer.Companion::setupExceptionHandlers),
+            }.also(HttpServer.Companion::setupConverters)
+                .also(HttpServer.Companion::setupExceptionHandlers),
             config = testConfig,
             testCase,
         )
@@ -237,9 +245,11 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
         LOGGER.info { "Notify ${transportMessageListeners.size} transport listener(s)" }
         transportMessageListeners.forEach { it.handle(metadata, batch) }
     }
+
     abstract fun createHandler(): T
 
-    protected fun Assertion.Builder<Response>.jsonBody(): Assertion.Builder<JsonNode> = get { body }.isNotNull().get { MAPPER.readTree(bytes()) }
+    protected fun Assertion.Builder<Response>.jsonBody(): Assertion.Builder<JsonNode> =
+        get { body }.isNotNull().get { MAPPER.readTree(bytes()) }
 
     protected fun HttpClient.sse(path: String, requestCfg: Request.Builder.() -> Unit = {}): Response = get(path) {
         requestCfg(it)
@@ -250,7 +260,8 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
         private val MAPPER = Context.createObjectMapper()
         private val LOGGER = KotlinLogging.logger { }
 
-        const val BOOK_NAME = "test" //TODO: Move to the CradleTestUtil and use in CradleTestUtil.createCradleStoredMessage and all cases where the method used
+        const val BOOK_NAME =
+            "test" //TODO: Move to the CradleTestUtil and use in CradleTestUtil.createCradleStoredMessage and all cases where the method used
         const val PAGE_NAME = "test-page"
         const val SESSION_GROUP = "test-session-group"
         const val SESSION_ALIAS = "test-session-alias"

@@ -22,6 +22,7 @@ import com.exactpro.cradle.PageId
 import com.exactpro.cradle.messages.StoredGroupedMessageBatch
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageIdUtils
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction.INCOMING
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
@@ -56,7 +57,8 @@ internal class TestGetMessageGroupsServletTransportMode : AbstractHttpHandlerTes
             )
         )
 
-    override val sseResponseBuilder = SseResponseBuilder(context.jacksonMapper, MessageProducer53Transport.Companion::createMessage)
+    override val sseResponseBuilder =
+        SseResponseBuilder(context.jacksonMapper, MessageProducer53Transport.Companion::createMessage)
 
     override fun createHandler(): GetMessageGroupsServlet {
         return GetMessageGroupsServlet(
@@ -89,7 +91,8 @@ internal class TestGetMessageGroupsServletTransportMode : AbstractHttpHandlerTes
             Instant.now(),
         )
 
-        doReturn(ImmutableListCradleResult(emptyList<StoredMessage>())).whenever(storage).getGroupedMessageBatches(any())
+        doReturn(ImmutableListCradleResult(emptyList<StoredMessage>())).whenever(storage)
+            .getGroupedMessageBatches(any())
         doReturn(ImmutableListCradleResult(listOf(messageBatch)))
             .whenever(storage).getGroupedMessageBatches(argThat {
                 groupName == SESSION_GROUP && bookId.name == BOOK_NAME
@@ -112,31 +115,37 @@ internal class TestGetMessageGroupsServletTransportMode : AbstractHttpHandlerTes
                 BOOK_NAME,
                 SESSION_GROUP,
                 ParsedMessage(
-                id = MessageId(
-                    sessionAlias = SESSION_ALIAS,
-                    sequence = 1,
-                    timestamp = messageTimestamp,
-                    subsequence = arrayListOf(1),
-                ),
-                type = MESSAGE_TYPE,
-                rawBody = Unpooled.buffer().apply {
-                    writeCharSequence(
-                        "{\"unprintable\":\"\\u000135=123\\u0001\",\"int\":\"1\",\"instant\":\"$messageTimestamp\",\"stringList\":[\"a\",\"b\"],\"subMessage\":{\"string\":\"abc\"},\"subMessageList\":[{\"string\":\"def\"},{\"string\":\"ghi\"}]}",
-                        Charsets.UTF_8,
-                    )
-                }
-            ))
+                    id = MessageId(
+                        sessionAlias = SESSION_ALIAS,
+                        direction = INCOMING,
+                        sequence = 1,
+                        timestamp = messageTimestamp,
+                        subsequence = arrayListOf(1),
+                    ),
+                    type = MESSAGE_TYPE,
+                    rawBody = Unpooled.buffer().apply {
+                        writeCharSequence(
+                            "{\"unprintable\":\"\\u000135=123\\u0001\",\"int\":\"1\",\"instant\":\"$messageTimestamp\",\"stringList\":[\"a\",\"b\"],\"subMessage\":{\"string\":\"abc\"},\"subMessageList\":[{\"string\":\"def\"},{\"string\":\"ghi\"}]}",
+                            Charsets.UTF_8,
+                        )
+                    }
+                ))
             val expectedData =
                 "{\"timestamp\":{\"epochSecond\":${messageTimestamp.epochSecond},\"nano\":${messageTimestamp.nano}},\"direction\":\"IN\",\"sessionId\":\"$SESSION_ALIAS\"," +
                         "\"attachedEventIds\":[]," +
                         "\"body\":[{\"metadata\":{\"subsequence\":[1]," +
                         "\"messageType\":\"$MESSAGE_TYPE\"},\"fields\":{\"unprintable\":\"\\u000135=123\\u0001\",\"int\":\"1\",\"instant\":\"$messageTimestamp\",\"stringList\":[\"a\",\"b\"],\"subMessage\":{\"string\":\"abc\"},\"subMessageList\":[{\"string\":\"def\"},{\"string\":\"ghi\"}]}}]," +
-                        "\"bodyBase64\":\"dGVzdCBjb250ZW50\",\"messageId\":\"$BOOK_NAME:$SESSION_ALIAS:1:${StoredMessageIdUtils.timestampToString(messageTimestamp)}:1\"}"
+                        "\"bodyBase64\":\"dGVzdCBjb250ZW50\",\"messageId\":\"$BOOK_NAME:$SESSION_ALIAS:1:${
+                            StoredMessageIdUtils.timestampToString(
+                                messageTimestamp
+                            )
+                        }:1\"}"
             expectThat(response.get(1, TimeUnit.SECONDS)) {
                 get { code } isEqualTo HttpStatus.OK.code
                 get { body?.bytes()?.toString(Charsets.UTF_8) }
                     .isNotNull()
-                    .isEqualTo("""
+                    .isEqualTo(
+                        """
                       id: 1
                       event: message
                       data: $expectedData
@@ -145,7 +154,8 @@ internal class TestGetMessageGroupsServletTransportMode : AbstractHttpHandlerTes
                       data: empty data
 
 
-                      """.trimIndent())
+                      """.trimIndent()
+                    )
             }
         }
     }
@@ -170,7 +180,8 @@ internal class TestGetMessageGroupsServletTransportMode : AbstractHttpHandlerTes
             Instant.now(),
         )
 
-        doReturn(ImmutableListCradleResult(emptyList<StoredMessage>())).whenever(storage).getGroupedMessageBatches(any())
+        doReturn(ImmutableListCradleResult(emptyList<StoredMessage>())).whenever(storage)
+            .getGroupedMessageBatches(any())
         doReturn(ImmutableListCradleResult(listOf(messageBatch)))
             .whenever(storage).getGroupedMessageBatches(argThat {
                 groupName == SESSION_GROUP && bookId.name == BOOK_NAME
@@ -189,12 +200,17 @@ internal class TestGetMessageGroupsServletTransportMode : AbstractHttpHandlerTes
             val expectedData =
                 "{\"timestamp\":{\"epochSecond\":${messageTimestamp.epochSecond},\"nano\":${messageTimestamp.nano}},\"direction\":\"IN\",\"sessionId\":\"$SESSION_ALIAS\"," +
                         "\"attachedEventIds\":[]," +
-                        "\"bodyBase64\":\"dGVzdCBjb250ZW50\",\"messageId\":\"$BOOK_NAME:$SESSION_ALIAS:1:${StoredMessageIdUtils.timestampToString(messageTimestamp)}:1\"}"
+                        "\"bodyBase64\":\"dGVzdCBjb250ZW50\",\"messageId\":\"$BOOK_NAME:$SESSION_ALIAS:1:${
+                            StoredMessageIdUtils.timestampToString(
+                                messageTimestamp
+                            )
+                        }:1\"}"
             expectThat(response) {
                 get { code } isEqualTo HttpStatus.OK.code
                 get { body?.bytes()?.toString(Charsets.UTF_8) }
                     .isNotNull()
-                    .isEqualTo("""
+                    .isEqualTo(
+                        """
                       id: 1
                       event: message
                       data: $expectedData
@@ -203,7 +219,8 @@ internal class TestGetMessageGroupsServletTransportMode : AbstractHttpHandlerTes
                       data: empty data
 
 
-                      """.trimIndent())
+                      """.trimIndent()
+                    )
             }
         }
     }
@@ -227,7 +244,8 @@ internal class TestGetMessageGroupsServletTransportMode : AbstractHttpHandlerTes
             PageId(BookId(BOOK_NAME), PAGE_NAME),
             Instant.now(),
         )
-        doReturn(ImmutableListCradleResult(emptyList<StoredMessage>())).whenever(storage).getGroupedMessageBatches(any())
+        doReturn(ImmutableListCradleResult(emptyList<StoredMessage>())).whenever(storage)
+            .getGroupedMessageBatches(any())
         doReturn(ImmutableListCradleResult(listOf(messageBatch)))
             .whenever(storage).getGroupedMessageBatches(argThat {
                 groupName == SESSION_GROUP && bookId.name == BOOK_NAME
@@ -250,7 +268,8 @@ internal class TestGetMessageGroupsServletTransportMode : AbstractHttpHandlerTes
                 get { code } isEqualTo HttpStatus.OK.code
                 get { body?.bytes()?.toString(Charsets.UTF_8) }
                     .isNotNull()
-                    .isEqualTo("""
+                    .isEqualTo(
+                        """
                       id: 1
                       event: error
                       data: {"id":"$BOOK_NAME:$SESSION_ALIAS:1:${StoredMessageIdUtils.timestampToString(messageTimestamp)}:1","error":"Codec response wasn\u0027t received during timeout"}
@@ -262,7 +281,8 @@ internal class TestGetMessageGroupsServletTransportMode : AbstractHttpHandlerTes
                       data: empty data
 
 
-                      """.trimIndent())
+                      """.trimIndent()
+                    )
             }
         }
     }

@@ -21,8 +21,8 @@ import com.exactpro.th2.common.grpc.MessageMetadata
 import com.exactpro.th2.common.grpc.Value
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
-import com.exactpro.th2.lwdataprovider.transport.toProtoDirection
 import com.exactpro.th2.lwdataprovider.producers.JsonFormatter
+import com.exactpro.th2.lwdataprovider.transport.toProtoDirection
 import com.google.gson.Gson
 import java.time.Instant
 
@@ -96,7 +96,8 @@ abstract class AbstractJsonFormatter : JsonFormatter {
 
     private fun isNeedToEscape(s: String): Boolean {
         // ascii 32 is space, all chars below should be escaped
-        return s.chars().anyMatch { it < 32 || it == CustomProtoJsonFormatter.QUOTE_CHAR || it == CustomProtoJsonFormatter.BACK_SLASH }
+        return s.chars()
+            .anyMatch { it < 32 || it == CustomProtoJsonFormatter.QUOTE_CHAR || it == CustomProtoJsonFormatter.BACK_SLASH }
     }
 
     protected fun convertStringToJson(s: String, builder: StringBuilder) {
@@ -157,7 +158,7 @@ abstract class AbstractJsonFormatter : JsonFormatter {
     private fun printMetadata(sessionGroup: String, msg: ParsedMessage, sb: StringBuilder) {
         sb.append("\"metadata\":{")
         var first = true
-        if (msg.id !== MessageId.DEFAULT_INSTANCE) {
+        if (msg.id !== MessageId.DEFAULT) {
             sb.append("\"id\":{")
             val id = msg.id
             if (id.sessionAlias.isNotEmpty() || sessionGroup.isNotEmpty()) {

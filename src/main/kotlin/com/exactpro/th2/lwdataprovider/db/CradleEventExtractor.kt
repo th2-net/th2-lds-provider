@@ -1,5 +1,5 @@
-/*******************************************************************************
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+/*
+ * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ */
 
 package com.exactpro.th2.lwdataprovider.db
 
@@ -20,6 +20,7 @@ import com.exactpro.cradle.BookId
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
 import com.exactpro.cradle.Order
+import com.exactpro.cradle.counters.Interval
 import com.exactpro.cradle.testevents.StoredTestEvent
 import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.cradle.testevents.TestEventFilter
@@ -37,7 +38,7 @@ import com.exactpro.th2.lwdataprovider.producers.EventProducer
 import mu.KotlinLogging
 import java.time.Duration
 import java.time.Instant
-import java.util.*
+import java.util.Collections
 import kotlin.system.measureTimeMillis
 
 
@@ -51,29 +52,36 @@ class CradleEventExtractor(
         private val logger = KotlinLogging.logger { }
     }
 
-    fun getEventsScopes(bookId: BookId): Set<String> {
+    fun getAllEventsScopes(bookId: BookId): Set<String> {
         return measure("scopes") { storage.getScopes(bookId) }.toSet()
+    }
+
+    fun getScopes(bookId: BookId, start: Instant, end: Instant): Iterator<String> {
+        return storage.getScopes(bookId, Interval(start, end))
     }
 
     fun getEvents(filter: SseEventSearchRequest, sink: EventDataSink<Event>) {
         val commonFilterSupplier: (start: Instant, end: Instant?) -> TestEventFilterBuilder = { start, end ->
             TestEventFilter.builder()
                 .apply {
-                    when(filter.searchDirection) {
+                    when (filter.searchDirection) {
                         SearchDirection.next -> {
                             startTimestampFrom().isGreaterThanOrEqualTo(start)
                             end?.also { startTimestampTo().isLessThan(it) }
                         }
+
                         SearchDirection.previous -> {
                             startTimestampTo().isLessThanOrEqualTo(start)
                             end?.also { startTimestampFrom().isGreaterThan(it) }
                         }
                     }
                 }
-                .order(when (filter.searchDirection) {
-                    SearchDirection.previous -> Order.REVERSE
-                    SearchDirection.next -> Order.DIRECT
-                })
+                .order(
+                    when (filter.searchDirection) {
+                        SearchDirection.previous -> Order.REVERSE
+                        SearchDirection.next -> Order.DIRECT
+                    }
+                )
                 .bookId(filter.bookId)
                 .scope(filter.scope)
         }
@@ -139,6 +147,7 @@ class CradleEventExtractor(
         sink: EventDataSink<Event>,
     ) {
         data class BookScope(val bookId: BookId, val scope: String)
+
         val stat = ProcessingInfo()
         val timeMillis = measureTimeMillis {
             getGenericWithSyncInterval(
@@ -195,6 +204,7 @@ class CradleEventExtractor(
                 Order.REVERSE -> event.startTimestamp > endTimestamp
             }
         }
+
         val testEvents = measure("init_request") { storage.getTestEvents(cradleFilter) }
         processEvents(testEvents.asIterableWithMeasurements("event", dataMeasurement), sink, counter) { event ->
             compareStart(event) && compareEnd(event)

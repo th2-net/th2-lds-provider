@@ -73,6 +73,7 @@ import org.mockito.kotlin.verifyNoInteractions
 import org.mockito.kotlin.whenever
 import strikt.api.Assertion
 import strikt.api.expectThat
+import strikt.assertions.hasSize
 import strikt.assertions.isEqualTo
 import strikt.assertions.isNotNull
 import strikt.assertions.isNull
@@ -206,6 +207,7 @@ internal class TestSearchMessagesHandler {
         )
         verifyNoInteractions(decoder)
     }
+
     @Test
     fun `stops when limit per request is reached`() {
         val taskExecutor = Executors.newSingleThreadExecutor()
@@ -407,12 +409,13 @@ internal class TestSearchMessagesHandler {
         verify(handler, never()).writeErrorMessage(any<Throwable>(), any(), any())
         val messages: List<RequestedMessageDetails> = captor.allValues
         assertEquals(messagesCount, messages.size) {
-            val missing: List<StoredMessage> = (batches.asSequence() + batches.asSequence()).flatMap { it.messages }.filter { stored ->
-                messages.none {
-                    val raw = it.protoRawMessage.value
-                    raw.sessionAlias == stored.sessionAlias && raw.sequence == stored.sequence && raw.direction.toCradleDirection() == stored.direction
-                }
-            }.toList()
+            val missing: List<StoredMessage> =
+                (batches.asSequence() + batches.asSequence()).flatMap { it.messages }.filter { stored ->
+                    messages.none {
+                        val raw = it.protoRawMessage.value
+                        raw.sessionAlias == stored.sessionAlias && raw.sequence == stored.sequence && raw.direction.toCradleDirection() == stored.direction
+                    }
+                }.toList()
             "Missing ${missing.size} message(s): $missing"
         }
         validateMessagesOrder(messages, messagesCount)
@@ -454,7 +457,7 @@ internal class TestSearchMessagesHandler {
 
     @Test
     fun `returns single raw message`() {
-        val messageId = StoredMessageId(BookId("test"),"test-stream", Direction.FIRST, Instant.now(), 1)
+        val messageId = StoredMessageId(BookId("test"), "test-stream", Direction.FIRST, Instant.now(), 1)
         val message = createCradleStoredMessage("test-stream", Direction.FIRST, index = 1)
         doReturn(
             message,
@@ -547,12 +550,13 @@ internal class TestSearchMessagesHandler {
         verify(handler, never()).writeErrorMessage(any<Throwable>(), any(), any())
         val messages: List<RequestedMessageDetails> = captor.allValues
         assertEquals(messagesCount, messages.size) {
-            val missing: List<StoredMessage> = (firstBatches.asSequence() + lastBatches.asSequence()).flatMap { it.messages }.filter { stored ->
-                messages.none {
-                    val raw = it.protoRawMessage.value
-                    raw.sessionAlias == stored.sessionAlias && raw.sequence == stored.sequence && raw.direction.toCradleDirection() == stored.direction
-                }
-            }.toList()
+            val missing: List<StoredMessage> =
+                (firstBatches.asSequence() + lastBatches.asSequence()).flatMap { it.messages }.filter { stored ->
+                    messages.none {
+                        val raw = it.protoRawMessage.value
+                        raw.sessionAlias == stored.sessionAlias && raw.sequence == stored.sequence && raw.direction.toCradleDirection() == stored.direction
+                    }
+                }.toList()
             "Missing ${missing.size} message(s): $missing"
         }
         validateMessagesOrder(messages, messagesCount)
@@ -573,7 +577,66 @@ internal class TestSearchMessagesHandler {
         )
     )
 
-    private fun Assertion.Builder<List<RequestedMessageDetails>>.elementsEquals(expected: List<StoredMessage>, isParsed: Boolean = true) {
+    @Test
+    fun `different groups does not appear in the same batch`() {
+        val timestamp = Instant.now()
+        val endTimestamp = timestamp.plus(1, ChronoUnit.DAYS)
+        val firstGroupBatch = createBatches(
+            messagesPerBatch = 1,
+            batchesCount = 1,
+            overlapCount = 0,
+            increase = 10,
+            startTimestamp = timestamp,
+            end = endTimestamp,
+            group = "first",
+        )
+        val secondGroupBatch = createBatches(
+            messagesPerBatch = 1,
+            batchesCount = 1,
+            overlapCount = 0,
+            increase = 10,
+            startTimestamp = timestamp,
+            end = endTimestamp,
+            group = "second",
+        )
+
+        whenever(storage.getGroupedMessageBatches(argThat {
+            groupName == "first"
+        })) doReturn ImmutableListCradleResult(firstGroupBatch)
+
+        whenever(storage.getGroupedMessageBatches(argThat {
+            groupName == "second"
+        })) doReturn ImmutableListCradleResult(secondGroupBatch)
+
+        val request = MessagesGroupRequest(
+            groups = setOf("first", "second"),
+            startTimestamp = timestamp,
+            endTimestamp = endTimestamp,
+            sort = false,
+            responseFormats = setOf(ResponseFormat.JSON_PARSED, ResponseFormat.BASE_64),
+            keepOpen = false,
+            bookId = BookId("test"),
+        )
+        val handler = spy(MessageResponseHandlerTestImpl(measurement))
+        searchHandler.loadMessageGroups(request, handler, measurement)
+
+        inOrder(decoder) {
+            verify(decoder, times(1)).sendBatchMessage(any<MessageGroupBatch.Builder>(), any(), eq("first"))
+            verify(decoder, times(1)).sendBatchMessage(any<MessageGroupBatch.Builder>(), any(), eq("second"))
+        }
+        expectThat(decoder.protoQueue)
+            .hasSize(2)
+            .withElementAt(0) {
+                get { sessionGroup } isEqualTo "first"
+            }.withElementAt(1) {
+                get { sessionGroup } isEqualTo "second"
+            }
+    }
+
+    private fun Assertion.Builder<List<RequestedMessageDetails>>.elementsEquals(
+        expected: List<StoredMessage>,
+        isParsed: Boolean = true
+    ) {
         expected.forEachIndexed { index, storedMessage ->
             withElementAt(index) {
                 get { awaitAndGet() }.equalsMessage(storedMessage, isParsed, index)
@@ -597,17 +660,18 @@ internal class TestSearchMessagesHandler {
         }
     }
 
-    private fun createSearchRequest(streams: List<ProviderMessageStream>, isRawOnly: Boolean): SseMessageSearchRequest = SseMessageSearchRequest(
-        startTimestamp = Instant.now(),
-        endTimestamp = Instant.now(),
-        stream = streams,
-        searchDirection = SearchDirection.next,
-        resultCountLimit = null,
-        keepOpen = false,
-        responseFormats = if (isRawOnly) setOf(ResponseFormat.BASE_64) else null,
-        resumeFromIdsList = null,
-        bookId = BookId("test"),
-    )
+    private fun createSearchRequest(streams: List<ProviderMessageStream>, isRawOnly: Boolean): SseMessageSearchRequest =
+        SseMessageSearchRequest(
+            startTimestamp = Instant.now(),
+            endTimestamp = Instant.now(),
+            stream = streams,
+            searchDirection = SearchDirection.next,
+            resultCountLimit = null,
+            keepOpen = false,
+            responseFormats = if (isRawOnly) setOf(ResponseFormat.BASE_64) else null,
+            resumeFromIdsList = null,
+            bookId = BookId("test"),
+        )
 }
 
 private open class TestDecoder(
@@ -615,11 +679,19 @@ private open class TestDecoder(
 ) : Decoder {
     val protoQueue: Queue<RequestedMessageDetails> = ArrayBlockingQueue(capacity)
     val transportQueue: Queue<RequestedMessageDetails> = ArrayBlockingQueue(capacity)
-    override fun sendBatchMessage(batchBuilder: MessageGroupBatch.Builder, requests: Collection<RequestedMessageDetails>, session: String) {
+    override fun sendBatchMessage(
+        batchBuilder: MessageGroupBatch.Builder,
+        requests: Collection<RequestedMessageDetails>,
+        session: String
+    ) {
         protoQueue.addAll(requests)
     }
 
-    override fun sendBatchMessage(batchBuilder: GroupBatch, requests: Collection<RequestedMessageDetails>, session: String) {
+    override fun sendBatchMessage(
+        batchBuilder: GroupBatch.Builder,
+        requests: Collection<RequestedMessageDetails>,
+        session: String
+    ) {
         transportQueue.addAll(requests)
     }
 

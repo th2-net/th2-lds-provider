@@ -18,22 +18,15 @@ package com.exactpro.th2.lwdataprovider.transport
 
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageId
-import com.exactpro.th2.common.grpc.Direction as ProtoDirection
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.message.toTimestamp
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.RawMessage
 import io.netty.buffer.Unpooled
-
-fun Direction.toCradleDirection(): com.exactpro.cradle.Direction {
-    return if (this == Direction.INCOMING)
-        com.exactpro.cradle.Direction.FIRST
-    else
-        com.exactpro.cradle.Direction.SECOND
-}
+import com.exactpro.th2.common.grpc.Direction as ProtoDirection
 
 fun Direction.toProtoDirection(): ProtoDirection {
     return if (this == Direction.INCOMING)
@@ -72,7 +65,7 @@ fun StoredMessageId.toMessageId(): MessageId {
     )
 }
 
-fun StoredMessage.toRawMessage(): RawMessage {
+fun StoredMessage.toTransportRawMessage(): RawMessage {
     return RawMessage(
         id.toMessageId(),
         null,

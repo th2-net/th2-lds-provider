@@ -31,7 +31,7 @@ import com.exactpro.th2.lwdataprovider.db.CradleGroupRequest
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
 import com.exactpro.th2.lwdataprovider.db.MessageDataSink
 import com.exactpro.th2.lwdataprovider.entities.requests.QueueMessageGroupsRequest
-import com.exactpro.th2.lwdataprovider.grpc.toRawMessage
+import com.exactpro.th2.lwdataprovider.grpc.toProtoRawMessage
 import com.exactpro.th2.lwdataprovider.handlers.util.BookGroup
 import com.exactpro.th2.lwdataprovider.handlers.util.GroupParametersHolder
 import com.exactpro.th2.lwdataprovider.handlers.util.computeNewParametersForGroupRequest
@@ -188,7 +188,7 @@ private class QueueMessageDataSink(
             processBatch(curLastMarker)
         }
         lastMarker = marker
-        batchBuilder.addGroupsBuilder() += data.toRawMessage()
+        batchBuilder.addGroupsBuilder() += data.toProtoRawMessage()
         if (batchBuilder.groupsList.sumOf { it.messagesCount } >= batchMaxSize) {
             processBatch(marker)
         }

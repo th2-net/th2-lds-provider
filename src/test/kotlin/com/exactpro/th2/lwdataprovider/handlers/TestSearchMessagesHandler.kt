@@ -23,11 +23,8 @@ import com.exactpro.cradle.Direction
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import com.exactpro.th2.common.message.direction
 import com.exactpro.th2.common.message.message
 import com.exactpro.th2.common.message.messageType
-import com.exactpro.th2.common.message.sequence
-import com.exactpro.th2.common.message.sessionAlias
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 import com.exactpro.th2.lwdataprovider.Decoder
 import com.exactpro.th2.lwdataprovider.RequestedMessage
@@ -42,7 +39,6 @@ import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
-import com.exactpro.th2.lwdataprovider.grpc.toCradleDirection
 import com.exactpro.th2.lwdataprovider.util.CradleResult
 import com.exactpro.th2.lwdataprovider.util.DummyDataMeasurement
 import com.exactpro.th2.lwdataprovider.util.GroupBatch
@@ -412,8 +408,8 @@ internal class TestSearchMessagesHandler {
             val missing: List<StoredMessage> =
                 (batches.asSequence() + batches.asSequence()).flatMap { it.messages }.filter { stored ->
                     messages.none {
-                        val raw = it.protoRawMessage.value
-                        raw.sessionAlias == stored.sessionAlias && raw.sequence == stored.sequence && raw.direction.toCradleDirection() == stored.direction
+                        val raw = it.storedMessage
+                        raw.sessionAlias == stored.sessionAlias && raw.sequence == stored.sequence && raw.direction == stored.direction
                     }
                 }.toList()
             "Missing ${missing.size} message(s): $missing"
@@ -553,8 +549,8 @@ internal class TestSearchMessagesHandler {
             val missing: List<StoredMessage> =
                 (firstBatches.asSequence() + lastBatches.asSequence()).flatMap { it.messages }.filter { stored ->
                     messages.none {
-                        val raw = it.protoRawMessage.value
-                        raw.sessionAlias == stored.sessionAlias && raw.sequence == stored.sequence && raw.direction.toCradleDirection() == stored.direction
+                        val raw = it.storedMessage
+                        raw.sessionAlias == stored.sessionAlias && raw.sequence == stored.sequence && raw.direction == stored.direction
                     }
                 }.toList()
             "Missing ${missing.size} message(s): $missing"

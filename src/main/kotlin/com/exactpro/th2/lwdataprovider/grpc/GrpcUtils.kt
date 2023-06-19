@@ -22,8 +22,8 @@ import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.grpc.ConnectionID
 import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.MessageID
-import com.exactpro.th2.common.message.toTimestamp
 import com.exactpro.th2.common.grpc.RawMessage
+import com.exactpro.th2.common.message.toTimestamp
 import com.exactpro.th2.dataprovider.lw.grpc.MessageStream
 import com.exactpro.th2.dataprovider.lw.grpc.PageInfoResponse
 import com.exactpro.th2.dataprovider.lw.grpc.TimeRelation
@@ -37,7 +37,7 @@ import com.google.protobuf.UnsafeByteOperations
 import java.time.Instant
 import com.exactpro.th2.dataprovider.lw.grpc.PageId as GrpcPageId
 
-fun Timestamp.toInstant() : Instant = Instant.ofEpochSecond(this.seconds, this.nanos.toLong())
+fun Timestamp.toInstant(): Instant = Instant.ofEpochSecond(this.seconds, this.nanos.toLong())
 
 fun TimeRelation?.toProviderRelation(): SearchDirection {
     return if (this == null || this == TimeRelation.NEXT)
@@ -61,7 +61,13 @@ fun com.exactpro.cradle.Direction.toGrpcDirection(): Direction {
 }
 
 fun MessageID.toStoredMessageId(): StoredMessageId {
-    return StoredMessageId(BookId(bookName), connectionId.sessionAlias, direction.toCradleDirection(), timestamp.toInstant(), sequence)
+    return StoredMessageId(
+        BookId(bookName),
+        connectionId.sessionAlias,
+        direction.toCradleDirection(),
+        timestamp.toInstant(),
+        sequence
+    )
 }
 
 fun StoredMessageId.toGrpcMessageId(): MessageID {
@@ -78,7 +84,7 @@ fun MessageStream.toProviderMessageStreams(): ProviderMessageStream {
     return ProviderMessageStream(this.name, this.direction.toCradleDirection())
 }
 
-fun StoredMessage.toRawMessage(): RawMessage {
+fun StoredMessage.toProtoRawMessage(): RawMessage {
     val message = this
     return RawMessage.newBuilder().apply {
         metadataBuilder.apply {

@@ -96,12 +96,8 @@ sealed class SseEvent(
         val DATA_CHARSET: Charset = Charsets.UTF_8
 
         @OptIn(ExperimentalSerializationApi::class)
-        private val JSON: ThreadLocal<Json> = object : ThreadLocal<Json>() {
-            override fun initialValue(): Json {
-                return Json {
-                    explicitNulls = false
-                }
-            }
+        private val JSON = Json {
+            explicitNulls = false
         }
 
         fun build(jacksonMapper: ObjectMapper, event: Event, counter: Long): SseEvent {
@@ -115,7 +111,7 @@ sealed class SseEvent(
             return MessageData(
                 when (message) {
                     // FIXME: implement ProviderMessage53
-                    is ProviderMessage53 -> JSON.get().encodeToByteArray(ProviderMessage53.serializer(), message)
+                    is ProviderMessage53 -> JSON.encodeToByteArray(ProviderMessage53.serializer(), message)
                     is ProviderMessage53Transport -> message.toJSONByteArray()
                     else -> jacksonMapper.writeValueAsBytes(message)
                 },

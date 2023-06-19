@@ -22,6 +22,8 @@ import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.QueueAttribute
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
+import com.exactpro.th2.lwdataprovider.grpc.toProtoRawMessage
+import com.exactpro.th2.lwdataprovider.transport.toTransportRawMessage
 import com.exactpro.th2.lwdataprovider.workers.DecodeQueueBuffer
 import com.exactpro.th2.lwdataprovider.workers.ProtoCodecMessageListener
 import com.exactpro.th2.lwdataprovider.workers.TimeoutChecker
@@ -94,7 +96,7 @@ class RabbitMqDecoder(
         registerMessages(details, session)
         details.forEach {
             it.time = currentTimeMillis
-            batchBuilder.addGroupsBuilder() += it.protoRawMessage.value
+            batchBuilder.addGroupsBuilder() += it.storedMessage.toProtoRawMessage()
         }
     }
 
@@ -107,7 +109,7 @@ class RabbitMqDecoder(
         registerMessages(details, session)
         details.forEach {
             it.time = currentTimeMillis
-            batchBuilder.addGroup(MessageGroup(mutableListOf(it.transportRawMessage.value)))
+            batchBuilder.addGroup(MessageGroup(listOf(it.storedMessage.toTransportRawMessage())))
         }
     }
 

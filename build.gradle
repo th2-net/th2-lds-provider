@@ -27,7 +27,7 @@ plugins {
 
 ext {
     dockerImageVersion = release_version
-    cradleApiVersion = '5.1.0-separate-executor-5198878628-a17a14a-SNAPSHOT'
+    cradleApiVersion = '5.1.0-separate-executor-5308573193-b16f7f7-SNAPSHOT'
     commonVersion = '5.3.0-separate-executor-5309810224-2140c1b-SNAPSHOT'
     javalin = '5.4.2'
 }

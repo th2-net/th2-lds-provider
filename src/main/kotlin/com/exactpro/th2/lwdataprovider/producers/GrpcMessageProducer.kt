@@ -24,8 +24,9 @@ import com.exactpro.th2.common.message.toTimestamp
 import com.exactpro.th2.dataprovider.lw.grpc.MessageGroupItem
 import com.exactpro.th2.dataprovider.lw.grpc.MessageGroupResponse
 import com.exactpro.th2.lwdataprovider.RequestedMessage
-import com.exactpro.th2.lwdataprovider.transport.toProtoMessage
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
+import com.exactpro.th2.lwdataprovider.grpc.toProtoRawMessage
+import com.exactpro.th2.lwdataprovider.transport.toProtoMessage
 import com.google.protobuf.Timestamp
 import java.time.Instant
 
@@ -42,7 +43,7 @@ class GrpcMessageProducer {
                 putAllMessageProperties(storedMessage.metadata?.toMap() ?: emptyMap())
 
                 if (responseFormats.isEmpty() || ResponseFormat.BASE_64 in responseFormats) {
-                    bodyRaw = rawMessage.rawMessage.value.body
+                    bodyRaw = rawMessage.storedMessage.toProtoRawMessage().body
                 }
                 if (responseFormats.isEmpty() || ResponseFormat.PROTO_PARSED in responseFormats) {
                     rawMessage.protoMessage?.forEach {
@@ -50,13 +51,15 @@ class GrpcMessageProducer {
                     } ?: rawMessage.transportMessage?.forEach {
                         val book = rawMessage.requestId.bookName
                         val sessionGroup = rawMessage.sessionGroup
-                        addMessageItem(MessageGroupItem.newBuilder().setMessage(it.toProtoMessage(book, sessionGroup)).build())
+                        addMessageItem(
+                            MessageGroupItem.newBuilder().setMessage(it.toProtoMessage(book, sessionGroup)).build()
+                        )
                     }
                 }
             }.build()
         }
 
-        private fun convertMessageId(messageID: StoredMessageId) : MessageID {
+        private fun convertMessageId(messageID: StoredMessageId): MessageID {
             return MessageID.newBuilder().also {
                 it.connectionId = ConnectionID.newBuilder().setSessionAlias(messageID.sessionAlias).build()
                 it.direction = convertDirection(messageID)
@@ -65,7 +68,7 @@ class GrpcMessageProducer {
             }.build()
         }
 
-        private fun convertDirection(messageID: StoredMessageId) : com.exactpro.th2.common.grpc.Direction {
+        private fun convertDirection(messageID: StoredMessageId): com.exactpro.th2.common.grpc.Direction {
             return if (messageID.direction == Direction.FIRST) {
                 com.exactpro.th2.common.grpc.Direction.FIRST
             } else {
@@ -73,7 +76,7 @@ class GrpcMessageProducer {
             }
         }
 
-        private fun convertTimestamp(instant: Instant) : Timestamp {
+        private fun convertTimestamp(instant: Instant): Timestamp {
             return Timestamp.newBuilder().setSeconds(instant.epochSecond).setNanos(instant.nano).build()
         }
     }

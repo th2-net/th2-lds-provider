@@ -196,23 +196,29 @@ class FileDownloadHandler(
             .contentType(JSON_STREAM_CONTENT_TYPE)
             .header(Header.TRANSFER_ENCODING, "chunked")
         val output = ctx.res().outputStream.buffered()
-        val responseCharset = ctx.responseCharset()
         try {
             do {
                 val nextEvent = queue.take()
-                ResponseQueue.currentSize(matchedPath, queue.size)
-                val sseEvent = nextEvent.get()
-                when (sseEvent.event) {
-                    EventType.KEEP_ALIVE -> output.flush()
-                    EventType.CLOSE -> {
-                        LOGGER.info { "Received close event" }
-                        break
-                    }
-                    else -> {
-                        LOGGER.debug { "Write event to output: ${StringUtils.abbreviate(sseEvent.data.toString(DATA_CHARSET), 100)}" }
-                        output.write(sseEvent.data)
-                        output.write('\n'.code)
-                        dataSent++
+                dataMeasurement.start("process_sse_event").use {
+                    ResponseQueue.currentSize(matchedPath, queue.size)
+                    val sseEvent = nextEvent.get()
+                    when (sseEvent.event) {
+                        EventType.KEEP_ALIVE -> output.flush()
+                        EventType.CLOSE -> {
+                            LOGGER.info { "Received close event" }
+                            return
+                        }
+
+                        else -> {
+                            LOGGER.debug {
+                                "Write event to output: ${
+                                    StringUtils.abbreviate(sseEvent.data.toString(DATA_CHARSET), 100)
+                                }"
+                            }
+                            output.write(sseEvent.data)
+                            output.write('\n'.code)
+                            dataSent++
+                        }
                     }
                 }
             } while (true)

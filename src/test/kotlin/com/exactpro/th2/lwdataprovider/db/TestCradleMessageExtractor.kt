@@ -27,10 +27,7 @@ import com.exactpro.cradle.messages.StoredGroupedMessageBatch
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.MessageRouter
-import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
-import com.exactpro.th2.lwdataprovider.util.CradleResult
 import com.exactpro.th2.lwdataprovider.util.DummyDataMeasurement
-import com.exactpro.th2.lwdataprovider.util.GroupBatch
 import com.exactpro.th2.lwdataprovider.util.ImmutableListCradleResult
 import com.exactpro.th2.lwdataprovider.util.ListCradleResult
 import com.exactpro.th2.lwdataprovider.util.createBatches
@@ -55,9 +52,6 @@ import org.mockito.kotlin.whenever
 import strikt.api.expectThat
 import strikt.assertions.containsExactly
 import strikt.assertions.hasSize
-import strikt.assertions.isEqualTo
-import strikt.assertions.single
-import strikt.assertions.withElementAt
 import java.time.Duration
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -67,9 +61,6 @@ internal class TestCradleMessageExtractor {
     private val startTimestamp = Instant.now()
     private val endTimestamp = startTimestamp.plus(10, ChronoUnit.MINUTES)
     private val groupRequestBuffer = 200
-    private val measurement: DataMeasurement = mock {
-        on { start(any()) } doReturn mock { }
-    }
 
     private lateinit var storage: CradleStorage
 
@@ -98,6 +89,7 @@ internal class TestCradleMessageExtractor {
                 }
             }
         }
+
         var start = Instant.now()
         // -- 10 minutes
         // a 1-2-|3-4|-5
@@ -151,6 +143,7 @@ internal class TestCradleMessageExtractor {
                 }
             }
         }
+
         var start = Instant.now()
         // -- 10 minutes
         // a 1-2-3-4-5
@@ -190,6 +183,7 @@ internal class TestCradleMessageExtractor {
                 }
             }
         }
+
         val start = Instant.now()
         // -- 10 minutes
         // a 1-2-|3-4-|5
@@ -216,10 +210,10 @@ internal class TestCradleMessageExtractor {
                 messagesByAlias.getValue("a").take(messageInInterval) +
                         messagesByAlias.getValue("b").take(messageInInterval) +
                         messagesByAlias.getValue("c").take(messageInInterval) +
-                messagesByAlias.getValue("a").drop(messageInInterval).take(messageInInterval) +
+                        messagesByAlias.getValue("a").drop(messageInInterval).take(messageInInterval) +
                         messagesByAlias.getValue("b").drop(messageInInterval).take(messageInInterval) +
                         messagesByAlias.getValue("c").drop(messageInInterval).take(messageInInterval) +
-                messagesByAlias.getValue("a").takeLast(1) +
+                        messagesByAlias.getValue("a").takeLast(1) +
                         messagesByAlias.getValue("b").takeLast(1) +
                         messagesByAlias.getValue("c").takeLast(1)
             )
@@ -237,7 +231,13 @@ internal class TestCradleMessageExtractor {
         val increase = 5L
         val messagesCount = (endTimestamp.epochSecond - startTimestamp.epochSecond) / increase
         val messagesPerBatch = messagesCount / batchesCount
-        checkMessagesReturnsInOrder(messagesPerBatch, batchesCount, increase, messagesCount, overlap = messagesPerBatch / 2)
+        checkMessagesReturnsInOrder(
+            messagesPerBatch,
+            batchesCount,
+            increase,
+            messagesCount,
+            overlap = messagesPerBatch / 2
+        )
     }
 
     @ParameterizedTest
@@ -258,7 +258,13 @@ internal class TestCradleMessageExtractor {
         checkMessagesReturnsInOrder(messagesPerBatch, batchesCount, increase, messagesCount, overlap = messagesPerBatch)
     }
 
-    private fun checkMessagesReturnsInOrder(messagesPerBatch: Long, batchesCount: Int, increase: Long, messagesCount: Long, overlap: Long) {
+    private fun checkMessagesReturnsInOrder(
+        messagesPerBatch: Long,
+        batchesCount: Int,
+        increase: Long,
+        messagesCount: Long,
+        overlap: Long
+    ) {
         val batchesList: MutableList<StoredGroupedMessageBatch> = createBatches(
             messagesPerBatch = messagesPerBatch,
             batchesCount = batchesCount,

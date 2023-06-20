@@ -67,15 +67,17 @@ class HttpMessagesRequestHandler(
         if (!isAlive) return
         val counter = indexer.nextIndex()
         val future: CompletableFuture<SseEvent> = data.completed.thenApplyAsync({ requestedMessage: RequestedMessage ->
-            if (jsonFormatter != null && requestedMessage.protoMessage == null && requestedMessage.transportMessage == null) {
-                builder.codecTimeoutError(requestedMessage.storedMessage.id, counter)
-            } else {
-                builder.build(
-                    requestedMessage, jsonFormatter, includeRaw,
-                    counter,
-                )
-            }.also {
-                HttpWriteMetrics.incConverted()
+            dataMeasurement.start("convert_to_json").use {
+                if (jsonFormatter != null && requestedMessage.protoMessage == null && requestedMessage.transportMessage == null) {
+                    builder.codecTimeoutError(requestedMessage.storedMessage.id, counter)
+                } else {
+                    builder.build(
+                        requestedMessage, jsonFormatter, includeRaw,
+                        counter,
+                    )
+                }.also {
+                    HttpWriteMetrics.incConverted()
+                }
             }
         }, executor)
         buffer.put(future::get)

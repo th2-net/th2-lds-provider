@@ -198,10 +198,10 @@ class FileDownloadHandler(
         val output = ctx.res().outputStream.buffered()
         try {
             do {
-                val nextEvent = queue.take()
                 dataMeasurement.start("process_sse_event").use {
+                    val nextEvent = queue.take()
                     ResponseQueue.currentSize(matchedPath, queue.size)
-                    val sseEvent = nextEvent.get()
+                    val sseEvent = dataMeasurement.start("await_convert_to_json").use { nextEvent.get() }
                     when (sseEvent.event) {
                         EventType.KEEP_ALIVE -> output.flush()
                         EventType.CLOSE -> {

@@ -20,9 +20,8 @@ import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.db.Measurement
 import io.prometheus.client.CollectorRegistry
 import io.prometheus.client.Histogram
-import mu.KotlinLogging
 
-class DataMeasurementImpl private constructor(
+class DataMeasurementHistogram private constructor(
     name: String,
     registry: CollectorRegistry,
     buckets: DoubleArray,
@@ -38,31 +37,12 @@ class DataMeasurementImpl private constructor(
     }
 
     companion object {
-        private val DEFAULT_BUCKETS = doubleArrayOf(.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, 25.0, 50.0, 75.0)
+        private val DEFAULT_BUCKETS =
+            doubleArrayOf(.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, 25.0, 50.0, 75.0)
+
         @JvmStatic
-        fun create(registry: CollectorRegistry, name: String, vararg buckets: Double): DataMeasurement = DataMeasurementImpl(name, registry, buckets)
+        fun create(registry: CollectorRegistry, name: String, vararg buckets: Double): DataMeasurement =
+            DataMeasurementHistogram(name, registry, buckets)
     }
 }
 
-private class MeasurementImpl(
-    private val name: String,
-    private val timer: Histogram.Timer
-) : Measurement {
-    init {
-        LOGGER.trace { "Step $name started with timer ${timer.hashCode()}" }
-    }
-
-    private var finished: Boolean = false
-    override fun stop() {
-        if (finished) {
-            return
-        }
-        LOGGER.trace { "Step $name finished with timer ${timer.hashCode()}" }
-        finished = true
-        timer.observeDuration()
-    }
-
-    companion object {
-        private val LOGGER = KotlinLogging.logger { }
-    }
-}

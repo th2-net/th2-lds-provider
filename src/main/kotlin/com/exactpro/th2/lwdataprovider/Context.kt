@@ -26,13 +26,13 @@ import com.exactpro.th2.lwdataprovider.db.CradleEventExtractor
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.db.GeneralCradleExtractor
+import com.exactpro.th2.lwdataprovider.entities.responses.ser.InstantBackwardCompatibilitySerializer
 import com.exactpro.th2.lwdataprovider.handlers.GeneralCradleHandler
 import com.exactpro.th2.lwdataprovider.handlers.QueueEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.QueueMessagesHandler
-import com.exactpro.th2.lwdataprovider.entities.responses.ser.InstantBackwardCompatibilitySerializer
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
-import com.exactpro.th2.lwdataprovider.metrics.DataMeasurementImpl
+import com.exactpro.th2.lwdataprovider.metrics.DataMeasurementSummary
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import com.exactpro.th2.lwdataprovider.workers.TimerWatcher
 import com.fasterxml.jackson.databind.DeserializationFeature
@@ -70,12 +70,12 @@ class Context(
     val timeoutHandler: TimerWatcher = TimerWatcher(mqDecoder, configuration),
     val cradleEventExtractor: CradleEventExtractor = CradleEventExtractor(
         cradleManager,
-        DataMeasurementImpl.create(registry, "cradle event")
+        DataMeasurementSummary.create(registry, "cradle event")
     ),
     val cradleMsgExtractor: CradleMessageExtractor = CradleMessageExtractor(
         configuration.groupRequestBuffer,
         cradleManager,
-        DataMeasurementImpl.create(registry, "cradle message")
+        DataMeasurementSummary.create(registry, "cradle message")
     ),
     val generalCradleExtractor: GeneralCradleExtractor = GeneralCradleExtractor(cradleManager),
     val execExecutor: Executor = Executors.newFixedThreadPool(
@@ -93,10 +93,11 @@ class Context(
         configuration,
     ),
     val searchEventsHandler: SearchEventsHandler = SearchEventsHandler(cradleEventExtractor, execExecutor),
-    val requestsDataMeasurement: DataMeasurement = DataMeasurementImpl.create(
-        registry, "message requests",
-        *generateSequence(0.000025) { v -> (v * 2).takeIf { it < 2 } }.toList().toTypedArray().toDoubleArray()
-    ),
+//    val requestsDataMeasurement: DataMeasurement = DataMeasurementHistogram.create(
+//        registry, "message requests",
+//        *generateSequence(0.000025) { v -> (v * 2).takeIf { it < 2 } }.toList().toTypedArray().toDoubleArray()
+//    ),
+    val requestsDataMeasurement: DataMeasurement = DataMeasurementSummary.create(registry, "message requests"),
     val queueMessageHandler: QueueMessagesHandler = QueueMessagesHandler(
         cradleMsgExtractor,
         protoMessageRouter,

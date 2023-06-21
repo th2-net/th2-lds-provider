@@ -25,11 +25,9 @@ import com.exactpro.cradle.cassandra.CassandraStorageSettings
 import com.exactpro.cradle.cassandra.connection.CassandraConnectionSettings
 import com.exactpro.cradle.messages.MessageToStore
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
-import com.exactpro.th2.lwdataprovider.metrics.DataMeasurementImpl
-import io.prometheus.client.CollectorRegistry
+import com.exactpro.th2.lwdataprovider.util.DummyDataMeasurement
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.TestInstance
 import org.slf4j.LoggerFactory
 import org.testcontainers.containers.CassandraContainer
@@ -74,7 +72,7 @@ abstract class AbstractCradleIntegrationTest {
         messageExtractor = CradleMessageExtractor(
             groupBufferSize = 100,
             cradleManager = cradleManager,
-            DataMeasurementImpl.create(CollectorRegistry(), "test"),
+            DummyDataMeasurement,
         )
     }
 

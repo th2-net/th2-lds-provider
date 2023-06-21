@@ -32,7 +32,7 @@ import com.exactpro.th2.lwdataprovider.handlers.QueueEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.QueueMessagesHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
-import com.exactpro.th2.lwdataprovider.metrics.DataMeasurementImpl
+import com.exactpro.th2.lwdataprovider.metrics.DataMeasurementHistogram
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import com.exactpro.th2.lwdataprovider.workers.TimerWatcher
 import com.fasterxml.jackson.databind.DeserializationFeature
@@ -70,12 +70,12 @@ class Context(
     val timeoutHandler: TimerWatcher = TimerWatcher(mqDecoder, configuration),
     val cradleEventExtractor: CradleEventExtractor = CradleEventExtractor(
         cradleManager,
-        DataMeasurementImpl.create(registry, "cradle event")
+        DataMeasurementHistogram.create(registry, "cradle event")
     ),
     val cradleMsgExtractor: CradleMessageExtractor = CradleMessageExtractor(
         configuration.groupRequestBuffer,
         cradleManager,
-        DataMeasurementImpl.create(registry, "cradle message")
+        DataMeasurementHistogram.create(registry, "cradle message")
     ),
     val generalCradleExtractor: GeneralCradleExtractor = GeneralCradleExtractor(cradleManager),
     val execExecutor: Executor = Executors.newFixedThreadPool(
@@ -97,7 +97,7 @@ class Context(
 //        registry, "message requests",
 //        *generateSequence(0.000025) { v -> (v * 2).takeIf { it < 2 } }.toList().toTypedArray().toDoubleArray()
 //    ),
-    val requestsDataMeasurement: DataMeasurement = DataMeasurementImpl.create(registry, "message requests"),
+    val requestsDataMeasurement: DataMeasurement = DataMeasurementHistogram.create(registry, "message requests"),
     val queueMessageHandler: QueueMessagesHandler = QueueMessagesHandler(
         cradleMsgExtractor,
         protoMessageRouter,

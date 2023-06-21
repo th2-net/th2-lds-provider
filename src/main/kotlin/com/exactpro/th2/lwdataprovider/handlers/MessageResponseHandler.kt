@@ -45,6 +45,10 @@ abstract class MessageResponseHandler(
     val isDataProcessed: Boolean
         get() = lock.withLock { messagesInProcess == 0 }
 
+    init {
+        LOGGER.debug { "Created ${this::class.simpleName}, max messages per request: $maxMessagesPerRequest" }
+    }
+
     fun checkAndWaitForRequestLimit(msgBufferCount: Int) {
         var submitted = false
         dataMeasurement.start("await_decode_queue").use {
@@ -53,6 +57,7 @@ abstract class MessageResponseHandler(
                     val expectedSize = messagesInProcess + msgBufferCount
                     @Suppress("ConvertTwoComparisonsToRangeCheck")
                     if (maxMessagesPerRequest > 0 && maxMessagesPerRequest < expectedSize) {
+                        LOGGER.debug { "Wait free place in decode queue [ in progress: $messagesInProcess ], request size: $msgBufferCount" }
                         condition.await()
                     } else {
                         messagesInProcess = expectedSize
@@ -85,9 +90,9 @@ abstract class MessageResponseHandler(
 
     fun requestReceived() {
         onMessageReceived()
-            if (allMessagesRequested && isDataProcessed) {
-                LOGGER.info { "Last message processed" }
-                complete()
+        if (allMessagesRequested && isDataProcessed) {
+            LOGGER.info { "Last message processed" }
+            complete()
 
         }
     }

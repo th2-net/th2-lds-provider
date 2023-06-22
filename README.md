@@ -107,6 +107,11 @@ spec:
 #### Added
 + Added source message metadata into provider grpc search response.
 
+#### Fixed:
+
++ Errors during decoding messages were attached to old events related to those messages.
+  Now the original `parentEventID` is cleared before sending messages to decoding
+
 ### 1.1.5
 
 #### Fixed:

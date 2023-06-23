@@ -23,7 +23,7 @@ plugins {
     id "io.github.gradle-nexus.publish-plugin" version "1.1.0"
     id 'org.jetbrains.kotlin.kapt'
     id "org.owasp.dependencycheck" version "8.1.2"
-    id 'com.github.jk1.dependency-license-report' version '2.4'
+    id 'com.github.jk1.dependency-license-report'
 }
 
 ext {
@@ -121,7 +121,7 @@ nexusPublishing {
 licenseReport {
     renderers = [
             new XmlReportRenderer("${project.name}-licenses.xml"),
-            new CsvReportRenderer("${project.name}-licenses.csv"),
+            new CsvCustomReportRenderer("${project.name}-licenses.csv"),
             new JsonReportRenderer("${project.name}-licenses.json"),
             new InventoryHtmlReportRenderer("${project.name}-licenses.html")
     ]

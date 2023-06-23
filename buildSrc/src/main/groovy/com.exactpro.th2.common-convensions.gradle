@@ -27,7 +27,7 @@ if (!suffix.isEmpty()) {
 }
 
 dependencies {
-    implementation platform('com.exactpro.th2:bom:4.3.0')
+    implementation platform('com.exactpro.th2:bom:4.4.0-update-libs-5345334944-c71fdc9-SNAPSHOT')
     implementation 'org.slf4j:slf4j-api'
     implementation 'io.github.microutils:kotlin-logging:2.1.23'
 
@@ -37,7 +37,7 @@ dependencies {
     testImplementation('org.apache.logging.log4j:log4j-core') {
         because('logging in testing')
     }
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.9.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.9.3'
     testImplementation 'org.mockito.kotlin:mockito-kotlin:4.0.0'
     testImplementation 'io.strikt:strikt-core:0.34.1'
     testImplementation 'io.strikt:strikt-jackson:0.34.1'

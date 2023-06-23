@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2009-2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2009-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
  * limitations under the License.
  ******************************************************************************/
 
+import com.github.jk1.license.render.*
+
 plugins {
     id 'com.exactpro.th2.common-convensions'
     id 'application'
@@ -21,6 +23,7 @@ plugins {
     id "io.github.gradle-nexus.publish-plugin" version "1.1.0"
     id 'org.jetbrains.kotlin.kapt'
     id "org.owasp.dependencycheck" version "8.1.2"
+    id 'com.github.jk1.dependency-license-report' version '2.4'
 }
 
 ext {
@@ -113,4 +116,13 @@ nexusPublishing {
             snapshotRepositoryUrl.set(uri("https://s01.oss.sonatype.org/content/repositories/snapshots/"))
         }
     }
+}
+
+licenseReport {
+    renderers = [
+            new XmlReportRenderer("${project.name}-licenses.xml"),
+            new CsvReportRenderer("${project.name}-licenses.csv"),
+            new JsonReportRenderer("${project.name}-licenses.json"),
+            new InventoryHtmlReportRenderer("${project.name}-licenses.html")
+    ]
 }

@@ -19,46 +19,24 @@ package com.exactpro.th2.lwdataprovider.metrics
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.db.Measurement
 import io.prometheus.client.CollectorRegistry
-import io.prometheus.client.Counter
-import io.prometheus.client.SimpleTimer
+import io.prometheus.client.Summary
 
-class DataMeasurementImpl private constructor(
+class DataMeasurementSummary private constructor(
     name: String,
     registry: CollectorRegistry,
 ) : DataMeasurement {
-
-    private val stepMetricsCounter = Counter.build(
-        "th2_ldp_${name.replace(' ', '_').lowercase()}_time_count", "Number of measurement on each action for $name"
-    ).labelNames("action")
-        .register(registry)
-
-    private val stepMetricsSum = Counter.build(
-        "th2_ldp_${name.replace(' ', '_').lowercase()}_time_sum", "Sum time of measurement on each action for $name"
+    private val stepMetrics = Summary.build(
+        "th2_ldp_${name.replace(' ', '_').lowercase()}_time", "Time spent on each action for $name"
     ).labelNames("action")
         .register(registry)
 
     override fun start(name: String): Measurement {
-        return Timer(stepMetricsCounter.labels(name), stepMetricsSum.labels(name))
+        return MeasurementImpl(name, stepMetrics.labels(name).startTimer())
     }
 
     companion object {
-
         @JvmStatic
         fun create(registry: CollectorRegistry, name: String): DataMeasurement =
-            DataMeasurementImpl(name, registry)
-
-        private class Timer(
-            private val counter: Counter.Child,
-            private val sum: Counter.Child
-        ) : Measurement {
-
-            private val start = System.nanoTime()
-            override fun stop() {
-                counter.inc()
-                sum.inc(SimpleTimer.elapsedSecondsFromNanos(start, System.nanoTime()))
-            }
-
-        }
+            DataMeasurementSummary(name, registry)
     }
 }
-

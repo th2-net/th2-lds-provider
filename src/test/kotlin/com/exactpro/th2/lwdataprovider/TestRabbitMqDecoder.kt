@@ -67,9 +67,9 @@ internal class TestRabbitMqDecoder {
     }
 
     private val decoder = RabbitMqDecoder(
-        maxDecodeQueue = 3,
         protoGroupBatchRouter = protoMessageRouter,
         transportGroupBatchRouter = transportMessageRouter,
+        maxDecodeQueue = 3,
         codecUsePinAttributes = true,
     )
 
@@ -116,7 +116,8 @@ internal class TestRabbitMqDecoder {
     @ValueSource(ints = [1, 2])
     fun `waits until the queue is free`(waitingRequests: Int) {
         val onResponse = mock<(RequestedMessageDetails) -> Unit> { }
-        val details: MutableList<RequestedMessageDetails> = (1..3).map { createAndVerifyDetails("test", it.toLong(), onResponse) }.toMutableList()
+        val details: MutableList<RequestedMessageDetails> =
+            (1..3).map { createAndVerifyDetails("test", it.toLong(), onResponse) }.toMutableList()
         clearInvocations(protoMessageRouter)
         val executor = Executors.newSingleThreadExecutor()
         val futures = arrayListOf<Future<Pair<MessageGroupBatch.Builder, RequestedMessageDetails>>>().apply {
@@ -129,6 +130,7 @@ internal class TestRabbitMqDecoder {
         fun messageReceived(det: RequestedMessageDetails) {
             notifyListeners(listOf(createParsedMessage(det)))
         }
+
         var index = 0
         repeat(waitingRequests) {
             messageReceived(details[index++])

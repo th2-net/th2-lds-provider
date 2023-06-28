@@ -156,45 +156,50 @@ class CradleMessageExtractor(
         val buffer: MutableList<StoredMessage> = ArrayList()
         val remaining: LinkedList<StoredMessage> = LinkedList()
         while (iterator.hasNext()) {
-            sink.canceled?.apply {
-                logger.info { "canceled because: $message" }
-                return
-            }
-            prev = currentBatch
-            currentBatch = iterator.next()
-            check(prev.firstTimestamp <= currentBatch.firstTimestamp) {
-                "Unordered batches received: ${prev.toShortInfo()} and ${currentBatch.toShortInfo()}"
-            }
-            val needFiltration = prev.isNeedFiltration()
-
-            if (prev.lastTimestamp < currentBatch.firstTimestamp) {
-                if (needFiltration) {
-                    prev.messages.filterTo(buffer, StoredMessage::inRange and parameters.preFilter)
-                } else {
-                    prev.messages.preFilterTo(buffer)
+            val measurement = dataMeasurement.start("process_cradle_group_batch")
+            try {
+                sink.canceled?.apply {
+                    logger.info { "canceled because: $message" }
+                    return
                 }
-                tryDrain(group, buffer, sort, sink)
-            } else {
-                generateSequence {
-                    if (!sort || remaining.peek()?.timestampLess(currentBatch) == true) remaining.poll() else null
-                }.toCollection(buffer)
+                prev = currentBatch
+                currentBatch = iterator.next()
+                check(prev.firstTimestamp <= currentBatch.firstTimestamp) {
+                    "Unordered batches received: ${prev.toShortInfo()} and ${currentBatch.toShortInfo()}"
+                }
+                val needFiltration = prev.isNeedFiltration()
 
-                val messageCount = prev.messageCount
-                prev.messages.forEachIndexed { index, msg ->
-                    if ((needFiltration && !msg.inRange()) || parameters.preFilter?.invoke(msg) == false) {
-                        return@forEachIndexed
-                    }
-                    if (!sort || msg.timestampLess(currentBatch)) {
-                        buffer += msg
+                if (prev.lastTimestamp < currentBatch.firstTimestamp) {
+                    if (needFiltration) {
+                        prev.messages.filterTo(buffer, StoredMessage::inRange and parameters.preFilter)
                     } else {
-                        check(remaining.size < groupBufferSize) {
-                            "the group buffer size cannot hold all messages: current size $groupBufferSize but needs ${messageCount - index} more"
-                        }
-                        remaining += msg
+                        prev.messages.preFilterTo(buffer)
                     }
-                }
+                    tryDrain(group, buffer, sort, sink)
+                } else {
+                    generateSequence {
+                        if (!sort || remaining.peek()?.timestampLess(currentBatch) == true) remaining.poll() else null
+                    }.toCollection(buffer)
 
-                tryDrain(group, buffer, sort, sink)
+                    val messageCount = prev.messageCount
+                    prev.messages.forEachIndexed { index, msg ->
+                        if ((needFiltration && !msg.inRange()) || parameters.preFilter?.invoke(msg) == false) {
+                            return@forEachIndexed
+                        }
+                        if (!sort || msg.timestampLess(currentBatch)) {
+                            buffer += msg
+                        } else {
+                            check(remaining.size < groupBufferSize) {
+                                "the group buffer size cannot hold all messages: current size $groupBufferSize but needs ${messageCount - index} more"
+                            }
+                            remaining += msg
+                        }
+                    }
+
+                    tryDrain(group, buffer, sort, sink)
+                }
+            } finally {
+                measurement.close()
             }
         }
         val remainingMessages = currentBatch.filterIfRequired()

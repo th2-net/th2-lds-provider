@@ -76,6 +76,6 @@ internal class TestCustomSimpleJsonFormatter {
         val message = message().addField("a", message().addField("b", "1")).build()
         val result = formatter.print(message)
         assertDoesNotThrow { objectMapper.readTree(result) }
-        assertEquals("""{"fields":{"a":{"fields":{"b":"1"}}}}""", result)
+        assertEquals("""{"fields":{"a":{"b":"1"}}}""", result)
     }
 }

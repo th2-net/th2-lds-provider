@@ -39,7 +39,19 @@ abstract class AbstractJsonFormatter : JsonFormatter {
             printMetadata(msg.metadata, sb)
             sb.append(',')
         }
-        sb.append("\"fields\":{")
+        sb.append("\"fields\":")
+        printMessage(sb, msg)
+
+        sb.append('}')
+
+    }
+
+    protected fun printMessageContentOnly(msg: Message, sb: StringBuilder) {
+        printMessage(sb, msg)
+    }
+
+    private fun printMessage(sb: StringBuilder, msg: Message) {
+        sb.append("{")
         val fieldsMap = msg.fieldsMap
         if (fieldsMap.isNotEmpty()) {
             for (entry in fieldsMap.entries) {
@@ -49,8 +61,7 @@ abstract class AbstractJsonFormatter : JsonFormatter {
             }
             sb.setLength(sb.length - 1)
         }
-        sb.append('}').append('}')
-
+        sb.append('}')
     }
 
     private fun isNeedToEscape(s: String): Boolean {

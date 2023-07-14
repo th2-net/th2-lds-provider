@@ -153,7 +153,12 @@ object StoredMessageIdSerializer : KSerializer<StoredMessageId> {
     }
 
     private fun StringBuilder.appendNumber(value: Int, size: Int) {
-        val digits = kotlin.math.max(ceil(log10(value.toDouble())).toInt(), 1)
+        val digits = kotlin.math.max(ceil(log10(value.toDouble())).toInt(), 1) +
+                if (value > 0 && value % 10 == 0) {
+                    1
+                } else {
+                    0
+                }
         if (digits < size) {
             repeat(size - digits) {
                 append(0)

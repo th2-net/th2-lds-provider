@@ -135,7 +135,7 @@ internal class TestGetMessageGroupsServletTransportMode : AbstractHttpHandlerTes
                         "\"attachedEventIds\":[]," +
                         "\"body\":[{\"metadata\":{\"subsequence\":[1]," +
                         "\"messageType\":\"$MESSAGE_TYPE\"},\"fields\":{\"unprintable\":\"\\u000135=123\\u0001\",\"int\":\"1\",\"instant\":\"$messageTimestamp\",\"stringList\":[\"a\",\"b\"],\"subMessage\":{\"string\":\"abc\"},\"subMessageList\":[{\"string\":\"def\"},{\"string\":\"ghi\"}]}}]," +
-                        "\"bodyBase64\":\"dGVzdCBjb250ZW50\",\"messageId\":\"$BOOK_NAME:$SESSION_ALIAS:1:${
+                        "\"bodyBase64\":\"dGVzdCBjb250ZW50\",\"messageId\":\"$BOOK_NAME:$SESSION_GROUP:$SESSION_ALIAS:1:${
                             StoredMessageIdUtils.timestampToString(
                                 messageTimestamp
                             )
@@ -200,7 +200,7 @@ internal class TestGetMessageGroupsServletTransportMode : AbstractHttpHandlerTes
             val expectedData =
                 "{\"timestamp\":{\"epochSecond\":${messageTimestamp.epochSecond},\"nano\":${messageTimestamp.nano}},\"direction\":\"IN\",\"sessionId\":\"$SESSION_ALIAS\"," +
                         "\"attachedEventIds\":[]," +
-                        "\"bodyBase64\":\"dGVzdCBjb250ZW50\",\"messageId\":\"$BOOK_NAME:$SESSION_ALIAS:1:${
+                        "\"bodyBase64\":\"dGVzdCBjb250ZW50\",\"messageId\":\"$BOOK_NAME:$SESSION_GROUP:$SESSION_ALIAS:1:${
                             StoredMessageIdUtils.timestampToString(
                                 messageTimestamp
                             )

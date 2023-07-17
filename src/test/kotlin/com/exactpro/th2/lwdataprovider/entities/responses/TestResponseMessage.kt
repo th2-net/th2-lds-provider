@@ -50,7 +50,7 @@ class TestResponseMessage {
         emptySet(),
         emptyList(),
         null,
-        StoredMessageId(BookId(TEST_BOOK), TEST_SESSION_ALIAS, FIRST, timestamp, 1)
+        MessageIdWithGroup.create(StoredMessageId(BookId(TEST_BOOK), TEST_SESSION_ALIAS, FIRST, timestamp, 1))
     )
 
     private val fullMessage = ProviderMessage53Transport(
@@ -91,7 +91,7 @@ class TestResponseMessage {
             )
         ),
         "dGVzdC1yYXctYm9keQ==",
-        StoredMessageId(BookId(TEST_BOOK), TEST_SESSION_ALIAS, FIRST, timestamp, 1)
+        MessageIdWithGroup.create(StoredMessageId(BookId(TEST_BOOK), TEST_SESSION_ALIAS, FIRST, timestamp, 1))
     )
 
     private val jsonMessageWithoutOptionalFields =

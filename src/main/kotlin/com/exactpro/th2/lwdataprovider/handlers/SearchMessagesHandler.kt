@@ -197,7 +197,7 @@ class SearchMessagesHandler(
             val rootSink = RootMessagesDataSink(
                 requestContext,
                 if (request.rawOnly) {
-                    RawStoredMessageHandler(requestContext)
+                    RawStoredMessageHandler(requestContext, markerAsGroup = true)
                 } else {
                     if (configuration.useTransportMode) {
                         TransportParsedStoredMessageHandler(
@@ -241,7 +241,7 @@ class SearchMessagesHandler(
             val rootSink = RootMessagesDataSink(
                 requestContext,
                 if (request.responseFormats.hasRowOnly()) {
-                    RawStoredMessageHandler(requestContext)
+                    RawStoredMessageHandler(requestContext, markerAsGroup = true)
                 } else {
                     if (configuration.useTransportMode) {
                         TransportParsedStoredMessageHandler(
@@ -581,6 +581,7 @@ private abstract class MessagesDataSink(
 
 private class RawStoredMessageHandler(
     private val handler: MessageResponseHandler,
+    private val markerAsGroup: Boolean = false,
 ) : MarkedResponseHandler<String, StoredMessage> {
     override val isAlive: Boolean
         get() = handler.isAlive
@@ -597,7 +598,7 @@ private class RawStoredMessageHandler(
     }
 
     override fun handleNext(marker: String, data: StoredMessage) {
-        handler.handleNext(RequestedMessageDetails(data))
+        handler.handleNext(RequestedMessageDetails(data, sessionGroup = if (markerAsGroup) marker else null))
     }
 
 }

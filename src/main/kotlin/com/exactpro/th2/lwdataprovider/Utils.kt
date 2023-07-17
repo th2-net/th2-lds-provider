@@ -20,10 +20,8 @@ import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.messages.StoredMessageIdUtils
 import com.exactpro.th2.dataprovider.lw.grpc.BookId
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
+import com.exactpro.th2.lwdataprovider.entities.responses.MessageIdWithGroup
 import com.google.gson.Gson
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
-import java.util.*
 
 private val gson = Gson()
 
@@ -39,8 +37,18 @@ fun failureReason(batchId: String? = null, id: String? = null, error: String): S
 
 fun StoredMessageId.toReportId() =
     "${bookId.name}:$sessionAlias:${direction.label}:${StoredMessageIdUtils.timestampToString(timestamp)}:$sequence"
+
+fun MessageIdWithGroup.toReportId() = with(messageId) {
+    "${bookId.name}:$group:$sessionAlias:${direction.label}:${StoredMessageIdUtils.timestampToString(timestamp)}:$sequence"
+}
 fun GetEventRequest.failureReason(error: String): String = failureReason(batchId, eventId, error)
 fun StoredMessageId.failureReason(error: String): String = failureReason(
+    null,
+    toReportId(),
+    error
+)
+
+fun MessageIdWithGroup.failureReason(error: String): String = failureReason(
     null,
     toReportId(),
     error

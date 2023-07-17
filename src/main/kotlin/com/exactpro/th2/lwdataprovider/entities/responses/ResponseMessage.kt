@@ -20,6 +20,7 @@ import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.utils.EscapeUtils
 import com.exactpro.cradle.utils.TimeUtils
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
+import com.exactpro.th2.lwdataprovider.entities.responses.ser.numberOfDigits
 import kotlinx.serialization.ContextualSerializer
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
@@ -153,17 +154,7 @@ object StoredMessageIdSerializer : KSerializer<StoredMessageId> {
     }
 
     private fun StringBuilder.appendNumber(value: Int, size: Int) {
-        val log10 = log10(value.toDouble())
-        val ceilLog10 = kotlin.math.max(ceil(log10).toInt(), 1)
-        val digits = ceilLog10 +
-                if (value > 0
-                    && value % 10 == 0 // values like 1000 should have 4 digits but log10 will return 3
-                    && log10.toInt() == ceilLog10 // values like 1010 match the previous condition, but we should not add 1 in that case
-                ) {
-                    1
-                } else {
-                    0
-                }
+        val digits = numberOfDigits(value)
         if (digits < size) {
             repeat(size - digits) {
                 append(0)

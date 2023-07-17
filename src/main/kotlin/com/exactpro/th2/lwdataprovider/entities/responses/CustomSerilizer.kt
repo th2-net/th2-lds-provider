@@ -190,7 +190,17 @@ private fun OutputStream.writeTwoDigits(value: Int) {
 }
 
 private fun OutputStream.writeNumber(value: Int, size: Int) {
-    val digits = max(ceil(log10(value.toDouble())).toInt(), 1)
+    val log10 = log10(value.toDouble())
+    val ceilLog10 = max(ceil(log10).toInt(), 1)
+    val digits = ceilLog10 +
+            if (value > 0
+                && value % 10 == 0 // values like 1000 should have 4 digits but log10 will return 3
+                && log10.toInt() == ceilLog10 // values like 1010 match the previous condition, but we should not add 1 in that case
+            ) {
+                1
+            } else {
+                0
+            }
     if (digits < size) {
         repeat(size - digits) {
             write(ZERO)

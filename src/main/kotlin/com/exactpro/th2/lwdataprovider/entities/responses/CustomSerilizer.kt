@@ -21,6 +21,7 @@ import com.exactpro.cradle.utils.EscapeUtils.escape
 import com.exactpro.cradle.utils.TimeUtils
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.toByteArray
+import com.exactpro.th2.lwdataprovider.entities.responses.ser.numberOfDigits
 import java.io.ByteArrayOutputStream
 import java.io.OutputStream
 import java.time.Instant
@@ -190,7 +191,7 @@ private fun OutputStream.writeTwoDigits(value: Int) {
 }
 
 private fun OutputStream.writeNumber(value: Int, size: Int) {
-    val digits = max(ceil(log10(value.toDouble())).toInt(), 1)
+    val digits = numberOfDigits(value)
     if (digits < size) {
         repeat(size - digits) {
             write(ZERO)

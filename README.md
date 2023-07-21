@@ -1,4 +1,4 @@
-# Lightweight data provider (2.0.0)
+# Lightweight data provider (2.1.0)
 
 # Overview
 This component serves as a data provider for [th2-data-services](https://github.com/th2-net/th2-data-services). It will connect to the cassandra database via [cradle api](https://github.com/th2-net/cradleapi) and expose the data stored in there as REST resources.
@@ -90,7 +90,6 @@ event: 'event' / 'message' | 'close' | 'error' | 'keep_alive' | 'page_info'
 data: 'Event metadata object' / 'message' | 'Empty data' | 'HTTP Error code' | 'Empty data' | 'page info'
 id: event / message id | null | null | null | page id
 ```
-
 
 # Configuration
 schema component description example (lw-data-provider.yml):

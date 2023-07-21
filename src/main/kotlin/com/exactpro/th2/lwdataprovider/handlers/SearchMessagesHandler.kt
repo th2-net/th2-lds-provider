@@ -135,7 +135,7 @@ class SearchMessagesHandler(
                             logger.info { "request canceled: $message" }
                             return@use
                         }
-                        val order = orderFrom(request)
+                        val order = orderFrom(request.searchDirection)
                         val allLoaded = hashSetOf<Stream>()
                         do {
                             val continuePulling = pullUpdates(request, order, sink, allLoaded)
@@ -278,6 +278,7 @@ class SearchMessagesHandler(
                                 .bookId(request.bookId)
                                 .timestampFrom().isGreaterThanOrEqualTo(request.startTimestamp)
                                 .timestampTo().isLessThan(request.endTimestamp)
+                                .order(orderFrom(request.searchDirection))
                                 .build()
                             logger.info { "Executing request for group $group" }
                             cradleMsgExtractor.getMessagesGroup(filter, parameters, subSink)
@@ -424,8 +425,7 @@ class SearchMessagesHandler(
                 bookId(request.bookId)
                 sessionAlias(resumeFromId.sessionAlias)
                 direction(resumeFromId.direction)
-                val order = orderFrom(request)
-                order(order)
+                order(orderFrom(request.searchDirection))
                 indexFilter(request, resumeFromId)
                 modifyFilterBuilderTimestamps(request)
                 limitFilter(sink)
@@ -469,8 +469,8 @@ class SearchMessagesHandler(
         sink.limit?.let { limit(max(it, 0)) }
     }
 
-    private fun orderFrom(request: SseMessageSearchRequest): Order {
-        val order = if (request.searchDirection == SearchDirection.next) {
+    private fun orderFrom(searchDirection: SearchDirection): Order {
+        val order = if (searchDirection == SearchDirection.next) {
             Order.DIRECT
         } else {
             Order.REVERSE

@@ -78,6 +78,8 @@ message MessageGroupsSearchRequest {
   bool raw_only = 5 [deprecated = true];
   bool keep_open = 6;
   repeated string response_formats = 8; // List of possible response formats (e.g. PARSED or BASE_64)
+  repeated MessageStream stream = 9; // Sets the stream names and directions to search in. Case-sensitive.
+  TimeRelation search_direction = 10; // Sets the lookup direction. Can be used for pagination. Set by default to NEXT.
 }
 
 message MessageStreamsRequest {

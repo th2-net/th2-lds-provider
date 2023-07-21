@@ -17,9 +17,12 @@
 package com.exactpro.th2.lwdataprovider.entities.requests
 
 import com.exactpro.cradle.BookId
+import com.exactpro.cradle.TimeRelation
 import com.exactpro.th2.dataprovider.lw.grpc.MessageGroupsSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.grpc.toInstant
+import com.exactpro.th2.lwdataprovider.grpc.toProviderMessageStreams
+import com.exactpro.th2.lwdataprovider.grpc.toProviderRelation
 import com.exactpro.th2.lwdataprovider.toCradle
 import java.time.Instant
 
@@ -33,6 +36,7 @@ data class MessagesGroupRequest(
     val responseFormats: Set<ResponseFormat>? = null,
     val includeStreams: Set<ProviderMessageStream> = emptySet(),
     val limit: Int? = null,
+    val searchDirection: SearchDirection
 ) {
     init {
         require(startTimestamp <= endTimestamp) { "$START_TIMESTAMP_PARAM must be greater than $END_TIMESTAMP_PARAM" }
@@ -70,6 +74,8 @@ data class MessagesGroupRequest(
                             formats
                         }
                     },
+                request.streamList.map { it.toProviderMessageStreams() }.toSet(),
+                searchDirection = request.searchDirection.toProviderRelation()
             )
         }
 

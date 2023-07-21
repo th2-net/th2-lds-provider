@@ -279,6 +279,9 @@ class SearchMessagesHandler(
                                 .timestampFrom().isGreaterThanOrEqualTo(request.startTimestamp)
                                 .timestampTo().isLessThan(request.endTimestamp)
                                 .order(orderFrom(request.searchDirection))
+                                .apply {
+                                    modifyFilterBuilderTimestamps(request)
+                                }
                                 .build()
                             logger.info { "Executing request for group $group" }
                             cradleMsgExtractor.getMessagesGroup(filter, parameters, subSink)

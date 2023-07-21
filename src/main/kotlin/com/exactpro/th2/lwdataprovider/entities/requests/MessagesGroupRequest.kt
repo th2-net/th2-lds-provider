@@ -39,8 +39,6 @@ data class MessagesGroupRequest(
     val searchDirection: SearchDirection
 ) {
     init {
-        require(startTimestamp <= endTimestamp) { "$START_TIMESTAMP_PARAM must be greater than $END_TIMESTAMP_PARAM" }
-
         if (!responseFormats.isNullOrEmpty()) {
             ResponseFormat.validate(responseFormats)
         }

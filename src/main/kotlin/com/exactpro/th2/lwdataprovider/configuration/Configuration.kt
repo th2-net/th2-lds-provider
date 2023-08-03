@@ -74,6 +74,9 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
         require(grpcBackPressureReadinessTimeoutMls > 0) {
             "grpcBackPressureReadinessTimeoutMls ($grpcBackPressureReadinessTimeoutMls) must be positive"
         }
+        if (execThreadPoolSize == 1) {
+            LOGGER.warn { "Worker pool has size 1. If it is blocked other requests couldn't be processed" }
+        }
     }
 }
 

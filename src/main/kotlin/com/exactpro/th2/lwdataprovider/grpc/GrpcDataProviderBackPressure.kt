@@ -101,20 +101,13 @@ class GrpcDataProviderBackPressure(
             }
             if (inProcess) {
                 lock.withLock {
-                    future = scheduler.schedule({
-                        runCatching {
-                            logger.error {
-                                "gRPC was not ready more than ${configuration.grpcBackPressureReadinessTimeoutMls} mls. " +
-                                        "In queue ${buffer.size}. Close the connection"
-                            }
-                            servCallObs.onError(
-                                Status.DEADLINE_EXCEEDED
-                                    .withDescription("gRPC was not ready longer than configured timeout")
-                                    .asRuntimeException()
-                            )
-                            cancel()
+                    val readinessTimeoutMls = configuration.grpcBackPressureReadinessTimeoutMls
+                    future = scheduler.scheduleAtFixedRate({
+                        logger.warn {
+                            "gRPC was not ready more than $readinessTimeoutMls mls. " +
+                                    "In queue ${buffer.size}. One of the workers reading from cradle can be blocked"
                         }
-                    }, configuration.grpcBackPressureReadinessTimeoutMls, TimeUnit.MILLISECONDS)
+                    }, readinessTimeoutMls, readinessTimeoutMls, TimeUnit.MILLISECONDS)
                 }
             }
             if (!servCallObs.isReady) {

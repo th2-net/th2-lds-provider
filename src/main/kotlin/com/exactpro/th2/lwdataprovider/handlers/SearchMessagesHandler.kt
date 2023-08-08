@@ -276,8 +276,6 @@ class SearchMessagesHandler(
                             val filter = GroupedMessageFilter.builder()
                                 .groupName(group)
                                 .bookId(request.bookId)
-                                .timestampFrom().isGreaterThanOrEqualTo(request.startTimestamp)
-                                .timestampTo().isLessThan(request.endTimestamp)
                                 .order(orderFrom(request.searchDirection))
                                 .apply {
                                     modifyFilterBuilderTimestamps(request)
@@ -472,13 +470,9 @@ class SearchMessagesHandler(
         sink.limit?.let { limit(max(it, 0)) }
     }
 
-    private fun orderFrom(searchDirection: SearchDirection): Order {
-        val order = if (searchDirection == SearchDirection.next) {
-            Order.DIRECT
-        } else {
-            Order.REVERSE
-        }
-        return order
+    private fun orderFrom(searchDirection: SearchDirection): Order = when(searchDirection) {
+        SearchDirection.next -> Order.DIRECT
+        SearchDirection.previous -> Order.REVERSE
     }
 
     private fun MessageFilterBuilder.indexFilter(

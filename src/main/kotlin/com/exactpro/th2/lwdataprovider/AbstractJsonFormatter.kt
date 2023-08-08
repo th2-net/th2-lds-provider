@@ -58,6 +58,13 @@ abstract class AbstractJsonFormatter : JsonFormatter {
 
     }
 
+    protected fun printM(msg: Map<*, *>, sb: StringBuilder) {
+        sb.append("{")
+        sb.append("\"fields\":")
+        printMessage(sb, msg)
+        sb.append('}')
+    }
+
     private fun printTM(sessionGroup: String, msg: ParsedMessage, sb: StringBuilder) {
         sb.append("{")
         printMetadata(sessionGroup, msg, sb)
@@ -76,6 +83,23 @@ abstract class AbstractJsonFormatter : JsonFormatter {
 
     protected fun printMessageContentOnly(msg: Message, sb: StringBuilder) {
         printMessage(sb, msg)
+    }
+
+    protected fun printMessageContentOnly(msg: Map<*, *>, sb: StringBuilder) {
+        printMessage(sb, msg)
+    }
+
+    private fun printMessage(sb: StringBuilder, msg: Map<*, *>) {
+        sb.append('{')
+        if (msg.isNotEmpty()) {
+            for (entry in msg.entries) {
+                sb.append('"').append(entry.key).append("\":")
+                printDV(entry.value, sb)
+                sb.append(',')
+            }
+            sb.setLength(sb.length - 1)
+        }
+        sb.append('}')
     }
 
     private fun printMessage(sb: StringBuilder, msg: Message) {

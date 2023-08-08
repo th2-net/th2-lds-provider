@@ -39,7 +39,7 @@ class CustomSimpleJsonFormatter : AbstractJsonFormatter() {
     override fun printDV(value: Any?, sb: StringBuilder) {
         when (value) {
             null -> sb.append("null")
-            is Map<*, *> -> printM(value, sb)
+            is Map<*, *> -> printMessageContentOnly(value, sb)
             is List<*> -> {
                 sb.append("[")
                 for ((count, element) in value.withIndex()) {

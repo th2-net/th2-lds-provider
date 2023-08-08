@@ -17,8 +17,8 @@
 package com.exactpro.th2.lwdataprovider.entities.requests
 
 import com.exactpro.cradle.BookId
-import com.exactpro.cradle.TimeRelation
 import com.exactpro.th2.dataprovider.lw.grpc.MessageGroupsSearchRequest
+import com.exactpro.th2.dataprovider.lw.grpc.MessageStream
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.grpc.toInstant
 import com.exactpro.th2.lwdataprovider.grpc.toProviderMessageStreams
@@ -72,8 +72,9 @@ data class MessagesGroupRequest(
                             formats
                         }
                     },
-                request.streamList.map { it.toProviderMessageStreams() }.toSet(),
-                searchDirection = request.searchDirection.toProviderRelation()
+                request.streamList.asSequence().map(MessageStream::toProviderMessageStreams).toSet(),
+                if (request.hasResultCountLimit()) request.resultCountLimit.value else null,
+                request.searchDirection.toProviderRelation()
             )
         }
 

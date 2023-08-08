@@ -51,31 +51,18 @@ abstract class AbstractJsonFormatter : JsonFormatter {
             printMetadata(msg.metadata, sb)
             sb.append(',')
         }
-        sb.append("\"fields\":{")
-        val fieldsMap = msg.fieldsMap
-        if (fieldsMap.isNotEmpty()) {
-            for (entry in fieldsMap.entries) {
-                sb.append('"').append(entry.key).append("\":")
-                printV(entry.value, sb)
-                sb.append(',')
-            }
-            sb.setLength(sb.length - 1)
-        }
-        sb.append('}').append('}')
+        sb.append("\"fields\":")
+        printMessage(sb, msg)
+
+        sb.append('}')
+
     }
 
     protected fun printM(msg: Map<*, *>, sb: StringBuilder) {
         sb.append("{")
-        sb.append("\"fields\":{")
-        if (msg.isNotEmpty()) {
-            for (entry in msg.entries) {
-                sb.append('"').append(entry.key).append("\":")
-                printDV(entry.value, sb)
-                sb.append(',')
-            }
-            sb.setLength(sb.length - 1)
-        }
-        sb.append('}').append('}')
+        sb.append("\"fields\":")
+        printMessage(sb, msg)
+        sb.append('}')
     }
 
     private fun printTM(sessionGroup: String, msg: ParsedMessage, sb: StringBuilder) {
@@ -92,6 +79,41 @@ abstract class AbstractJsonFormatter : JsonFormatter {
             sb.setLength(sb.length - 1)
         }
         sb.append('}').append('}')
+    }
+
+    protected fun printMessageContentOnly(msg: Message, sb: StringBuilder) {
+        printMessage(sb, msg)
+    }
+
+    protected fun printMessageContentOnly(msg: Map<*, *>, sb: StringBuilder) {
+        printMessage(sb, msg)
+    }
+
+    private fun printMessage(sb: StringBuilder, msg: Map<*, *>) {
+        sb.append('{')
+        if (msg.isNotEmpty()) {
+            for (entry in msg.entries) {
+                sb.append('"').append(entry.key).append("\":")
+                printDV(entry.value, sb)
+                sb.append(',')
+            }
+            sb.setLength(sb.length - 1)
+        }
+        sb.append('}')
+    }
+
+    private fun printMessage(sb: StringBuilder, msg: Message) {
+        sb.append("{")
+        val fieldsMap = msg.fieldsMap
+        if (fieldsMap.isNotEmpty()) {
+            for (entry in fieldsMap.entries) {
+                sb.append('"').append(entry.key).append("\":")
+                printV(entry.value, sb)
+                sb.append(',')
+            }
+            sb.setLength(sb.length - 1)
+        }
+        sb.append('}')
     }
 
     private fun isNeedToEscape(s: String): Boolean {

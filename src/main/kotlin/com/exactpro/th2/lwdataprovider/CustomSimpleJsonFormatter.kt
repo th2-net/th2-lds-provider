@@ -23,7 +23,7 @@ class CustomSimpleJsonFormatter : AbstractJsonFormatter() {
         when (value.kindCase) {
             Value.KindCase.NULL_VALUE -> sb.append("null")
             Value.KindCase.SIMPLE_VALUE -> convertStringToJson(value.simpleValue, sb)
-            Value.KindCase.MESSAGE_VALUE -> printM(value.messageValue, sb)
+            Value.KindCase.MESSAGE_VALUE -> printMessageContentOnly(value.messageValue, sb)
             Value.KindCase.LIST_VALUE -> {
                 sb.append("[")
                 for ((count, element) in value.listValue.valuesList.withIndex()) {
@@ -39,7 +39,7 @@ class CustomSimpleJsonFormatter : AbstractJsonFormatter() {
     override fun printDV(value: Any?, sb: StringBuilder) {
         when (value) {
             null -> sb.append("null")
-            is Map<*, *> -> printM(value, sb)
+            is Map<*, *> -> printMessageContentOnly(value, sb)
             is List<*> -> {
                 sb.append("[")
                 for ((count, element) in value.withIndex()) {

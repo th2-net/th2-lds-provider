@@ -30,6 +30,7 @@ import com.exactpro.cradle.messages.StoredGroupedMessageBatch
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.resultset.CradleResultSet
+import com.exactpro.th2.lwdataprovider.db.OrderStrategy.Companion.toOrderStrategy
 import com.exactpro.th2.lwdataprovider.db.util.getGenericWithSyncInterval
 import com.exactpro.th2.lwdataprovider.db.util.withMeasurements
 import com.exactpro.th2.lwdataprovider.handlers.util.BookGroup
@@ -121,6 +122,7 @@ class CradleMessageExtractor(
         val group = filter.groupName
         val start = filter.from.value
         val end = filter.to.value
+        val orderStrategy = filter.order?.toOrderStrategy() ?: OrderStrategy.DIRECT
         val (
             sort: Boolean
         ) = parameters
@@ -132,7 +134,6 @@ class CradleMessageExtractor(
             return
         }
 
-        fun StoredMessage.timestampLess(batch: StoredGroupedMessageBatch): Boolean = timestamp < batch.firstTimestamp
         fun StoredGroupedMessageBatch.isNeedFiltration(): Boolean = firstTimestamp < start || lastTimestamp >= end
         fun StoredMessage.inRange(): Boolean = timestamp >= start && timestamp < end
         fun Sequence<StoredMessage>.preFilter(): Sequence<StoredMessage> =
@@ -157,6 +158,7 @@ class CradleMessageExtractor(
         val remaining: LinkedList<StoredMessage> = LinkedList()
         while (iterator.hasNext()) {
             val measurement = dataMeasurement.start("process_cradle_group_batch")
+            @Suppress("ConvertTryFinallyToUseCall")
             try {
                 sink.canceled?.apply {
                     logger.info { "canceled because: $message" }
@@ -164,29 +166,29 @@ class CradleMessageExtractor(
                 }
                 prev = currentBatch
                 currentBatch = iterator.next()
-                check(prev.firstTimestamp <= currentBatch.firstTimestamp) {
-                    "Unordered batches received: ${prev.toShortInfo()} and ${currentBatch.toShortInfo()}"
+                check(orderStrategy.checkBatchSequence(prev, currentBatch)) {
+                    "Unordered batches received for $orderStrategy: ${prev.toShortInfo()} and ${currentBatch.toShortInfo()}"
                 }
                 val needFiltration = prev.isNeedFiltration()
 
-                if (prev.lastTimestamp < currentBatch.firstTimestamp) {
+                if (orderStrategy.checkBatchContact(prev, currentBatch)) {
                     if (needFiltration) {
-                        prev.messages.filterTo(buffer, StoredMessage::inRange and parameters.preFilter)
+                        orderStrategy.reorder(prev.messages).filterTo(buffer, StoredMessage::inRange and parameters.preFilter)
                     } else {
-                        prev.messages.preFilterTo(buffer)
+                        orderStrategy.reorder(prev.messages).preFilterTo(buffer)
                     }
                     tryDrain(group, buffer, sort, sink)
                 } else {
                     generateSequence {
-                        if (!sort || remaining.peek()?.timestampLess(currentBatch) == true) remaining.poll() else null
+                        if (!sort || orderStrategy.checkMessageSequence(remaining.peek(), currentBatch)) remaining.poll() else null
                     }.toCollection(buffer)
 
                     val messageCount = prev.messageCount
-                    prev.messages.forEachIndexed { index, msg ->
+                    orderStrategy.reorder(prev.messages).forEachIndexed { index, msg ->
                         if ((needFiltration && !msg.inRange()) || parameters.preFilter?.invoke(msg) == false) {
                             return@forEachIndexed
                         }
-                        if (!sort || msg.timestampLess(currentBatch)) {
+                        if (!sort || orderStrategy.checkMessageSequence(msg, currentBatch)) {
                             buffer += msg
                         } else {
                             check(remaining.size < groupBufferSize) {
@@ -202,7 +204,7 @@ class CradleMessageExtractor(
                 measurement.close()
             }
         }
-        val remainingMessages = currentBatch.filterIfRequired()
+        val remainingMessages = orderStrategy.reorder(currentBatch.filterIfRequired())
 
         sink.canceled?.apply {
             logger.info { "canceled because: $message" }
@@ -368,3 +370,46 @@ data class CradleGroupRequest(
     val sort: Boolean,
     val preFilter: ((StoredMessage) -> Boolean)? = null,
 )
+
+private enum class OrderStrategy {
+    DIRECT {
+        override fun checkBatchSequence(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean =
+            first.firstTimestamp <= second.firstTimestamp
+
+        override fun checkMessageSequence(message: StoredMessage?, batch: StoredGroupedMessageBatch): Boolean =
+            message?.timestampLess(batch) == true
+
+        override fun checkBatchContact(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean =
+            first.lastTimestamp < second.firstTimestamp
+
+        override fun <T> reorder(collection: Collection<T>): Collection<T> = collection
+    },
+    REVERSE {
+        override fun checkBatchSequence(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean =
+            first.firstTimestamp >= second.firstTimestamp
+
+        override fun checkMessageSequence(message: StoredMessage?, batch: StoredGroupedMessageBatch): Boolean =
+            message?.timestampGreater(batch) == true
+
+        override fun checkBatchContact(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean =
+            first.firstTimestamp > second.lastTimestamp
+
+        override fun <T> reorder(collection: Collection<T>): Collection<T> = collection.reversed()
+    };
+
+    abstract fun checkBatchSequence(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean
+    abstract fun checkMessageSequence(message: StoredMessage?, batch: StoredGroupedMessageBatch): Boolean
+    abstract fun checkBatchContact(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean
+
+    abstract fun <T>reorder(collection: Collection<T>): Collection<T>
+
+    companion object {
+        internal fun Order.toOrderStrategy(): OrderStrategy = when(this) {
+            Order.DIRECT -> DIRECT
+            Order.REVERSE -> REVERSE
+        }
+
+        private fun StoredMessage.timestampLess(batch: StoredGroupedMessageBatch): Boolean = timestamp < batch.firstTimestamp
+        private fun StoredMessage.timestampGreater(batch: StoredGroupedMessageBatch): Boolean = timestamp > batch.firstTimestamp
+    }
+}

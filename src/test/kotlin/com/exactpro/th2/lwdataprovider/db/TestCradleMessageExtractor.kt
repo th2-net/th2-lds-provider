@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import com.exactpro.cradle.BookId
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
 import com.exactpro.cradle.Direction
+import com.exactpro.cradle.Order
 import com.exactpro.cradle.messages.GroupedMessageFilter
 import com.exactpro.cradle.messages.MessageFilter
 import com.exactpro.cradle.messages.MessageFilterBuilder
@@ -256,6 +257,38 @@ internal class TestCradleMessageExtractor {
         val messagesCount = (endTimestamp.epochSecond - startTimestamp.epochSecond) / increase
         val messagesPerBatch = messagesCount / batchesCount
         checkMessagesReturnsInOrder(messagesPerBatch, batchesCount, increase, messagesCount, overlap = messagesPerBatch)
+    }
+
+    @Test
+    fun getMessagesGroupReverse() {
+        val batchCount = 3
+        val messagesPerBatch = 10
+
+        val messageCount = batchCount * messagesPerBatch
+
+        val reversed = createBatches(messagesPerBatch = messagesPerBatch).take(batchCount).toList().reversed().toMutableList()
+
+        whenever(storage.getGroupedMessageBatches(any())).thenReturn(ListCradleResult(reversed))
+
+        val sink = spy(StoredMessageDataSink())
+        extractor.getMessagesGroup(
+            GroupedMessageFilter.builder()
+                .bookId(BookId("book")) // Unchecked
+                .groupName("test") // Unchecked
+                .timestampFrom().isGreaterThanOrEqualTo(startTimestamp)
+                .timestampTo().isLessThan(endTimestamp)
+                .order(Order.REVERSE)
+                .build(), CradleGroupRequest(false),
+            sink
+        )
+
+        verify(sink, atMost(messageCount)).onNext(any(), any<Collection<StoredMessage>>())
+        verify(sink, never()).onError(any<String>(), any(), any())
+        val messages = sink.messages
+        Assertions.assertEquals(messageCount, messages.size) {
+            "Unexpected messages count: $messages"
+        }
+        validateOrder(messages, messageCount, Order.REVERSE)
     }
 
     private fun checkMessagesReturnsInOrder(

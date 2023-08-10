@@ -55,7 +55,7 @@ class QueueMessagesHandler(
             return
         }
         executor.execute {
-            val param = CradleGroupRequest(false)
+            val param = CradleGroupRequest()
             val streamInfo = ProviderStreamInfo()
             val batchMetadata = MessageGroupBatchMetadata.newBuilder().setExternalQueue(request.externalQueue).build()
             createSink(handler, streamInfo, batchMaxSize) { batch, attribute ->

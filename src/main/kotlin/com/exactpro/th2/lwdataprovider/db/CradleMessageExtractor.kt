@@ -39,11 +39,9 @@ import com.exactpro.th2.lwdataprovider.toReportId
 import mu.KotlinLogging
 import java.time.Duration
 import java.time.Instant
-import java.util.LinkedList
 import kotlin.system.measureTimeMillis
 
 class CradleMessageExtractor(
-    private val groupBufferSize: Int,
     cradleManager: CradleManager,
     private val dataMeasurement: DataMeasurement,
 ) {
@@ -149,7 +147,6 @@ class CradleMessageExtractor(
         var prev: StoredGroupedMessageBatch? = null
         var currentBatch: StoredGroupedMessageBatch = iterator.next()
         val buffer: MutableList<StoredMessage> = ArrayList()
-        val remaining: LinkedList<StoredMessage> = LinkedList()
         while (iterator.hasNext()) {
             val measurement = dataMeasurement.start("process_cradle_group_batch")
             @Suppress("ConvertTryFinallyToUseCall")
@@ -173,25 +170,12 @@ class CradleMessageExtractor(
                     }
                     tryDrain(group, buffer, sink)
                 } else {
-                    generateSequence {
-                        if (orderStrategy.checkMessageSequence(remaining.peek(), currentBatch)) remaining.poll() else null
-                    }.toCollection(buffer)
-
-                    val messageCount = prev.messageCount
                     orderStrategy.reorder(prev.messages).forEachIndexed { index, msg ->
                         if ((needFiltration && !msg.inRange()) || parameters.preFilter?.invoke(msg) == false) {
                             return@forEachIndexed
                         }
-                        if (orderStrategy.checkMessageSequence(msg, currentBatch)) {
-                            buffer += msg
-                        } else {
-                            check(remaining.size < groupBufferSize) {
-                                "the group buffer size cannot hold all messages: current size $groupBufferSize but needs ${messageCount - index} more"
-                            }
-                            remaining += msg
-                        }
+                        buffer += msg
                     }
-
                     tryDrain(group, buffer, sink)
                 }
             } finally {
@@ -211,9 +195,8 @@ class CradleMessageExtractor(
         } else {
             drain(
                 group,
-                ArrayList<StoredMessage>(buffer.size + remaining.size + remainingMessages.size).apply {
+                ArrayList<StoredMessage>(buffer.size + remainingMessages.size).apply {
                     addAll(buffer)
-                    addAll(remaining)
                     addAll(remainingMessages)
                 },
                 sink

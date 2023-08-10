@@ -67,7 +67,6 @@ import java.time.temporal.ChronoUnit
 internal class TestCradleMessageExtractor {
     private val startTimestamp = Instant.now()
     private val endTimestamp = startTimestamp.plus(10, ChronoUnit.MINUTES)
-    private val groupRequestBuffer = 200
 
     private lateinit var storage: CradleStorage
     private val sinkMock: MessageDataSink<String, StoredMessage> = mock { }
@@ -82,7 +81,7 @@ internal class TestCradleMessageExtractor {
     internal fun setUp() {
         storage = mock { }
         manager = mock { on { this.storage }.thenReturn(storage) }
-        extractor = CradleMessageExtractor(groupRequestBuffer, manager, DummyDataMeasurement)
+        extractor = CradleMessageExtractor(manager, DummyDataMeasurement)
         clearInvocations(storage, messageRouter, manager)
     }
 

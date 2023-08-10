@@ -451,10 +451,8 @@ class SearchMessagesHandler(
                 bookId(request.bookId)
                 sessionAlias(stream)
                 direction(direction)
+                order(orderFrom(request.searchDirection))
                 modifyFilterBuilderTimestamps(request)
-                if (request.searchDirection == SearchDirection.previous) {
-                    order(Order.REVERSE)
-                }
                 limitFilter(sink)
             }.build()
             val time = measureTimeMillis {

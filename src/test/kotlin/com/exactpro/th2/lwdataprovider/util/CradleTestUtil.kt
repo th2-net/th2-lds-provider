@@ -113,6 +113,36 @@ class ImmutableListCradleResult<T>(collection: Collection<T>) : CradleResultSet<
 fun <T> CradleResult(vararg data: T): CradleResultSet<T> = ImmutableListCradleResult(data.toList())
 
 fun createBatches(
+    messagesPerBatch: Int = 10,
+    group: String = "test-group",
+    alias: String = "test-alias",
+    direction: Direction = Direction.SECOND,
+): Sequence<StoredGroupedMessageBatch> {
+    val messageGenerator: Sequence<StoredMessage> = sequence {
+        while (true) {
+            yield(createCradleStoredMessage(
+                alias,
+                direction,
+                Instant.now().run { epochSecond * 1_000_000_000 + nano },
+                timestamp = Instant.now(),
+            ))
+        }
+    }
+    return sequence {
+        while (true) {
+            yield(
+                StoredGroupedMessageBatch(
+                    group,
+                    messageGenerator.take(messagesPerBatch).toList(),
+                    PageId(BookId("test-book"), "test-page"),
+                    Instant.now(),
+                )
+            )
+        }
+    }
+}
+
+fun createBatches(
     messagesPerBatch: Long,
     batchesCount: Int,
     overlapCount: Long,

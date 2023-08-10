@@ -132,7 +132,6 @@ internal class TestSearchMessagesHandler {
                 includeStreams = setOf(
                     ProviderMessageStream("test-0", Direction.FIRST),
                 ),
-                searchDirection = SearchDirection.next
             ),
             handler,
             measurement,
@@ -188,7 +187,6 @@ internal class TestSearchMessagesHandler {
                 bookId = BookId("test-book"),
                 responseFormats = setOf(ResponseFormat.BASE_64),
                 includeStreams = setOf(ProviderMessageStream("test-0", Direction.FIRST)),
-                searchDirection = SearchDirection.next
             ),
             handler,
             measurement,
@@ -385,7 +383,6 @@ internal class TestSearchMessagesHandler {
             sort = true,
             keepOpen = false,
             BookId("test"),
-            searchDirection = SearchDirection.next
         )
         searchHandler.loadMessageGroups(
             request,
@@ -540,7 +537,6 @@ internal class TestSearchMessagesHandler {
             keepOpen = true,
             BookId("test"),
             responseFormats = setOf(ResponseFormat.BASE_64),
-            searchDirection = SearchDirection.next
         )
         searchHandler.loadMessageGroups(request, handler, measurement)
 
@@ -616,7 +612,6 @@ internal class TestSearchMessagesHandler {
             responseFormats = setOf(ResponseFormat.JSON_PARSED, ResponseFormat.BASE_64),
             keepOpen = false,
             bookId = BookId("test"),
-            searchDirection = SearchDirection.next
         )
         val handler = spy(MessageResponseHandlerTestImpl(measurement))
         searchHandler.loadMessageGroups(request, handler, measurement)

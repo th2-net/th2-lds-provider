@@ -157,12 +157,12 @@ class CradleMessageExtractor(
                 }
                 prev = currentBatch
                 currentBatch = iterator.next()
-                check(orderStrategy.checkBatchSequence(prev, currentBatch)) {
+                check(orderStrategy.checkBatchOrdered(prev, currentBatch)) {
                     "Unordered batches received for $orderStrategy: ${prev.toShortInfo()} and ${currentBatch.toShortInfo()}"
                 }
                 val needFiltration = prev.isNeedFiltration()
 
-                if (orderStrategy.checkBatchContact(prev, currentBatch)) {
+                if (orderStrategy.checkBatchOverlap(prev, currentBatch)) {
                     if (needFiltration) {
                         orderStrategy.reorder(prev.messages).filterTo(buffer, StoredMessage::inRange and parameters.preFilter)
                     } else {
@@ -338,9 +338,7 @@ internal class GroupBatchCheckIterator(
 ) : Iterator<StoredGroupedMessageBatch> by original {
     override fun next(): StoredGroupedMessageBatch = original.next().also { batch ->
         if (batch.messages.size > 1) {
-            batch.messages.asSequence().chunked(2).forEach { pair ->
-                val first = pair[0]
-                val second = pair[1]
+            batch.messages.asSequence().chunked(2).forEach { (first, second) ->
                 check(first.timestamp <= second.timestamp) {
                     "Unordered message received for: ${batch.toShortInfo()} batch, between ${first.toShortInfo()} and ${second.toShortInfo()} messages"
                 }
@@ -369,13 +367,13 @@ private enum class OrderStrategy {
         /**
          * Batch order 0: [1, 2], 1: [2, 3], 2: [4, 5]
          */
-        override fun checkBatchSequence(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean =
+        override fun checkBatchOrdered(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean =
             first.lastTimestamp <= second.firstTimestamp
 
-        override fun checkMessageSequence(message: StoredMessage?, batch: StoredGroupedMessageBatch): Boolean =
+        override fun checkMessageTimestamp(message: StoredMessage?, batch: StoredGroupedMessageBatch): Boolean =
             message?.timestampLess(batch) == true
 
-        override fun checkBatchContact(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean =
+        override fun checkBatchOverlap(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean =
             first.lastTimestamp < second.firstTimestamp
 
         override fun <T> reorder(collection: Collection<T>): Collection<T> = collection
@@ -384,13 +382,13 @@ private enum class OrderStrategy {
         /**
          * Batch order 0: [4, 5], 1: [2, 3], 2: [1, 2]
          */
-        override fun checkBatchSequence(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean =
+        override fun checkBatchOrdered(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean =
             first.firstTimestamp >= second.lastTimestamp
 
-        override fun checkMessageSequence(message: StoredMessage?, batch: StoredGroupedMessageBatch): Boolean =
+        override fun checkMessageTimestamp(message: StoredMessage?, batch: StoredGroupedMessageBatch): Boolean =
             message?.timestampGreater(batch) == true
 
-        override fun checkBatchContact(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean =
+        override fun checkBatchOverlap(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean =
             first.firstTimestamp > second.lastTimestamp
 
         override fun <T> reorder(collection: Collection<T>): Collection<T> = collection.reversed()
@@ -399,9 +397,9 @@ private enum class OrderStrategy {
     /**
      * Check order of grouped batch. Batches should go one by one without overlapping
      */
-    abstract fun checkBatchSequence(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean
-    abstract fun checkMessageSequence(message: StoredMessage?, batch: StoredGroupedMessageBatch): Boolean
-    abstract fun checkBatchContact(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean
+    abstract fun checkBatchOrdered(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean
+    abstract fun checkMessageTimestamp(message: StoredMessage?, batch: StoredGroupedMessageBatch): Boolean
+    abstract fun checkBatchOverlap(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean
 
     abstract fun <T>reorder(collection: Collection<T>): Collection<T>
 
@@ -412,6 +410,6 @@ private enum class OrderStrategy {
         }
 
         private fun StoredMessage.timestampLess(batch: StoredGroupedMessageBatch): Boolean = timestamp < batch.firstTimestamp
-        private fun StoredMessage.timestampGreater(batch: StoredGroupedMessageBatch): Boolean = timestamp > batch.firstTimestamp
+        private fun StoredMessage.timestampGreater(batch: StoredGroupedMessageBatch): Boolean = timestamp > batch.lastTimestamp
     }
 }

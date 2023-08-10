@@ -70,7 +70,6 @@ abstract class AbstractCradleIntegrationTest {
         )
         cradleStorage = cradleManager.storage
         messageExtractor = CradleMessageExtractor(
-            groupBufferSize = 100,
             cradleManager = cradleManager,
             DummyDataMeasurement,
         )

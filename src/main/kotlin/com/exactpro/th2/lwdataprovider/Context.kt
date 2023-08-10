@@ -73,7 +73,6 @@ class Context(
         DataMeasurementHistogram.create(registry, "cradle event")
     ),
     val cradleMsgExtractor: CradleMessageExtractor = CradleMessageExtractor(
-        configuration.groupRequestBuffer,
         cradleManager,
         DataMeasurementHistogram.create(registry, "cradle message")
     ),

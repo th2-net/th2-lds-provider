@@ -30,7 +30,6 @@ data class MessagesGroupRequest(
     val groups: Set<String>,
     val startTimestamp: Instant,
     val endTimestamp: Instant,
-    val sort: Boolean,
     val keepOpen: Boolean,
     val bookId: BookId,
     val responseFormats: Set<ResponseFormat>? = null,
@@ -60,7 +59,6 @@ data class MessagesGroupRequest(
                 },
                 if (hasStartTimestamp()) startTimestamp.toInstant() else error("missing start timestamp"),
                 if (hasEndTimestamp()) endTimestamp.toInstant() else error("missing end timestamp"),
-                if (hasSort()) sort.value else false,
                 false, // FIXME: update gRPC
                 if (hasBookId()) bookId.toCradle() else error("parameter '$BOOK_ID_PARAM' is required"),
                 request.responseFormatsList.takeIf { it.isNotEmpty() }
@@ -77,16 +75,5 @@ data class MessagesGroupRequest(
                 request.searchDirection.toProviderRelation()
             )
         }
-
-        private fun Map<String, List<String>>.booleanOrDefault(name: String, default: Boolean): Boolean {
-            val params = this[name] ?: return default
-            return params.singleOrNull()
-                ?.toBoolean() ?: error("More than one parameter $name was specified")
-        }
-
-        private fun extractInstant(map: Map<String, List<String>>, paramName: String): Instant =
-            (map[paramName] ?: error("No $paramName param was set"))
-                .singleOrNull()?.run { Instant.ofEpochMilli(toLong()) }
-                ?: error("Unexpected count of $paramName param")
     }
 }

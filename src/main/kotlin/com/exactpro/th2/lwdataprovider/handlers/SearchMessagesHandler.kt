@@ -268,7 +268,6 @@ class SearchMessagesHandler(
                 rootSink.use { sink ->
 
                     val parameters = CradleGroupRequest(
-                        sort = request.sort,
                         preFilter = createInitialPrefilter(request),
                     )
                     request.groups.forEach { group ->

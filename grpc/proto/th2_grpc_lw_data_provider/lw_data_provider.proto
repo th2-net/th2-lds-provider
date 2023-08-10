@@ -73,7 +73,8 @@ message MessageGroupsSearchRequest {
   google.protobuf.Timestamp end_timestamp = 2;
   BookId book_id = 7;
   repeated Group message_group = 3;
-  google.protobuf.BoolValue sort = 4;
+  // deprecated: grouped message batches are already sorted and haven't got overlapping
+  google.protobuf.BoolValue sort = 4 [deprecated = true];
   // deprecated: use response_formats with only BASE_64 to achieve the same effect
   bool raw_only = 5 [deprecated = true];
   bool keep_open = 6;

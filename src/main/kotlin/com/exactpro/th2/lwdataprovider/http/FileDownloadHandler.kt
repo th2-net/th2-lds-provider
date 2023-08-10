@@ -64,8 +64,7 @@ class FileDownloadHandler(
     @OpenApi(
         path = ROUTE_MESSAGES,
         description = "returns list of messages for specified groups. Each group will be requested one after another " +
-                "(there is no order guaranties between groups). Messages for a group are not sorted by default. " +
-                "Use $SORT_PARAMETER in order to sort messages for each group",
+                "(there is no order guaranties between groups). Messages for a group are not sorted by default. ",
         queryParams = [
             OpenApiParam(
                 GROUP_PARAM,
@@ -91,7 +90,9 @@ class FileDownloadHandler(
             OpenApiParam(
                 SORT_PARAMETER,
                 type = Boolean::class,
-                description = "enables message sorting in the request",
+                description = "enables message sorting in the request. " +
+                        "Parameter is deprecated: grouped message batches are already sorted and haven't got overlapping",
+                deprecated = true,
             ),
             OpenApiParam(
                 RAW_ONLY_PARAMETER,
@@ -150,8 +151,6 @@ class FileDownloadHandler(
                 .get(),
             endTimestamp = ctx.queryParamAsClass<Instant>(END_TIMESTAMP_PARAM)
                 .get(),
-            sort = ctx.queryParamAsClass<Boolean>(SORT_PARAMETER)
-                .getOrDefault(false),
             keepOpen = ctx.queryParamAsClass<Boolean>(KEEP_OPEN_PARAMETER)
                 .getOrDefault(false),
             bookId = ctx.queryParamAsClass<BookId>(BOOK_ID_PARAM).get(),

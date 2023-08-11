@@ -128,6 +128,8 @@ tasks.register('integrationTest', Test) {
     }
 }
 
+tasks.named("build") { finalizedBy("generateLicenseReport") }
+
 applicationName = 'service'
 
 distTar {

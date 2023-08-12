@@ -18,9 +18,9 @@ publishing {
                 name = rootProject.name
                 packaging = 'jar'
                 description = rootProject.description
-                url = vcs_url
+                url = rootProject.vcs_url
                 scm {
-                    url = vcs_url
+                    url = rootProject.vcs_url
                 }
                 licenses {
                     license {
@@ -36,7 +36,7 @@ publishing {
                     }
                 }
                 scm {
-                    url = vcs_url
+                    url = rootProject.vcs_url
                 }
             }
         }

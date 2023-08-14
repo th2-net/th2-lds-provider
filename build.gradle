@@ -40,7 +40,7 @@ dependencies {
         exclude group: 'com.exactpro.th2', module: 'cradle-cassandra'
     }
 
-    implementation(enforcedPlatform('org.eclipse.jetty:jetty-bom:11.0.15')) {
+    implementation(platform('org.eclipse.jetty:jetty-bom:11.0.15')) {
         because('vulnerabilities in version 11.0.13. Can be removed after updating Javalin and Kotlin')
     }
 

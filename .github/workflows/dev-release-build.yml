@@ -27,7 +27,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
       - name: Build with Gradle
-        run: ./gradlew -p . --info -Pversion_suffix='dev' :grpc:clean :grpc:build :grpc:publish :closeAndReleaseSonatypeStagingRepository
+        run: ./gradlew --info -Pversion_suffix='dev' clean build publish closeAndReleaseSonatypeStagingRepository
         env:
           ORG_GRADLE_PROJECT_sonatypeUsername: ${{ secrets.SONATYPE_NEXUS_USERNAME }}
           ORG_GRADLE_PROJECT_sonatypePassword: ${{ secrets.SONATYPE_NEXUS_PASSWORD }}
@@ -41,7 +41,7 @@ jobs:
       - versions
     uses: th2-net/.github/.github/workflows/compaund-python-grpc-pypi-publication.yml@main
     with:
-      custom-version: ${{ needs.versions.outputs.version }}.dev0
+      custom-version: ${{ needs.versions.outputs.version }}.dev
       project-path: grpc
     secrets:
       pypi_password: ${{ secrets.PYPI_PASSWORD }}

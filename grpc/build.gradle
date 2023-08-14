@@ -8,12 +8,12 @@ plugins {
 ext {
     grpcVersion = '1.56.0'
     protobufVersion = '3.23.2'
-    serviceGeneratorVersion = '3.4.0-TH2-4887-vulnerabilities-5346040251-1bed6cd-SNAPSHOT'
+    serviceGeneratorVersion = '3.4.0'
     genBaseDir = file("${buildDir}/generated/source/proto") // from protobuf plugin
 }
 
 dependencies {
-    api "com.exactpro.th2:grpc-common:4.3.0-TH2-4887-vulnerabilities-5346500826-f180a19-SNAPSHOT"
+    api "com.exactpro.th2:grpc-common:4.3.0-dev"
     api "com.google.protobuf:protobuf-java-util"
     api "io.grpc:grpc-stub"
     implementation "io.grpc:grpc-protobuf"

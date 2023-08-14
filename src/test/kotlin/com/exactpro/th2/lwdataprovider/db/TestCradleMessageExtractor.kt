@@ -27,6 +27,7 @@ import com.exactpro.cradle.messages.StoredGroupedMessageBatch
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.MessageRouter
+import com.exactpro.th2.lwdataprovider.util.DummyDataMeasurement
 import com.exactpro.th2.lwdataprovider.util.ImmutableListCradleResult
 import com.exactpro.th2.lwdataprovider.util.ListCradleResult
 import com.exactpro.th2.lwdataprovider.util.createBatches
@@ -60,9 +61,6 @@ internal class TestCradleMessageExtractor {
     private val startTimestamp = Instant.now()
     private val endTimestamp = startTimestamp.plus(10, ChronoUnit.MINUTES)
     private val groupRequestBuffer = 200
-    private val measurement: DataMeasurement = mock {
-        on { start(any()) } doReturn mock { }
-    }
 
     private lateinit var storage: CradleStorage
 
@@ -76,7 +74,7 @@ internal class TestCradleMessageExtractor {
     internal fun setUp() {
         storage = mock { }
         manager = mock { on { this.storage }.thenReturn(storage) }
-        extractor = CradleMessageExtractor(groupRequestBuffer, manager)
+        extractor = CradleMessageExtractor(groupRequestBuffer, manager, DummyDataMeasurement)
         clearInvocations(storage, messageRouter, manager)
     }
 
@@ -91,6 +89,7 @@ internal class TestCradleMessageExtractor {
                 }
             }
         }
+
         var start = Instant.now()
         // -- 10 minutes
         // a 1-2-|3-4|-5
@@ -111,7 +110,6 @@ internal class TestCradleMessageExtractor {
             messagesByAlias.keys.map { createMessageFilter(it) },
             Duration.ofMinutes(20),
             sink,
-            measurement,
         )
         expectThat(sink.messages)
             .hasSize(messagesByAlias.values.sumOf { it.size })
@@ -145,6 +143,7 @@ internal class TestCradleMessageExtractor {
                 }
             }
         }
+
         var start = Instant.now()
         // -- 10 minutes
         // a 1-2-3-4-5
@@ -165,7 +164,6 @@ internal class TestCradleMessageExtractor {
             messagesByAlias.keys.map { createMessageFilter(it) },
             Duration.ofMinutes(20),
             sink,
-            measurement,
         )
         expectThat(sink.messages)
             .hasSize(messagesByAlias.values.sumOf { it.size })
@@ -185,6 +183,7 @@ internal class TestCradleMessageExtractor {
                 }
             }
         }
+
         val start = Instant.now()
         // -- 10 minutes
         // a 1-2-|3-4-|5
@@ -203,7 +202,6 @@ internal class TestCradleMessageExtractor {
             messagesByAlias.keys.map { createMessageFilter(it) },
             Duration.ofMinutes(20),
             sink,
-            measurement,
         )
         val messageInInterval = 2
         expectThat(sink.messages)
@@ -212,10 +210,10 @@ internal class TestCradleMessageExtractor {
                 messagesByAlias.getValue("a").take(messageInInterval) +
                         messagesByAlias.getValue("b").take(messageInInterval) +
                         messagesByAlias.getValue("c").take(messageInInterval) +
-                messagesByAlias.getValue("a").drop(messageInInterval).take(messageInInterval) +
+                        messagesByAlias.getValue("a").drop(messageInInterval).take(messageInInterval) +
                         messagesByAlias.getValue("b").drop(messageInInterval).take(messageInInterval) +
                         messagesByAlias.getValue("c").drop(messageInInterval).take(messageInInterval) +
-                messagesByAlias.getValue("a").takeLast(1) +
+                        messagesByAlias.getValue("a").takeLast(1) +
                         messagesByAlias.getValue("b").takeLast(1) +
                         messagesByAlias.getValue("c").takeLast(1)
             )
@@ -233,7 +231,13 @@ internal class TestCradleMessageExtractor {
         val increase = 5L
         val messagesCount = (endTimestamp.epochSecond - startTimestamp.epochSecond) / increase
         val messagesPerBatch = messagesCount / batchesCount
-        checkMessagesReturnsInOrder(messagesPerBatch, batchesCount, increase, messagesCount, overlap = messagesPerBatch / 2)
+        checkMessagesReturnsInOrder(
+            messagesPerBatch,
+            batchesCount,
+            increase,
+            messagesCount,
+            overlap = messagesPerBatch / 2
+        )
     }
 
     @ParameterizedTest
@@ -254,7 +258,13 @@ internal class TestCradleMessageExtractor {
         checkMessagesReturnsInOrder(messagesPerBatch, batchesCount, increase, messagesCount, overlap = messagesPerBatch)
     }
 
-    private fun checkMessagesReturnsInOrder(messagesPerBatch: Long, batchesCount: Int, increase: Long, messagesCount: Long, overlap: Long) {
+    private fun checkMessagesReturnsInOrder(
+        messagesPerBatch: Long,
+        batchesCount: Int,
+        increase: Long,
+        messagesCount: Long,
+        overlap: Long
+    ) {
         val batchesList: MutableList<StoredGroupedMessageBatch> = createBatches(
             messagesPerBatch = messagesPerBatch,
             batchesCount = batchesCount,
@@ -268,10 +278,11 @@ internal class TestCradleMessageExtractor {
         val sink = spy(StoredMessageDataSink())
         extractor.getMessagesGroup(
             GroupedMessageFilter.builder()
+                .bookId(BookId("book"))
                 .groupName("test")
                 .timestampFrom().isGreaterThanOrEqualTo(startTimestamp)
                 .timestampTo().isLessThan(endTimestamp)
-                .build(), CradleGroupRequest(true), sink, measurement
+                .build(), CradleGroupRequest(true), sink
         )
 
         verify(sink, atMost(messagesCount.toInt())).onNext(any(), any<Collection<StoredMessage>>())

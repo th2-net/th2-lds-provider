@@ -21,22 +21,20 @@ import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.entities.requests.AllPageInfoRequest
-import com.exactpro.th2.lwdataprovider.entities.requests.SsePageInfosSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.PageInfo
 import com.exactpro.th2.lwdataprovider.handlers.GeneralCradleHandler
+import com.exactpro.th2.lwdataprovider.http.JavalinHandler.Companion.customSse
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import io.javalin.Javalin
 import io.javalin.http.Context
 import io.javalin.http.pathParamAsClass
 import io.javalin.http.queryParamAsClass
-import io.javalin.http.sse.SseClient
 import io.javalin.openapi.HttpMethod
 import io.javalin.openapi.OpenApi
 import io.javalin.openapi.OpenApiContent
 import io.javalin.openapi.OpenApiParam
 import io.javalin.openapi.OpenApiResponse
 import mu.KotlinLogging
-import java.time.Instant
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.function.Supplier
 
@@ -47,11 +45,11 @@ class GetAllPageInfosServlet(
     private val handler: GeneralCradleHandler,
 ) : AbstractSseRequestHandler() {
 
-    override fun setup(app: Javalin) {
+    override fun setup(app: Javalin, context: JavalinContext) {
         app.before(ROUTE) {
             it.attribute(REQUEST_KEY, createRequest(it))
         }
-        app.sse(ROUTE, this)
+        app.customSse(ROUTE, this, context)
     }
 
     @OpenApi(

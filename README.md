@@ -1,4 +1,4 @@
-# Lightweight data provider (2.0.0)
+# Lightweight data provider (2.0.1)
 
 # Overview
 This component serves as a data provider for [th2-data-services](https://github.com/th2-net/th2-data-services). It will connect to the cassandra database via [cradle api](https://github.com/th2-net/cradleapi) and expose the data stored in there as REST resources.
@@ -75,6 +75,7 @@ Filter parameters:
 - `group` - the repeatable parameter java.time.Instantwith group names to request. **At least one must be specified**
 - `keepOpen` - keeps pulling for updates until have not found any message outside the requested interval. Disabled by default
 - `bookId` - book ID for requested messages (*required)
+- `responseFormat` - text, accepts multiple values - sets response formats. Possible values: BASE_64, PROTO_PARSED, JSON_PARSED. default value - BASE_64 & PROTO_PARSED.
 Example: `http://localhost:8080/search/sse/messages/group?group=A&group=B&startTimestamp=15600000&endTimestamp=15700000`
 
 `http://localhost:8080/search/sse/page-infos` - creates an SSE channel of page infos that matches the requested book id for the requested time period
@@ -116,7 +117,7 @@ spec:
 #   batchSize: 100 # batch size from codecs
 #   codecUsePinAttributes: true # send raw message to specified codec (true) or send to all codecs (false) 
 #   responseFormats: string list # resolve data for selected formats only. (allowed values: BASE_64, PARSED)
-    
+#   flushSseAfter: 0 # number of SSE emitted before flushing data to the output stream. 0 means flush after each event
 
   pins: # pins are used to communicate with codec components to parse message data
     - name: to_codec
@@ -214,3 +215,11 @@ spec:
         memory: 300Mi
         cpu: 50m
 ```
+
+# Release notes:
+
+## 2.0.1
+
++ Removed extra `fields` field from JSON_PARSED message format. 
+  + Old: `{"fields":{"a":{"fields":{"b":"1"}}}}`
+  + New: `{"fields":{"a":{"b":"1"}}}`

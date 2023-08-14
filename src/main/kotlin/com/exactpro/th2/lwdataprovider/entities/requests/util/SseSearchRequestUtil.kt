@@ -16,7 +16,9 @@
 
 package com.exactpro.th2.lwdataprovider.entities.requests.util
 
+import com.exactpro.cradle.Direction
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
+import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
 import java.time.Instant
 
 fun getInitEndTimestamp(passedEndTimestamp: Instant?, resultCountLimit: Int?) : Instant? {
@@ -28,3 +30,18 @@ fun getInitEndTimestamp(passedEndTimestamp: Instant?, resultCountLimit: Int?) : 
 }
 
 fun invalidRequest(text: String): Nothing = throw InvalidRequestException(text)
+
+fun convertToMessageStreams(streams: List<String>): List<ProviderMessageStream> = streams.asSequence().flatMap {
+    if (it.contains(':')) {
+        val parts = it.split(':')
+        when (parts.size) {
+            2 -> {
+                val (alias, direction) = parts
+                sequenceOf(ProviderMessageStream(alias, requireNotNull(Direction.byLabel(direction)) { "incorrect direction $direction" }))
+            }
+            else -> error("incorrect stream '$it'")
+        }
+    } else {
+        sequenceOf(ProviderMessageStream(it, Direction.SECOND), ProviderMessageStream(it, Direction.FIRST))
+    }
+}.toList()

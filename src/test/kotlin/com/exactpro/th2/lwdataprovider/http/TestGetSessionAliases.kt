@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,7 +41,6 @@ import strikt.jackson.textValue
 import strikt.jackson.textValues
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletableFuture.supplyAsync
 
 class TestGetSessionAliases : AbstractHttpHandlerTest<GetSessionAliases>() {
@@ -224,11 +223,11 @@ class TestGetSessionAliases : AbstractHttpHandlerTest<GetSessionAliases>() {
 
         val parameters = setOf("startTimestamp", "startTimestamp")
         return setOf("/book/test/message/aliases", "/book/test/message/aliases/sse").flatMap { route ->
-                parameters.map {
-                    DynamicTest.dynamicTest("Route: $route, param: $it") {
-                        test(route, it)
-                    }
+            parameters.map {
+                DynamicTest.dynamicTest("Route: $route, param: $it") {
+                    test(route, it)
                 }
             }
+        }
     }
 }

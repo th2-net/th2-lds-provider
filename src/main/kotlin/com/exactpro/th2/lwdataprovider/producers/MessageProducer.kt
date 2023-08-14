@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,9 @@
 
 package com.exactpro.th2.lwdataprovider.producers
 
-import com.exactpro.th2.lwdataprovider.CustomProtoJsonFormatter
+import com.exactpro.th2.lwdataprovider.RequestedMessage
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
+import com.exactpro.th2.lwdataprovider.transport.toProtoMessageId
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderParsedMessage
 import java.util.Base64
@@ -26,27 +27,20 @@ class MessageProducer {
 
     companion object {
 
-        fun createMessage(rawMessage: RequestedMessageDetails, formatter: CustomProtoJsonFormatter): ProviderMessage {
+        fun createMessage(rawMessage: RequestedMessage, formatter: JsonFormatter?, includeRaw: Boolean): ProviderMessage {
             return ProviderMessage(
                 rawMessage.storedMessage,
-                rawMessage.parsedMessage?.asSequence()?.map { msg ->
-                    ProviderParsedMessage(msg.metadata.id, formatter.print(msg))
+                rawMessage.protoMessage?.takeIf { formatter != null }?.asSequence()?.map { msg ->
+                    ProviderParsedMessage(msg.metadata.id, formatter!!.print(msg))
+                }?.toList() ?: rawMessage.transportMessage?.takeIf { formatter != null }?.asSequence()?.map { msg ->
+                    val book = rawMessage.requestId.bookName
+                    val sessionGroup = rawMessage.sessionGroup
+                    ProviderParsedMessage(msg.id.toProtoMessageId(book, sessionGroup), formatter!!.print(sessionGroup, msg))
                 }?.toList() ?: emptyList(),
-                rawMessage.rawMessage.let {
-                    Base64.getEncoder().encodeToString(it.body.toByteArray())
-                }
-            )
-        }
-
-        fun createOnlyRawMessage(rawMessage: RequestedMessageDetails): ProviderMessage {
-            return ProviderMessage(
-                rawMessage.storedMessage,
-                emptyList(),
-                rawMessage.rawMessage.let {
-                    Base64.getEncoder().encodeToString(it.body.toByteArray())
+                rawMessage.storedMessage.takeIf { includeRaw }?.let {
+                    Base64.getEncoder().encodeToString(it.content)
                 }
             )
         }
     }
-    
 }

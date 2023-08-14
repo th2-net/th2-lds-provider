@@ -19,6 +19,7 @@ package com.exactpro.th2.lwdataprovider.util
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
+import com.exactpro.th2.lwdataprovider.workers.RequestId
 import org.junit.jupiter.api.Assertions
 
 fun validateOrder(messages: List<StoredMessage>, expectedUniqueMessages: Int) {
@@ -40,9 +41,9 @@ fun validateOrder(messages: List<StoredMessage>, expectedUniqueMessages: Int) {
 
 fun validateMessagesOrder(messages: List<RequestedMessageDetails>, expectedUniqueMessages: Int) {
     var prevMessage: RequestedMessageDetails? = null
-    val ids = HashSet<String>(expectedUniqueMessages)
+    val ids = HashSet<RequestId>(expectedUniqueMessages)
     for (message in messages) {
-        ids += message.id
+        ids += message.requestId
         prevMessage?.also {
             Assertions.assertTrue(it.storedMessage.timestamp <= message.storedMessage.timestamp) {
                 "Unordered messages: $it and $message"

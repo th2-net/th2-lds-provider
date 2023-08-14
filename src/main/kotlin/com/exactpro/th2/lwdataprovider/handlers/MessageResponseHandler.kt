@@ -28,7 +28,7 @@ import javax.annotation.concurrent.GuardedBy
 import kotlin.concurrent.withLock
 
 abstract class MessageResponseHandler(
-    private val dataMeasurement: DataMeasurement,
+    protected val dataMeasurement: DataMeasurement,
     private val maxMessagesPerRequest: Int = 0,
 ) : AbstractCancelableHandler(), ResponseHandler<RequestedMessageDetails> {
     private val lock: ReentrantLock = ReentrantLock()
@@ -45,14 +45,19 @@ abstract class MessageResponseHandler(
     val isDataProcessed: Boolean
         get() = lock.withLock { messagesInProcess == 0 }
 
+    init {
+        LOGGER.debug { "Created ${this::class.simpleName}, max messages per request: $maxMessagesPerRequest" }
+    }
+
     fun checkAndWaitForRequestLimit(msgBufferCount: Int) {
         var submitted = false
-        dataMeasurement.start("await_queue").use {
+        dataMeasurement.start("await_decode_queue").use {
             do {
                 lock.withLock {
                     val expectedSize = messagesInProcess + msgBufferCount
                     @Suppress("ConvertTwoComparisonsToRangeCheck")
                     if (maxMessagesPerRequest > 0 && maxMessagesPerRequest < expectedSize) {
+                        LOGGER.debug { "Wait free place in decode queue [ in progress: $messagesInProcess ], request size: $msgBufferCount" }
                         condition.await()
                     } else {
                         messagesInProcess = expectedSize
@@ -78,14 +83,16 @@ abstract class MessageResponseHandler(
 
     override fun handleNext(data: RequestedMessageDetails) {
         streamInfo.registerMessage(data.storedMessage.id, data.storedMessage.timestamp)
-        handleNextInternal(data)
+        dataMeasurement.start("put_queue").use {
+            handleNextInternal(data)
+        }
     }
 
     fun requestReceived() {
         onMessageReceived()
-            if (allMessagesRequested && isDataProcessed) {
-                LOGGER.info { "Last message processed" }
-                complete()
+        if (allMessagesRequested && isDataProcessed) {
+            LOGGER.info { "Last message processed" }
+            complete()
 
         }
     }

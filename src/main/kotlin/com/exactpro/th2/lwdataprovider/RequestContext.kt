@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,23 +18,27 @@ package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.th2.common.grpc.Message
-import com.exactpro.th2.common.grpc.RawMessage
-import com.exactpro.th2.lwdataprovider.grpc.toRawMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
+import com.exactpro.th2.lwdataprovider.metrics.DecodingMetrics
+import com.exactpro.th2.lwdataprovider.workers.CradleRequestId
+import com.exactpro.th2.lwdataprovider.workers.RequestId
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 
 class RequestedMessageDetails(
     val storedMessage: StoredMessage,
-    val group: String? = null,
+    val sessionGroup: String? = null,
     private val onResponse: ((RequestedMessageDetails) -> Unit)? = null
 ) {
-    val id: String = storedMessage.id.toString()
-    val rawMessage: RawMessage = storedMessage.toRawMessage()
+    val requestId: RequestId = CradleRequestId(storedMessage.id)
+
     @Volatile
     var time: Long = 0
-    var parsedMessage: List<Message>? = null
-    private val completed = CompletableFuture<RequestedMessage>()
+    var protoParsedMessages: List<Message>? = null
+    var transportParsedMessages: List<ParsedMessage>? = null
+    val completed = CompletableFuture<RequestedMessage>()
+
     init {
         if (onResponse == null) {
             // nothing to await
@@ -57,13 +61,23 @@ class RequestedMessageDetails(
     }
 
     private fun complete() {
-        completed.complete(RequestedMessage(id, storedMessage, rawMessage, parsedMessage))
+        completed.complete(
+            RequestedMessage(
+                requestId,
+                sessionGroup ?: "",
+                storedMessage,
+                protoParsedMessages,
+                transportParsedMessages
+            )
+        )
+        DecodingMetrics.incDecoded()
     }
 }
 
 class RequestedMessage(
-    val id: String,
+    val requestId: RequestId,
+    val sessionGroup: String,
     val storedMessage: StoredMessage,
-    val rawMessage: RawMessage,
-    val parsedMessage: List<Message>?,
+    val protoMessage: List<Message>?,
+    val transportMessage: List<ParsedMessage>?,
 )

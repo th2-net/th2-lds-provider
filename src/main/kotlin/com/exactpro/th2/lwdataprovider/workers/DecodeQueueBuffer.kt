@@ -1,5 +1,5 @@
-/*******************************************************************************
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+/*
+ * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,12 +12,14 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ */
 
 package com.exactpro.th2.lwdataprovider.workers
 
 import com.exactpro.th2.common.grpc.Message
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
+import com.exactpro.th2.lwdataprovider.metrics.DecodingMetrics
 import mu.KotlinLogging
 import java.util.concurrent.locks.ReentrantLock
 import javax.annotation.concurrent.GuardedBy
@@ -29,20 +31,36 @@ class DecodeQueueBuffer(
 
     private val lock = ReentrantLock()
     @GuardedBy("lock")
-    private val decodeQueue: MutableMap<String, MutableList<RequestedMessageDetails>> = HashMap()
+    private val decodeQueue: MutableMap<RequestId, MutableList<RequestedMessageDetails>> = HashMap()
+
+    @GuardedBy("lock")
+    private val decodeTimers: MutableMap<RequestId, AutoCloseable> = HashMap()
 
     @GuardedBy("lock")
     private val decodeCond = lock.newCondition()
     @GuardedBy("lock")
     private var locked: Boolean = false
-    
-    fun add(details: RequestedMessageDetails) {
+
+    fun add(details: RequestedMessageDetails, session: String) {
         lock.withLock {
-            decodeQueue.computeIfAbsent(details.id) { ArrayList(1) }.add(details)
+            decodeQueue.computeIfAbsent(details.requestId) { ArrayList(1) }.add(details)
+            decodeTimers.computeIfAbsent(details.requestId) { DecodingMetrics.startTimer(session) }
+            DecodingMetrics.currentWaiting(decodeQueue.size)
+        }
+    }
+
+    fun addAll(details: Collection<RequestedMessageDetails>, session: String) {
+        lock.withLock {
+            decodeTimers.computeIfAbsent(details.first().requestId) { DecodingMetrics.startTimer(session) }
+            for (detail in details) {
+                decodeQueue.computeIfAbsent(detail.requestId) { ArrayList(1) }.add(detail)
+            }
+            DecodingMetrics.currentWaiting(decodeQueue.size)
         }
     }
 
     fun checkAndWait(size: Int) {
+        // FIXME: won't actually work in multithreading scenario... We need to reserve that space
         if (maxDecodeQueueSize <= 0) return // unlimited
         check(size in 0..maxDecodeQueueSize) { "size of the single request must be less than the max queue size" }
         var submitted = false
@@ -65,35 +83,52 @@ class DecodeQueueBuffer(
         LOGGER.trace { "Decode request for $size message(s) is submitted" }
     }
 
-    override fun responseReceived(id: String, response: () -> List<Message>) {
-        processResponse(id, response)
+    override fun batchReceived(firstRequestId: RequestId) {
+        lock.withLock {
+            decodeTimers.remove(firstRequestId)?.close()
+        }
     }
 
-    override fun bulkResponsesReceived(responses: Map<String, () -> List<Message>>) {
+    override fun responseProtoReceived(id: RequestId, response: () -> List<Message>) {
+        processResponse(id, response, RequestedMessageDetails::responseFinished)
+    }
+
+    override fun responseTransportReceived(id: RequestId, response: () -> List<ParsedMessage>) {
+        processResponse(id, response, RequestedMessageDetails::responseTransportFinished)
+    }
+
+    override fun bulkResponsesProtoReceived(responses: Map<RequestId, () -> List<Message>>) {
         // TODO: maybe we should use something optimized for bulk removal instead of simple map
-        responses.forEach(this::processResponse)
+        responses.forEach(this::responseProtoReceived)
+    }
+
+    override fun bulkResponsesTransportReceived(responses: Map<RequestId, () -> List<ParsedMessage>>) {
+        // TODO: maybe we should use something optimized for bulk removal instead of simple map
+        responses.forEach(this::responseTransportReceived)
     }
 
     override fun removeOlderThan(timeout: Long): Long {
         return withQueueLockAndRelease {
             val currentTime = System.currentTimeMillis()
-            var mintime = currentTime
+            var minTime = currentTime
             val entries = decodeQueue.entries.iterator()
             while (entries.hasNext()) {
                 val (id, details) = entries.next()
                 if (details.any { currentTime - it.time >= timeout }) {
                     entries.remove()
+                    decodeTimers.remove(id)?.close()
                     LOGGER.trace { "Requests for message $id were cancelled due to timeout" }
                     details.forEach { it.timeout() }
                 } else {
                     // Possible cause of timeout thread death
                     val oldestReq = details.minOf { it.time }
-                    if (oldestReq < mintime) {
-                        mintime = oldestReq
+                    if (oldestReq < minTime) {
+                        minTime = oldestReq
                     }
                 }
             }
-            mintime
+            DecodingMetrics.currentWaiting(decodeQueue.size)
+            minTime
         }
     }
 
@@ -129,9 +164,15 @@ class DecodeQueueBuffer(
         }
     }
 
-    private fun processResponse(id: String, response: () -> List<Message>) {
+    private fun <M> processResponse(
+        id: RequestId,
+        response: () -> List<M>,
+        responseFinished: RequestedMessageDetails.(List<M>) -> Unit
+    ) {
         val details = withQueueLockAndRelease {
-            decodeQueue.remove(id) ?: run {
+            decodeQueue.remove(id)?.also {
+                DecodingMetrics.currentWaiting(decodeQueue.size)
+            } ?: run {
                 LOGGER.info { "Received unexpected message $id. There is no request for this message in decode queue" }
                 return
             }
@@ -149,9 +190,18 @@ class DecodeQueueBuffer(
     }
 }
 
-private fun RequestedMessageDetails.timeout(): Unit = responseFinished(null)
+private fun RequestedMessageDetails.timeout() {
+    protoParsedMessages = null
+    transportParsedMessages = null
+    responseMessage()
+}
 
-private fun RequestedMessageDetails.responseFinished(response: List<Message>?) {
-    parsedMessage = response
+private fun RequestedMessageDetails.responseFinished(response: List<Message>) {
+    protoParsedMessages = response
+    responseMessage()
+}
+
+private fun RequestedMessageDetails.responseTransportFinished(response: List<ParsedMessage>) {
+    transportParsedMessages = response
     responseMessage()
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,6 @@ import com.exactpro.cradle.resultset.CradleResultSet
 import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.cradle.testevents.StoredTestEventSingle
 import com.exactpro.cradle.testevents.TestEventSingleToStore
-import com.exactpro.cradle.testevents.TestEventToStore
 import java.time.Instant
 
 fun createCradleStoredMessage(
@@ -36,8 +35,9 @@ fun createCradleStoredMessage(
     index: Long,
     content: String = "hello",
     timestamp: Instant? = Instant.now(),
+    book: String = "test",
 ): StoredMessage = MessageToStoreBuilder()
-    .bookId(BookId("test"))
+    .bookId(BookId(book))
     .direction(direction)
     .sessionAlias(streamName)
     .sequence(index)
@@ -79,9 +79,15 @@ fun createEventStoredEvent(
     .endTimestamp(end.minusSeconds(1))
     .build()
 
-fun TestEventSingleToStore.toStoredEvent(pageID: PageId? = null): StoredTestEventSingle = StoredTestEventSingle(this, pageID)
+fun TestEventSingleToStore.toStoredEvent(pageID: PageId? = null): StoredTestEventSingle =
+    StoredTestEventSingle(this, pageID)
 
-fun createEventId(id: String, book: String? = "test", scope: String? = "test-scope", timestamp: Instant? = Instant.now()): StoredTestEventId =
+fun createEventId(
+    id: String,
+    book: String? = "test",
+    scope: String? = "test-scope",
+    timestamp: Instant? = Instant.now()
+): StoredTestEventId =
     StoredTestEventId(BookId(book), scope, timestamp, id)
 
 class ListCradleResult<T>(collection: MutableCollection<T>) : CradleResultSet<T> {
@@ -103,6 +109,9 @@ class ImmutableListCradleResult<T>(collection: Collection<T>) : CradleResultSet<
     override fun next(): T = iterator.next()
 }
 
+@Suppress("TestFunctionName")
+fun <T> CradleResult(vararg data: T): CradleResultSet<T> = ImmutableListCradleResult(data.toList())
+
 fun createBatches(
     messagesPerBatch: Long,
     batchesCount: Int,
@@ -116,23 +125,44 @@ fun createBatches(
     ArrayList<StoredGroupedMessageBatch>().apply {
         val startSeconds = startTimestamp.epochSecond
         repeat(batchesCount) {
-            val start = Instant.ofEpochSecond(startSeconds + it * increase * (messagesPerBatch - overlapCount), startTimestamp.nano.toLong())
-            add(StoredGroupedMessageBatch(
-                group,
-                createStoredMessages(
-                    "test${it + aliasIndexOffset}",
-                    Instant.now().run { epochSecond * 1_000_000_000 + nano },
-                    start,
-                    messagesPerBatch,
-                    direction = if (it % 2 == 0) Direction.FIRST else Direction.SECOND,
-                    incSeconds = increase,
-                    end,
-                ),
-                PageId(BookId("test-book"), "test-page"),
-                Instant.now(),
-            ))
+            val start = Instant.ofEpochSecond(
+                startSeconds + it * increase * (messagesPerBatch - overlapCount),
+                startTimestamp.nano.toLong()
+            )
+            add(
+                StoredGroupedMessageBatch(
+                    group,
+                    createStoredMessages(
+                        "test${it + aliasIndexOffset}",
+                        Instant.now().run { epochSecond * 1_000_000_000 + nano },
+                        start,
+                        messagesPerBatch,
+                        direction = if (it % 2 == 0) Direction.FIRST else Direction.SECOND,
+                        incSeconds = increase,
+                        end,
+                    ),
+                    PageId(BookId("test-book"), "test-page"),
+                    Instant.now(),
+                )
+            )
         }
     }
+
+@Suppress("TestFunctionName")
+fun GroupBatch(group: String, vararg messages: StoredMessage): StoredGroupedMessageBatch = GroupBatch(
+    group,
+    "test",
+    messages.toList(),
+)
+
+@Suppress("TestFunctionName")
+fun GroupBatch(group: String, book: String? = "test", messages: Collection<StoredMessage>): StoredGroupedMessageBatch =
+    StoredGroupedMessageBatch(
+        group,
+        messages,
+        PageId(BookId(book), "test-page-${System.currentTimeMillis()}"),
+        Instant.now(),
+    )
 
 fun createStoredMessages(
     alias: String,

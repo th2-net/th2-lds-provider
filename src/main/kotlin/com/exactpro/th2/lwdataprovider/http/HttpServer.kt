@@ -1,5 +1,5 @@
-/*******************************************************************************
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+/*
+ * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ */
 
 package com.exactpro.th2.lwdataprovider.http
 
@@ -23,6 +23,9 @@ import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
+import com.exactpro.th2.lwdataprovider.producers.MessageProducer
+import com.exactpro.th2.lwdataprovider.producers.MessageProducer53
+import com.exactpro.th2.lwdataprovider.producers.MessageProducer53Transport
 import io.javalin.Javalin
 import io.javalin.config.JavalinConfig
 import io.javalin.http.BadRequestResponse
@@ -36,13 +39,23 @@ import io.javalin.openapi.plugin.OpenApiPlugin
 import io.javalin.openapi.plugin.OpenApiPluginConfiguration
 import io.javalin.openapi.plugin.redoc.ReDocConfiguration
 import io.javalin.openapi.plugin.redoc.ReDocPlugin
-import io.javalin.openapi.plugin.swagger.SwaggerConfiguration
-import io.javalin.openapi.plugin.swagger.SwaggerPlugin
+//import io.javalin.openapi.plugin.swagger.SwaggerConfiguration
+//import io.javalin.openapi.plugin.swagger.SwaggerPlugin
 import io.javalin.validation.JavalinValidation
+import io.micrometer.core.instrument.Clock
+import io.micrometer.core.instrument.Tag
+import io.micrometer.prometheus.PrometheusConfig
+import io.micrometer.prometheus.PrometheusMeterRegistry
+import io.prometheus.client.CollectorRegistry
 import mu.KotlinLogging
 import org.apache.commons.lang3.exception.ExceptionUtils
+import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.server.handler.gzip.GzipHandler
+import org.eclipse.jetty.util.compression.CompressionPool
+import org.eclipse.jetty.util.compression.DeflaterPool
+import org.eclipse.jetty.util.thread.ThreadPool.SizedThreadPool
 import java.time.Instant
+import java.util.zip.Deflater
 import kotlin.math.pow
 
 class HttpServer(private val context: Context) {
@@ -58,44 +71,89 @@ class HttpServer(private val context: Context) {
         val searchMessagesHandler = this.context.searchMessagesHandler
         val keepAliveHandler = this.context.keepAliveHandler
 
-        val sseResponseBuilder = SseResponseBuilder(jacksonMapper)
+        val sseResponseBuilder = SseResponseBuilder(
+            jacksonMapper,
+            if (configuration.listOfMessageAsSingleMessage) {
+                if (configuration.useTransportMode) {
+                    MessageProducer53Transport.Companion::createMessage
+                } else {
+                    MessageProducer.Companion::createMessage
+                }
+            } else {
+                if (configuration.useTransportMode) {
+                    error("transport mod does not support merging of multiple messages in a single one")
+                } else {
+                    MessageProducer53.Companion::createMessage
+                }
+            }
+        )
         val handlers: Collection<JavalinHandler> = listOf(
-            GetMessagesServlet(configuration, sseResponseBuilder, keepAliveHandler,
-                searchMessagesHandler, context.dataMeasurement),
-            GetMessageGroupsServlet(configuration, sseResponseBuilder, keepAliveHandler,
-                searchMessagesHandler, context.dataMeasurement),
+            GetMessagesServlet(
+                configuration, context.convExecutor, sseResponseBuilder,
+                keepAliveHandler, searchMessagesHandler, context.requestsDataMeasurement
+            ),
+            GetMessageGroupsServlet(
+                configuration, context.convExecutor, sseResponseBuilder,
+                keepAliveHandler, searchMessagesHandler, context.requestsDataMeasurement
+            ),
             GetMessageById(
-                configuration,
-                sseResponseBuilder, searchMessagesHandler, context.dataMeasurement
+                configuration, context.convExecutor,
+                sseResponseBuilder, searchMessagesHandler, context.requestsDataMeasurement
             ),
             GetOneEvent(configuration, sseResponseBuilder, this.context.searchEventsHandler),
-            GetEventsServlet(configuration, sseResponseBuilder, keepAliveHandler,
-                this.context.searchEventsHandler),
+            GetEventsServlet(
+                configuration, sseResponseBuilder, keepAliveHandler,
+                this.context.searchEventsHandler
+            ),
             GetBookIDs(context.generalCradleHandler),
             GetSessionAliases(context.searchMessagesHandler),
             GetEventScopes(context.searchEventsHandler),
             GetMessageGroups(context.searchMessagesHandler),
-            GetPageInfosServlet(configuration, sseResponseBuilder,
-                keepAliveHandler, context.generalCradleHandler),
-            GetAllPageInfosServlet(configuration, sseResponseBuilder,
-                keepAliveHandler, context.generalCradleHandler),
+            GetPageInfosServlet(
+                configuration, sseResponseBuilder,
+                keepAliveHandler, context.generalCradleHandler
+            ),
+            GetAllPageInfosServlet(
+                configuration, sseResponseBuilder,
+                keepAliveHandler, context.generalCradleHandler
+            ),
+            GetSingleMessageByGroupAndId(
+                searchMessagesHandler,
+                configuration,
+                sseResponseBuilder,
+                context.convExecutor,
+                context.requestsDataMeasurement,
+            ),
+            FileDownloadHandler(
+                configuration,
+                context.convExecutor,
+                sseResponseBuilder,
+                context.keepAliveHandler,
+                context.searchMessagesHandler,
+                context.requestsDataMeasurement,
+            ),
         )
 
         app = Javalin.create {
             it.showJavalinBanner = false
             it.jsonMapper(JavalinJackson(jacksonMapper))
 //            it.plugins.enableDevLogging()
-            it.plugins.register(MicrometerPlugin.create {})
+            it.plugins.register(MicrometerPlugin.create { micrometer ->
+                micrometer.registry =
+                    PrometheusMeterRegistry(PrometheusConfig.DEFAULT, CollectorRegistry.defaultRegistry, Clock.SYSTEM)
+                micrometer.tags = listOf(Tag.of("application", context.applicationName))
+            })
 
             setupOpenApi(it)
 
-            setupSwagger(it)
+//            setupSwagger(it)
 
             setupReDoc(it)
         }.apply {
             setupConverters(this)
+            val javalinContext = JavalinContext(configuration.flushSseAfter)
             for (handler in handlers) {
-                handler.setup(this)
+                handler.setup(this, javalinContext)
             }
             setupExceptionHandlers(this)
             jettyServer()?.server()?.insertHandler(createGzipHandler())
@@ -114,10 +172,10 @@ class HttpServer(private val context: Context) {
         it.plugins.register(ReDocPlugin(reDocConfiguration))
     }
 
-    private fun setupSwagger(it: JavalinConfig) {
-        val swaggerConfiguration = SwaggerConfiguration()
-        it.plugins.register(SwaggerPlugin(swaggerConfiguration))
-    }
+//    private fun setupSwagger(it: JavalinConfig) {
+//        val swaggerConfiguration = SwaggerConfiguration()
+//        it.plugins.register(SwaggerPlugin(swaggerConfiguration))
+//    }
 
     private fun setupOpenApi(it: JavalinConfig) {
 
@@ -134,10 +192,11 @@ class HttpServer(private val context: Context) {
 
                     openApiInfo.title = "Light Weight Data Provider"
                     openApiInfo.summary = "API for getting data from Cradle"
-                    openApiInfo.description = "Light Weight Data Provider provides you with fast access to data in Cradle"
+                    openApiInfo.description =
+                        "Light Weight Data Provider provides you with fast access to data in Cradle"
                     openApiInfo.contact = openApiContact
                     openApiInfo.license = openApiLicense
-                    openApiInfo.version = "2.0.0"
+                    openApiInfo.version = "2.0.1"
                 }.withServer { openApiServer ->
                     openApiServer.url = "http://localhost:{port}"
                     openApiServer.addVariable("port", "8080", arrayOf("8080"), "Port of the server")
@@ -149,10 +208,12 @@ class HttpServer(private val context: Context) {
     companion object {
         private val logger = KotlinLogging.logger {}
 
-        const val TIME_EXAMPLE = "Every value that is greater than 1_000_000_000 ^ 2 will be interpreted as nanos. Otherwise, as millis.\n" +
-                "Millis: 1676023329533, Nanos: 1676023329533590976"
+        const val TIME_EXAMPLE =
+            "Every value that is greater than 1_000_000_000 ^ 2 will be interpreted as nanos. Otherwise, as millis.\n" +
+                    "Millis: 1676023329533, Nanos: 1676023329533590976"
 
         internal const val NANOS_IN_SECOND = 1_000_000_000L
+
         /**
          * If we call current time millis it will look like this: 1_676_023_329_533
          * If we call current time nanos it will look like this:  1_676_023_329_533_590_976
@@ -200,11 +261,22 @@ class HttpServer(private val context: Context) {
     }
 }
 
+private fun configureGzip(server: Server) {
+    // copied from GzipHandler.doStart
+    val capacity = server.getBean(SizedThreadPool::class.java)?.maxThreads
+        ?: CompressionPool.DEFAULT_CAPACITY
+
+    val pool = DeflaterPool(capacity, Deflater.BEST_SPEED, true)
+    server.addBean(pool, true)
+    server.insertHandler(createGzipHandler())
+}
+
 private fun createGzipHandler(): GzipHandler {
     return GzipHandler().apply {
         setExcludedMimeTypes(*excludedMimeTypes.asSequence()
             .filter { it != "text/event-stream" }
             .toList().toTypedArray())
-        isSyncFlush = true
+        //FIXME: The sync flush should be used in case of streaming
+        isSyncFlush = false
     }
 }

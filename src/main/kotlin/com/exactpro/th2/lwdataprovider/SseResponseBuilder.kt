@@ -18,16 +18,27 @@ package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.cradle.Direction
 import com.exactpro.cradle.messages.StoredMessageId
+import com.exactpro.th2.lwdataprovider.SseEvent.Companion.DATA_CHARSET
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.exactpro.th2.lwdataprovider.entities.responses.PageInfo
 import com.exactpro.th2.lwdataprovider.entities.responses.ResponseMessage
+import com.exactpro.th2.lwdataprovider.producers.JsonFormatter
 import com.fasterxml.jackson.databind.ObjectMapper
 
 class SseResponseBuilder(
     private val jacksonMapper: ObjectMapper = ObjectMapper(),
+    private val responseFactory: (RequestedMessage, JsonFormatter?, Boolean) -> ResponseMessage,
 ) {
 
+    fun build(
+        message: RequestedMessage,
+        formatter: JsonFormatter?,
+        includeRaw: Boolean,
+        counter: Long,
+    ): SseEvent {
+        return SseEvent.build(jacksonMapper, responseFactory(message, formatter, includeRaw), counter)
+    }
     fun build(message: ResponseMessage, counter: Long): SseEvent {
         return SseEvent.build(jacksonMapper, message, counter)
     }
@@ -50,7 +61,7 @@ class SseResponseBuilder(
 
     fun codecTimeoutError(id: StoredMessageId, lastEventId: Long): SseEvent =
         SseEvent.ErrorData.TimeoutError(
-            id.failureReason("Codec response wasn't received during timeout"),
+            id.failureReason("Codec response wasn't received during timeout").toByteArray(DATA_CHARSET),
             lastEventId.toString()
         )
 }

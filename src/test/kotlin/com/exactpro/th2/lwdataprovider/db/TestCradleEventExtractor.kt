@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
+import com.exactpro.th2.lwdataprovider.util.DummyDataMeasurement
 import com.exactpro.th2.lwdataprovider.util.ListCradleResult
 import com.exactpro.th2.lwdataprovider.util.createEventId
 import com.exactpro.th2.lwdataprovider.util.createEventStoredEvent
@@ -55,7 +56,7 @@ internal class TestCradleEventExtractor {
     private val manager = mock<CradleManager> {
         on { storage } doReturn storage
     }
-    private val extractor = CradleEventExtractor(manager)
+    private val extractor = CradleEventExtractor(manager, DummyDataMeasurement)
 
     @Test
     fun `returns events for single day`() {
@@ -79,7 +80,8 @@ internal class TestCradleEventExtractor {
     fun `returns batched events for single day`() {
         val start = Instant.parse("2022-11-14T00:00:00Z")
         val end = Instant.parse("2022-11-14T23:59:59.999999999Z")
-        val toStore = createEventStoredEvent("test", start, end, parentEventId = createEventId("batchParent", timestamp = start))
+        val toStore =
+            createEventStoredEvent("test", start, end, parentEventId = createEventId("batchParent", timestamp = start))
         val batchId = createEventId("batch", timestamp = start)
         doReturn(
             ListCradleResult(arrayListOf(
@@ -107,8 +109,18 @@ internal class TestCradleEventExtractor {
     fun `filters events from batch if start timestamp is not in the range`() {
         val start = Instant.parse("2022-11-14T00:00:00Z")
         val end = Instant.parse("2022-11-14T23:59:59.999999999Z")
-        val outRange = createEventStoredEvent("test", start.minusSeconds(20), end, parentEventId = createEventId("batchParent", timestamp = start))
-        val inRange = createEventStoredEvent("test", start.plusSeconds(20), end, parentEventId = createEventId("batchParent", timestamp = start))
+        val outRange = createEventStoredEvent(
+            "test",
+            start.minusSeconds(20),
+            end,
+            parentEventId = createEventId("batchParent", timestamp = start)
+        )
+        val inRange = createEventStoredEvent(
+            "test",
+            start.plusSeconds(20),
+            end,
+            parentEventId = createEventId("batchParent", timestamp = start)
+        )
         val batchId = createEventId("batch", timestamp = start.minusSeconds(60))
         doReturn(
             ListCradleResult(arrayListOf(
@@ -137,8 +149,18 @@ internal class TestCradleEventExtractor {
     fun `filters events from batch if start timestamp is not in the range with open end timestamp`() {
         val start = Instant.parse("2022-11-14T00:00:00Z")
         val end = Instant.parse("2022-11-14T23:59:59.999999999Z")
-        val outRange = createEventStoredEvent("test", start.minusSeconds(20), end, parentEventId = createEventId("batchParent", timestamp = start))
-        val inRange = createEventStoredEvent("test", start.plusSeconds(20), end, parentEventId = createEventId("batchParent", timestamp = start))
+        val outRange = createEventStoredEvent(
+            "test",
+            start.minusSeconds(20),
+            end,
+            parentEventId = createEventId("batchParent", timestamp = start)
+        )
+        val inRange = createEventStoredEvent(
+            "test",
+            start.plusSeconds(20),
+            end,
+            parentEventId = createEventId("batchParent", timestamp = start)
+        )
         val batchId = createEventId("batch", timestamp = start.minusSeconds(60))
         doReturn(
             ListCradleResult(arrayListOf(
@@ -207,7 +229,12 @@ internal class TestCradleEventExtractor {
     fun `returns single event from batch`() {
         val start = Instant.parse("2022-11-14T00:00:00Z")
         val end = Instant.parse("2022-11-14T23:59:59.999999999Z")
-        val toStore = createEventStoredEvent(eventId = "test", start, end, parentEventId = createEventId("batchParent", timestamp = start))
+        val toStore = createEventStoredEvent(
+            eventId = "test",
+            start,
+            end,
+            parentEventId = createEventId("batchParent", timestamp = start)
+        )
         val batchId = createEventId("batch", timestamp = start)
         doReturn(
             TestEventBatchToStore.builder(10_000, 1)
@@ -231,7 +258,12 @@ internal class TestCradleEventExtractor {
     @Test
     fun `reports unknown event`() {
         val sink: EventDataSink<Event> = mock { }
-        extractor.getSingleEvents(GetEventRequest(null, createEventId("test", timestamp = Instant.ofEpochSecond(1)).toString()), sink)
+        extractor.getSingleEvents(
+            GetEventRequest(
+                null,
+                createEventId("test", timestamp = Instant.ofEpochSecond(1)).toString()
+            ), sink
+        )
         val event = argumentCaptor<Event>()
         verify(sink, never()).onNext(event.capture())
         verify(sink).onError(
@@ -250,13 +282,14 @@ internal class TestCradleEventExtractor {
         get { body } isEqualTo (toStore.asSingle().content.takeIf { it.isNotEmpty() }?.toString(Charsets.UTF_8) ?: "[]")
     }
 
-    private fun createRequest(start: Instant?, end: Instant?, limit: Int? = null): SseEventSearchRequest = SseEventSearchRequest(
-        startTimestamp = start,
-        endTimestamp = end,
-        parentEvent = null,
-        resultCountLimit = limit,
-        searchDirection = SearchDirection.next,
-        bookId = BookId("test"),
-        scope = "test-scope",
-    )
+    private fun createRequest(start: Instant?, end: Instant?, limit: Int? = null): SseEventSearchRequest =
+        SseEventSearchRequest(
+            startTimestamp = start,
+            endTimestamp = end,
+            parentEvent = null,
+            resultCountLimit = limit,
+            searchDirection = SearchDirection.next,
+            bookId = BookId("test"),
+            scope = "test-scope",
+        )
 }

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,34 +16,19 @@
 
 package com.exactpro.th2.lwdataprovider.workers
 
-import com.exactpro.cradle.messages.StoredMessageIdUtils.timestampToString
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.schema.message.DeliveryMetadata
 import com.exactpro.th2.common.schema.message.MessageListener
-import com.exactpro.th2.lwdataprovider.grpc.toInstant
 import mu.KotlinLogging
 
-class CodecMessageListener(
+class ProtoCodecMessageListener(
     private val decodeQueue: RequestsBuffer,
 ) : MessageListener<MessageGroupBatch>  {
-    
-    private fun buildMessageIdString(messageId: MessageID) : String {
-        return messageId.bookName + ":" +
-                messageId.connectionId.sessionAlias + ":" +
-                (messageId.direction.number + 1) + ":" +
-                timestampToString(messageId.timestamp.toInstant()) + ":" +
-                messageId.sequence
-    }
 
-    companion object {
-        private val logger = KotlinLogging.logger { }
-    }
-    
     override fun handle(deliveryMetadata: DeliveryMetadata, message: MessageGroupBatch) {
-
         message.groupsList.forEachIndexed { index, group ->
             if (group.messagesList.any { !it.hasMessage() }) {
                 reportIncorrectGroup(group, index)
@@ -53,13 +38,18 @@ class CodecMessageListener(
                 logger.warn { "Received empty group[$index]. Metadata: $deliveryMetadata" }
                 return@forEachIndexed
             }
-            val messageIdStr = buildMessageIdString(group.messagesList.first().message.metadata.id)
+            val messageIdStr = group.messagesList.first().message.metadata.id.buildRequestId()
+            if (index == 0) {
+                decodeQueue.batchReceived(messageIdStr)
+            }
 
-            decodeQueue.responseReceived(messageIdStr) {
+            decodeQueue.responseProtoReceived(messageIdStr) {
                 group.messagesList.map { anyMsg -> anyMsg.message }
             }
         }
     }
+
+    private fun MessageID.buildRequestId() : RequestId = ProtoRequestId(this)
 
     private fun reportIncorrectGroup(group: MessageGroup, index: Int) {
         logger.error {
@@ -67,13 +57,17 @@ class CodecMessageListener(
                 group.messagesList.joinToString(separator = ",", prefix = "[", postfix = "]") {
                     "${it.kindCase} ${
                         when (it.kindCase) {
-                            AnyMessage.KindCase.MESSAGE -> buildMessageIdString(it.message.metadata.id)
-                            AnyMessage.KindCase.RAW_MESSAGE -> buildMessageIdString(it.rawMessage.metadata.id)
+                            AnyMessage.KindCase.MESSAGE -> it.message.metadata.id.buildRequestId()
+                            AnyMessage.KindCase.RAW_MESSAGE -> it.rawMessage.metadata.id.buildRequestId()
                             AnyMessage.KindCase.KIND_NOT_SET, null -> null
                         }
                     }"
                 }
             }"
         }
+    }
+
+    companion object {
+        private val logger = KotlinLogging.logger { }
     }
 }

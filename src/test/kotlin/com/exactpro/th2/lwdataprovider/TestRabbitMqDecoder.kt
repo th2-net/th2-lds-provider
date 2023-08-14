@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import com.exactpro.th2.common.message.setMetadata
 import com.exactpro.th2.common.schema.message.DeliveryMetadata
 import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.common.schema.message.MessageRouter
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 import com.exactpro.th2.lwdataprovider.grpc.toGrpcDirection
 import com.exactpro.th2.lwdataprovider.util.createCradleStoredMessage
 import org.junit.jupiter.api.Test
@@ -51,16 +52,24 @@ import java.util.concurrent.TimeUnit
 
 internal class TestRabbitMqDecoder {
     private val listeners = arrayListOf<MessageListener<MessageGroupBatch>>()
-    private val messageRouter: MessageRouter<MessageGroupBatch> = mock {
+    private val transportListeners = arrayListOf<MessageListener<GroupBatch>>()
+    private val protoMessageRouter: MessageRouter<MessageGroupBatch> = mock {
         on { subscribeAll(any(), anyVararg()) } doAnswer {
             listeners += it.getArgument<MessageListener<MessageGroupBatch>>(0)
             mock { }
         }
     }
+    private val transportMessageRouter: MessageRouter<GroupBatch> = mock {
+        on { subscribeAll(any(), anyVararg()) } doAnswer {
+            transportListeners += it.getArgument<MessageListener<GroupBatch>>(0)
+            mock { }
+        }
+    }
 
     private val decoder = RabbitMqDecoder(
+        protoGroupBatchRouter = protoMessageRouter,
+        transportGroupBatchRouter = transportMessageRouter,
         maxDecodeQueue = 3,
-        messageRouterRawBatch = messageRouter,
         codecUsePinAttributes = true,
     )
 
@@ -77,7 +86,7 @@ internal class TestRabbitMqDecoder {
         }
         notifyListeners(parsed)
         verify(onResponse).invoke(same(details))
-        expectThat(details).get { parsedMessage }.isNotNull()
+        expectThat(details).get { protoParsedMessages }.isNotNull()
             .containsExactly(parsed)
     }
 
@@ -89,7 +98,7 @@ internal class TestRabbitMqDecoder {
         decoder.removeOlderThen(0)
 
         verify(onResponse).invoke(same(details))
-        expectThat(details).get { parsedMessage }.isNull()
+        expectThat(details).get { protoParsedMessages }.isNull()
     }
 
     @Test
@@ -100,26 +109,28 @@ internal class TestRabbitMqDecoder {
         decoder.close()
 
         verify(onResponse).invoke(same(details))
-        expectThat(details).get { parsedMessage }.isNull()
+        expectThat(details).get { protoParsedMessages }.isNull()
     }
 
     @ParameterizedTest
     @ValueSource(ints = [1, 2])
     fun `waits until the queue is free`(waitingRequests: Int) {
         val onResponse = mock<(RequestedMessageDetails) -> Unit> { }
-        val details: MutableList<RequestedMessageDetails> = (1..3).map { createAndVerifyDetails("test", it.toLong(), onResponse) }.toMutableList()
-        clearInvocations(messageRouter)
+        val details: MutableList<RequestedMessageDetails> =
+            (1..3).map { createAndVerifyDetails("test", it.toLong(), onResponse) }.toMutableList()
+        clearInvocations(protoMessageRouter)
         val executor = Executors.newSingleThreadExecutor()
         val futures = arrayListOf<Future<Pair<MessageGroupBatch.Builder, RequestedMessageDetails>>>().apply {
             repeat(waitingRequests) {
                 this += executor.submit(Callable { createAndSendDetails("test", (4 + it).toLong(), onResponse) })
             }
         }
-        verify(messageRouter, timeout(100).times(0)).send(any(), anyVararg())
+        verify(protoMessageRouter, timeout(100).times(0)).send(any(), anyVararg())
 
         fun messageReceived(det: RequestedMessageDetails) {
             notifyListeners(listOf(createParsedMessage(det)))
         }
+
         var index = 0
         repeat(waitingRequests) {
             messageReceived(details[index++])
@@ -132,7 +143,7 @@ internal class TestRabbitMqDecoder {
         expect {
             details.forEach {
                 catching { verify(onResponse).invoke(same(it)) }
-                that(it).get { parsedMessage }.isNotNull()
+                that(it).get { protoParsedMessages }.isNotNull()
             }
         }
     }
@@ -148,8 +159,8 @@ internal class TestRabbitMqDecoder {
     }
 
     private fun verifyRouter(batch: MessageGroupBatch) {
-        verify(messageRouter).send(eq(batch), anyVararg())
-        clearInvocations(messageRouter)
+        verify(protoMessageRouter).send(eq(batch), anyVararg())
+        clearInvocations(protoMessageRouter)
     }
 
     private fun createAndSendDetails(
@@ -160,7 +171,7 @@ internal class TestRabbitMqDecoder {
         val builder = MessageGroupBatch.newBuilder()
         val details = RequestedMessageDetails(
             createCradleStoredMessage(alias, Direction.FIRST, index),
-            group = null,
+            sessionGroup = null,
             onResponse,
         )
         decoder.sendBatchMessage(builder, listOf(details), alias)

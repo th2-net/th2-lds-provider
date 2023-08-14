@@ -1,5 +1,5 @@
-/*******************************************************************************
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+/*
+ * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ */
 
 package com.exactpro.th2.lwdataprovider.configuration
 
@@ -31,6 +31,7 @@ class CustomConfigurationClass(
     val decodingTimeout: Long? = null,
     val responseQueueSize: Int? = null,
     val execThreadPoolSize: Int? = null,
+    val convThreadPoolSize: Int? = null,
     val batchSize: Int? = null,
     val mode: String? = null,
     val grpcBackPressure : Boolean? = null,
@@ -39,6 +40,9 @@ class CustomConfigurationClass(
     val responseFormats: Set<String>? = null,
     val grpcBackPressureReadinessTimeoutMls: Long? = null,
     val codecUsePinAttributes: Boolean? = null,
+    val listOfMessageAsSingleMessage: Boolean? = null,
+    val useTransportMode: Boolean? = null,
+    val flushSseAfter: Int? = null,
 )
 
 class Configuration(customConfiguration: CustomConfigurationClass) {
@@ -50,6 +54,7 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     val decodingTimeout: Long = VariableBuilder.getVariable(customConfiguration::decodingTimeout, 60_000)
     val responseQueueSize: Int = VariableBuilder.getVariable(customConfiguration::responseQueueSize, 1000)
     val execThreadPoolSize: Int = VariableBuilder.getVariable(customConfiguration::execThreadPoolSize, 10)
+    val convThreadPoolSize: Int = VariableBuilder.getVariable(customConfiguration::convThreadPoolSize, 3)
     val batchSize: Int = VariableBuilder.getVariable(customConfiguration::batchSize, 100)
     val mode: Mode = VariableBuilder.getVariable(customConfiguration::mode, Mode.HTTP) {
         it.let { Mode.valueOf(it.uppercase(Locale.getDefault())) }
@@ -62,6 +67,9 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     }
     val grpcBackPressureReadinessTimeoutMls: Long = VariableBuilder.getVariable(customConfiguration::grpcBackPressureReadinessTimeoutMls, decodingTimeout)
     val codecUsePinAttributes: Boolean = VariableBuilder.getVariable(customConfiguration::codecUsePinAttributes, true)
+    val listOfMessageAsSingleMessage: Boolean = VariableBuilder.getVariable(customConfiguration::listOfMessageAsSingleMessage, true)
+    val useTransportMode: Boolean = VariableBuilder.getVariable(customConfiguration::useTransportMode, false)
+    val flushSseAfter: Int = VariableBuilder.getVariable(customConfiguration::flushSseAfter, 0)
     init {
         require(bufferPerQuery <= maxBufferDecodeQueue) {
             "buffer per queue ($bufferPerQuery) must be less or equal to the total buffer size ($maxBufferDecodeQueue)"
@@ -75,6 +83,9 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
         }
         require(grpcBackPressureReadinessTimeoutMls > 0) {
             "grpcBackPressureReadinessTimeoutMls ($grpcBackPressureReadinessTimeoutMls) must be positive"
+        }
+        require(flushSseAfter >= 0) {
+            "flushSseAfter must be positive integer or zero"
         }
     }
 }

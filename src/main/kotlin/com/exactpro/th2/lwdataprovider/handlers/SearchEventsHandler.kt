@@ -1,5 +1,5 @@
-/*******************************************************************************
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+/*
+ * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ */
 
 package com.exactpro.th2.lwdataprovider.handlers
 
@@ -27,6 +27,7 @@ import java.time.Instant
 import java.util.concurrent.Executor
 
 private val logger = KotlinLogging.logger { }
+
 class SearchEventsHandler(
     private val cradle: CradleEventExtractor,
     private val threadPool: Executor,
@@ -34,7 +35,8 @@ class SearchEventsHandler(
 
     fun loadAllScopes(bookId: BookId): Set<String> = cradle.getAllEventsScopes(bookId)
 
-    fun loadScopes(bookId: BookId, start: Instant, end: Instant): Iterator<String> = cradle.getScopes(bookId, start, end)
+    fun loadScopes(bookId: BookId, start: Instant, end: Instant): Iterator<String> =
+        cradle.getScopes(bookId, start, end)
 
     fun loadEvents(request: SseEventSearchRequest, requestContext: ResponseHandler<Event>) {
         threadPool.execute {

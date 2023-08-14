@@ -24,6 +24,7 @@ import com.exactpro.th2.lwdataprovider.configuration.CustomConfigurationClass
 import com.exactpro.th2.lwdataprovider.configuration.Mode
 import com.exactpro.th2.lwdataprovider.grpc.GrpcServer
 import com.exactpro.th2.lwdataprovider.http.HttpServer
+import com.exactpro.th2.lwdataprovider.metrics.DecodingMetrics
 import mu.KotlinLogging
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedDeque
@@ -61,8 +62,10 @@ class Main {
             cradleManager = configurationFactory.cradleManager.also {
                 resources += AutoCloseable { it.close() }
             },
-            messageRouter = configurationFactory.messageRouterMessageGroupBatch,
+            protoMessageRouter = configurationFactory.messageRouterMessageGroupBatch,
+            transportMessageRouter = configurationFactory.transportGroupBatchRouter,
             eventRouter = configurationFactory.eventBatchRouter,
+            applicationName = configurationFactory.boxConfiguration?.boxName ?: "lw-data-provider",
         )
     }
 
@@ -80,6 +83,7 @@ class Main {
     }
 
     private fun startServer() {
+        setupMetrics(context)
         
         context.keepAliveHandler.start()
         context.timeoutHandler.start()
@@ -104,6 +108,11 @@ class Main {
         }
 
 
+    }
+
+    private fun setupMetrics(ctx: Context) {
+        DecodingMetrics.setMaxDecodeTimeout(ctx.configuration.decodingTimeout.toInt() / 1_000)
+        DecodingMetrics.setMaxWaitingQueue(ctx.configuration.maxBufferDecodeQueue)
     }
 
     private fun configureShutdownHook(resources: Deque<AutoCloseable>, lock: ReentrantLock, condition: Condition) {

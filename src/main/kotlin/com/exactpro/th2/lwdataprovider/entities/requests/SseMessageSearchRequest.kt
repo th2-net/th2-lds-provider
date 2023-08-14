@@ -17,11 +17,11 @@
 package com.exactpro.th2.lwdataprovider.entities.requests
 
 import com.exactpro.cradle.BookId
-import com.exactpro.cradle.Direction
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.dataprovider.lw.grpc.MessageSearchRequest
 import com.exactpro.th2.dataprovider.lw.grpc.MessageStreamPointer
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
+import com.exactpro.th2.lwdataprovider.entities.requests.util.convertToMessageStreams
 import com.exactpro.th2.lwdataprovider.entities.requests.util.getInitEndTimestamp
 import com.exactpro.th2.lwdataprovider.entities.requests.util.invalidRequest
 import com.exactpro.th2.lwdataprovider.grpc.toInstant
@@ -65,26 +65,6 @@ class SseMessageSearchRequest(
 
     companion object {
 
-        @JvmStatic
-        fun toStreams(streams: List<String>?): List<ProviderMessageStream>? {
-            if (streams == null)
-                return null;
-            return streams.asSequence().flatMap {
-                if (it.contains(':')) {
-                    val parts = it.split(':')
-                    when (parts.size) {
-                        2 -> {
-                            val (alias, direction) = parts
-                            sequenceOf(ProviderMessageStream(alias, requireNotNull(Direction.byLabel(direction)) { "incorrect direction $direction" }))
-                        }
-                        else -> error("incorrect stream '$it'")
-                    }
-                } else {
-                    sequenceOf(ProviderMessageStream(it, Direction.SECOND), ProviderMessageStream(it, Direction.FIRST))
-                }
-            }.toList()
-        }
-
         private fun toMessageIds(streamsPointers: List<MessageStreamPointer>?): List<StoredMessageId>? {
             if (streamsPointers == null)
                 return null;
@@ -100,7 +80,7 @@ class SseMessageSearchRequest(
 
     constructor(parameters: Map<String, List<String>>) : this(
         startTimestamp = parameters["startTimestamp"]?.firstOrNull()?.let { Instant.ofEpochMilli(it.toLong()) },
-        stream = toStreams(parameters["stream"]),
+        stream = parameters["stream"]?.let(::convertToMessageStreams),
         searchDirection = parameters["searchDirection"]?.firstOrNull()?.let(SearchDirection::valueOf) ?: SearchDirection.next,
         endTimestamp = parameters["endTimestamp"]?.firstOrNull()?.let { Instant.ofEpochMilli(it.toLong()) },
         resumeFromIdsList = parameters["messageId"]?.map { StoredMessageId.fromString(it) },
@@ -166,4 +146,3 @@ class SseMessageSearchRequest(
     }
 }
 
-data class ProviderMessageStream(val sessionAlias: String, val direction: Direction)

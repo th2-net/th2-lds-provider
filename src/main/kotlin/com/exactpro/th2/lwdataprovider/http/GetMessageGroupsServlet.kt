@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,14 +21,17 @@ import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
+import com.exactpro.th2.lwdataprovider.entities.requests.util.convertToMessageStreams
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
+import com.exactpro.th2.lwdataprovider.http.JavalinHandler.Companion.customSse
+import com.exactpro.th2.lwdataprovider.http.util.listQueryParameters
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import io.javalin.Javalin
 import io.javalin.http.Context
 import io.javalin.http.queryParamAsClass
-import io.javalin.http.sse.SseClient
 import io.javalin.openapi.HttpMethod
 import io.javalin.openapi.OpenApi
 import io.javalin.openapi.OpenApiContent
@@ -37,21 +40,26 @@ import io.javalin.openapi.OpenApiResponse
 import mu.KotlinLogging
 import java.time.Instant
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.Executor
 import java.util.function.Supplier
 
 class GetMessageGroupsServlet(
     private val configuration: Configuration,
+    private val convExecutor: Executor,
     private val sseResponseBuilder: SseResponseBuilder,
     private val keepAliveHandler: KeepAliveHandler,
     private val searchMessagesHandler: SearchMessagesHandler,
     private val dataMeasurement: DataMeasurement,
 ) : AbstractSseRequestHandler() {
 
-    override fun setup(app: Javalin) {
+    override fun setup(app: Javalin, context: JavalinContext) {
         app.before(ROUTE) {
+            it.queryParam(RAW_ONLY_PARAMETER)?.also {
+                LOGGER.warn { "Parameter $RAW_ONLY_PARAMETER is deprecated" }
+            }
             it.attribute(REQUEST_KEY, createRequest(it))
         }
-        app.sse(ROUTE, this)
+        app.customSse(ROUTE, this, context)
     }
 
     @OpenApi(
@@ -89,7 +97,9 @@ class GetMessageGroupsServlet(
             OpenApiParam(
                 RAW_ONLY_PARAMETER,
                 type = Boolean::class,
-                description = "only raw message will be returned in the response",
+                description = "only raw message will be returned in the response. " +
+                        "Parameter is deprecated: use $RESPONSE_FORMAT with BASE_64 to achieve the same effect",
+                deprecated = true,
             ),
             OpenApiParam(
                 KEEP_OPEN_PARAMETER,
@@ -101,7 +111,22 @@ class GetMessageGroupsServlet(
                 description = "book ID for requested groups",
                 required = true,
                 example = "bookId123",
-            )
+            ),
+            OpenApiParam(
+                RESPONSE_FORMAT,
+                type = Array<ResponseFormat>::class,
+                description = "the format of the response"
+            ),
+            OpenApiParam(
+                STREAM,
+                type = Array<String>::class,
+                description = "list of streams (optionally with direction) to include in the response"
+            ),
+            OpenApiParam(
+                LIMIT,
+                type = Int::class,
+                description = "limit for messages in the response. No limit if not specified",
+            ),
         ],
         methods = [HttpMethod.GET],
         responses = [
@@ -125,17 +150,24 @@ class GetMessageGroupsServlet(
 
 
         val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
-        val handler = HttpMessagesRequestHandler(queue, sseResponseBuilder, dataMeasurement, maxMessagesPerRequest = configuration.bufferPerQuery,
-            responseFormats = configuration.responseFormats)
+        val responseFormats: Set<ResponseFormat>? = request.responseFormats.let { formats ->
+            if (ctx.queryParamAsClass<Boolean>(RAW_ONLY_PARAMETER).getOrDefault(false)) {
+                formats?.let { it + ResponseFormat.BASE_64 } ?: setOf(ResponseFormat.BASE_64)
+            } else {
+                formats
+            }
+        }
+        val handler = HttpMessagesRequestHandler(
+            queue, sseResponseBuilder, convExecutor, dataMeasurement,
+            maxMessagesPerRequest = configuration.bufferPerQuery,
+            responseFormats = responseFormats ?: configuration.responseFormats
+        )
         sseClient.onClose(handler::cancel)
-//        reqContext.startStep("messages_loading").use {
         keepAliveHandler.addKeepAliveData(handler).use {
             searchMessagesHandler.loadMessageGroups(request, handler, dataMeasurement)
             sseClient.waitAndWrite(queue)
             LOGGER.info { "Processing search sse messages group request finished" }
         }
-
-//        }
     }
 
     private fun createRequest(ctx: Context) = MessagesGroupRequest(
@@ -149,11 +181,17 @@ class GetMessageGroupsServlet(
             .get(),
         sort = ctx.queryParamAsClass<Boolean>(SORT_PARAMETER)
             .getOrDefault(false),
-        rawOnly = ctx.queryParamAsClass<Boolean>(RAW_ONLY_PARAMETER)
-            .getOrDefault(false),
         keepOpen = ctx.queryParamAsClass<Boolean>(KEEP_OPEN_PARAMETER)
             .getOrDefault(false),
         bookId = ctx.queryParamAsClass<BookId>(BOOK_ID_PARAM).get(),
+        responseFormats = ctx.queryParams(RESPONSE_FORMAT).takeIf(List<*>::isNotEmpty)
+            ?.mapTo(hashSetOf(), ResponseFormat.Companion::fromString),
+        includeStreams = ctx.queryParams(STREAM).takeIf(List<*>::isNotEmpty)
+            ?.let(::convertToMessageStreams)
+            ?.toSet() ?: emptySet(),
+        limit = ctx.queryParamAsClass<Int>(LIMIT).allowNullable().check({
+            it == null || it >= 0
+        }, "NEGATIVE_LIMIT").get(),
     )
 
     companion object {
@@ -166,6 +204,9 @@ class GetMessageGroupsServlet(
         private const val RAW_ONLY_PARAMETER = "onlyRaw"
         private const val KEEP_OPEN_PARAMETER = "keepOpen"
         private const val BOOK_ID_PARAM = "bookId"
+        private const val RESPONSE_FORMAT = "responseFormat"
+        private const val STREAM = "stream"
+        private const val LIMIT = "limit"
         private val LOGGER = KotlinLogging.logger { }
     }
 }

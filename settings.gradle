@@ -20,7 +20,6 @@ include 'grpc'
 
 project(':grpc').name = 'grpc-lw-data-provider'
 
-
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
@@ -33,5 +32,6 @@ dependencyResolutionManagement {
             name 'Sonatype_releases'
             url 'https://s01.oss.sonatype.org/content/repositories/releases/'
         }
+        mavenLocal()
     }
 }

@@ -25,13 +25,15 @@ import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
+import com.exactpro.th2.lwdataprovider.entities.requests.util.convertToMessageStreams
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
+import com.exactpro.th2.lwdataprovider.http.JavalinHandler.Companion.customSse
+import com.exactpro.th2.lwdataprovider.http.util.listQueryParameters
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import io.javalin.Javalin
 import io.javalin.http.Context
 import io.javalin.http.queryParamAsClass
-import io.javalin.http.sse.SseClient
 import io.javalin.openapi.HttpMethod
 import io.javalin.openapi.OpenApi
 import io.javalin.openapi.OpenApiContent
@@ -40,6 +42,7 @@ import io.javalin.openapi.OpenApiResponse
 import mu.KotlinLogging
 import java.time.Instant
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.Executor
 import java.util.function.Supplier
 
 private const val START_TIMESTAMP = "startTimestamp"
@@ -62,6 +65,7 @@ private const val BOOK_ID = "bookId"
 
 class GetMessagesServlet(
     private val configuration: Configuration,
+    private val convExecutor: Executor,
     private val sseResponseBuilder: SseResponseBuilder,
     private val keepAliveHandler: KeepAliveHandler,
     private val searchMessagesHandler: SearchMessagesHandler,
@@ -74,11 +78,11 @@ class GetMessagesServlet(
         private val logger = KotlinLogging.logger { }
     }
 
-    override fun setup(app: Javalin) {
+    override fun setup(app: Javalin, context: JavalinContext) {
         app.before(ROUTE) {
             it.attribute(REQUEST_KEY, createRequest(it))
         }
-        app.sse(ROUTE, this)
+        app.customSse(ROUTE, this, context)
     }
 
     @OpenApi(
@@ -129,7 +133,7 @@ class GetMessagesServlet(
                 description = "keeps pulling for new message until don't have one outside the requested range"),
             OpenApiParam(
                 RESPONSE_FORMAT,
-                type = Array<String>::class,
+                type = Array<ResponseFormat>::class,
                 description = "the format of the response"),
         ],
         responses = [
@@ -151,10 +155,13 @@ class GetMessagesServlet(
         }
 
         val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
-        val handler = HttpMessagesRequestHandler(queue, sseResponseBuilder, dataMeasurement, maxMessagesPerRequest = configuration.bufferPerQuery,
-            responseFormats = request.responseFormats ?: configuration.responseFormats)
+        val handler = HttpMessagesRequestHandler(
+            queue, sseResponseBuilder, convExecutor, dataMeasurement,
+            maxMessagesPerRequest = configuration.bufferPerQuery,
+            responseFormats = request.responseFormats ?: configuration.responseFormats
+        )
         sseClient.onClose(handler::cancel)
-//        dataMeasurement.start("messages_loading").use {
+//        requestsDataMeasurement.start("messages_loading").use {
             keepAliveHandler.addKeepAliveData(handler).use {
                 searchMessagesHandler.loadMessages(request, handler, dataMeasurement)
 
@@ -169,7 +176,7 @@ class GetMessagesServlet(
             .allowNullable().get(),
         stream = ctx.listQueryParameters(STREAM).get()
             .takeIf(List<*>::isNotEmpty)
-            ?.let(SseMessageSearchRequest::toStreams),
+            ?.let(::convertToMessageStreams),
         searchDirection = ctx.queryParamAsClass<SearchDirection>(SEARCH_DIRECTION)
             .getOrDefault(SearchDirection.next),
         endTimestamp = ctx.queryParamAsClass<Instant>(END_TIMESTAMP).allowNullable().get(),

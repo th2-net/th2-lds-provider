@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -89,7 +89,7 @@ class TestGetEventScopes : AbstractHttpHandlerTest<GetEventScopes>() {
             }
         }
     }
-    
+
     @Nested
     inner class Sse {
         @Test
@@ -156,7 +156,8 @@ class TestGetEventScopes : AbstractHttpHandlerTest<GetEventScopes>() {
             ).whenever(storage).getScopes(eq(BookId("test")))
 
             startTest { _, client ->
-                expectThat(CompletableFuture.supplyAsync { client.sse("/book/test/event/scopes/sse?chunkedSize=1") }.get()) {
+                expectThat(CompletableFuture.supplyAsync { client.sse("/book/test/event/scopes/sse?chunkedSize=1") }
+                    .get()) {
                     get { code } isEqualTo HttpStatus.OK.code
                     get { body?.string() }
                         .isNotNull()
@@ -184,7 +185,8 @@ class TestGetEventScopes : AbstractHttpHandlerTest<GetEventScopes>() {
             ).whenever(storage).getScopes(eq(BookId("test")))
 
             startTest { _, client ->
-                expectThat(CompletableFuture.supplyAsync { client.sse("/book/test/event/scopes/sse?chunkedSize=-1") }.get()) {
+                expectThat(CompletableFuture.supplyAsync { client.sse("/book/test/event/scopes/sse?chunkedSize=-1") }
+                    .get()) {
                     get { code } isEqualTo HttpStatus.BAD_REQUEST.code
                     jsonBody()
                         .isObject()

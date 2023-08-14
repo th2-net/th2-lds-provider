@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,36 +19,41 @@ package com.exactpro.th2.lwdataprovider.producers
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.message.addFields
 import com.exactpro.th2.common.message.messageType
-import com.exactpro.th2.lwdataprovider.CustomProtoJsonFormatter
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 import com.exactpro.th2.lwdataprovider.RequestedMessage
-import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
-import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
-import java.util.Base64
+import mu.KotlinLogging
+import java.util.*
 
 @Deprecated("for 5.3 messages")
 class MessageProducer53 {
 
     companion object {
+        private val LOGGER_K = KotlinLogging.logger {  }
 
         fun createMessage(
             rawMessage: RequestedMessage,
             formatter: JsonFormatter?,
             includeRaw: Boolean,
         ): ProviderMessage53 {
-            val convertToOneMessage = rawMessage.parsedMessage?.let { convertToOneMessage(it) }
+            val convertToOneProtoMessage = rawMessage.protoMessage?.let { convertToOneProtoMessage(it) }
+            val convertToOneTransportMessage = rawMessage.transportMessage?.let { convertToOnTransportMessage(it) }
             return ProviderMessage53(
                 rawMessage.storedMessage,
-                if (formatter == null) null else convertToOneMessage?.let { formatter.print(it) },
-                convertToOneMessage,
+                if (formatter == null) null else {
+                    convertToOneProtoMessage?.let(formatter::print)
+                        ?: convertToOneTransportMessage?.let {
+                            formatter.print(rawMessage.sessionGroup, it)
+                        }
+                },
                 if (includeRaw) {
-                    rawMessage.rawMessage.let { Base64.getEncoder().encodeToString(it.body.toByteArray()) }
+                    rawMessage.storedMessage.let { Base64.getEncoder().encodeToString(it.content) }
                 } else null,
-                if (convertToOneMessage != null) convertToOneMessage.metadata.messageType else ""
+                convertToOneProtoMessage?.metadata?.messageType ?: convertToOneTransportMessage?.type ?: ""
             )
         }
 
-        private fun convertToOneMessage(messages: List<Message>): Message {
+        private fun convertToOneProtoMessage(messages: List<Message>): Message {
             return when (messages.size) {
                 1 -> messages[0]
                 else -> messages[0].toBuilder().run {
@@ -57,6 +62,16 @@ class MessageProducer53 {
                     clearFields()
                     addFields(mergeMessagesBody(messages))
                     build()
+                }
+            }
+        }
+
+        private fun convertToOnTransportMessage(messages: List<ParsedMessage>): ParsedMessage {
+            return when (messages.size) {
+                1 -> messages[0]
+                else -> messages[0].also {
+                    //FIXME: implement or migrate to MessageProducer
+                    LOGGER_K.warn { "Returned only first message from ${messages.size} for ${it.id}" }
                 }
             }
         }

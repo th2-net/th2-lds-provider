@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package com.exactpro.th2.lwdataprovider.entities.requests
 
 import com.exactpro.cradle.BookId
 import com.exactpro.th2.dataprovider.lw.grpc.MessageGroupsSearchRequest
+import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.grpc.toInstant
 import com.exactpro.th2.lwdataprovider.toCradle
 import java.time.Instant
@@ -27,12 +28,18 @@ data class MessagesGroupRequest(
     val startTimestamp: Instant,
     val endTimestamp: Instant,
     val sort: Boolean,
-    val rawOnly: Boolean,
     val keepOpen: Boolean,
     val bookId: BookId,
+    val responseFormats: Set<ResponseFormat>? = null,
+    val includeStreams: Set<ProviderMessageStream> = emptySet(),
+    val limit: Int? = null,
 ) {
     init {
         require(startTimestamp <= endTimestamp) { "$START_TIMESTAMP_PARAM must be greater than $END_TIMESTAMP_PARAM" }
+
+        if (!responseFormats.isNullOrEmpty()) {
+            ResponseFormat.validate(responseFormats)
+        }
     }
     companion object {
         private const val GROUP_PARAM = "group"
@@ -52,9 +59,17 @@ data class MessagesGroupRequest(
                 if (hasStartTimestamp()) startTimestamp.toInstant() else error("missing start timestamp"),
                 if (hasEndTimestamp()) endTimestamp.toInstant() else error("missing end timestamp"),
                 if (hasSort()) sort.value else false,
-                rawOnly,
                 false, // FIXME: update gRPC
                 if (hasBookId()) bookId.toCradle() else error("parameter '$BOOK_ID_PARAM' is required"),
+                request.responseFormatsList.takeIf { it.isNotEmpty() }
+                    ?.mapTo(hashSetOf(), ResponseFormat.Companion::fromString)
+                    .let { formats ->
+                        if (request.rawOnly) {
+                            formats?.let { it + ResponseFormat.BASE_64 } ?: setOf(ResponseFormat.BASE_64)
+                        } else {
+                            formats
+                        }
+                    },
             )
         }
 

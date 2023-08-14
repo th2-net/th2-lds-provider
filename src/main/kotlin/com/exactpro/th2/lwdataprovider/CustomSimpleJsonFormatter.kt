@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,22 @@ class CustomSimpleJsonFormatter : AbstractJsonFormatter() {
                 sb.append(']')
             }
             Value.KindCase.KIND_NOT_SET, null -> error("unexpected kind ${value.kindCase}")
+        }
+    }
+
+    override fun printDV(value: Any?, sb: StringBuilder) {
+        when (value) {
+            null -> sb.append("null")
+            is Map<*, *> -> printMessageContentOnly(value, sb)
+            is List<*> -> {
+                sb.append("[")
+                for ((count, element) in value.withIndex()) {
+                    if (count > 0) sb.append(',')
+                    printDV(element, sb)
+                }
+                sb.append(']')
+            }
+            else -> convertStringToJson(value.toString(), sb) //FIXME: number format
         }
     }
 }

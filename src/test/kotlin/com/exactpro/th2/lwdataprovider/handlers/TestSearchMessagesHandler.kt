@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,11 +23,9 @@ import com.exactpro.cradle.Direction
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import com.exactpro.th2.common.message.direction
 import com.exactpro.th2.common.message.message
 import com.exactpro.th2.common.message.messageType
-import com.exactpro.th2.common.message.sequence
-import com.exactpro.th2.common.message.sessionAlias
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 import com.exactpro.th2.lwdataprovider.Decoder
 import com.exactpro.th2.lwdataprovider.RequestedMessage
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
@@ -41,13 +39,16 @@ import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
-import com.exactpro.th2.lwdataprovider.grpc.toCradleDirection
+import com.exactpro.th2.lwdataprovider.util.CradleResult
+import com.exactpro.th2.lwdataprovider.util.DummyDataMeasurement
+import com.exactpro.th2.lwdataprovider.util.GroupBatch
 import com.exactpro.th2.lwdataprovider.util.ImmutableListCradleResult
 import com.exactpro.th2.lwdataprovider.util.ListCradleResult
 import com.exactpro.th2.lwdataprovider.util.createBatches
 import com.exactpro.th2.lwdataprovider.util.createCradleStoredMessage
 import com.exactpro.th2.lwdataprovider.util.validateMessagesOrder
-import org.junit.jupiter.api.Assertions
+import com.exactpro.th2.lwdataprovider.workers.CradleRequestId
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
@@ -76,7 +77,7 @@ import strikt.assertions.single
 import strikt.assertions.withElementAt
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import java.util.*
+import java.util.Queue
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
@@ -95,16 +96,113 @@ internal class TestSearchMessagesHandler {
 
     private val decoder = spy(TestDecoder())
 
-    private val searchHandler = SearchMessagesHandler(
-        CradleMessageExtractor(10, manager),
-        decoder,
-        executor,
-        Configuration(
-            CustomConfigurationClass(
-                batchSize = 3,
-            )
+    private val searchHandler = createSearchMessagesHandler(decoder, false)
+
+    @ParameterizedTest(name = "sort: {0}")
+    @ValueSource(booleans = [true, false])
+    fun `excludes alias from group search`(sort: Boolean) {
+        var index = 1L
+        val start = Instant.now()
+        val groupBatch = GroupBatch(
+            "test-group",
+            messages = buildList {
+                repeat(6) {
+                    add(createCradleStoredMessage("test-${it % 3}", Direction.FIRST, index++))
+                }
+            },
         )
-    )
+        doReturn(
+            CradleResult(
+                groupBatch
+            )
+        ).whenever(storage).getGroupedMessageBatches(argThat {
+            groupName == "test-group"
+        })
+
+        val handler = spy(MessageResponseHandlerTestImpl(measurement, 4))
+        searchHandler.loadMessageGroups(
+            MessagesGroupRequest(
+                groups = setOf("test-group"),
+                startTimestamp = start,
+                endTimestamp = Instant.now(),
+                sort = sort,
+                keepOpen = false,
+                bookId = BookId("test-book"),
+                responseFormats = setOf(ResponseFormat.BASE_64),
+                includeStreams = setOf(
+                    ProviderMessageStream("test-0", Direction.FIRST),
+                ),
+            ),
+            handler,
+            measurement,
+        )
+
+        val messages = argumentCaptor<RequestedMessageDetails>()
+        inOrder(handler) {
+            verify(handler, times(2)).handleNext(messages.capture())
+            verify(handler).complete()
+        }
+        expectThat(messages.allValues).elementsEquals(
+            groupBatch.messages.filter { it.sessionAlias == "test-0" && it.direction == Direction.FIRST },
+            isParsed = false
+        )
+        verifyNoInteractions(decoder)
+    }
+
+    @ParameterizedTest(name = "sort: {0}")
+    @ValueSource(booleans = [true, false])
+    fun `excludes alias and direction from group search`(sort: Boolean) {
+        var index = 1L
+        val start = Instant.now()
+        val groupBatch = GroupBatch(
+            "test-group",
+            messages = buildList {
+                repeat(6) {
+                    add(
+                        createCradleStoredMessage(
+                            "test-${it % 3}",
+                            if (it % 2 == 0) Direction.FIRST else Direction.SECOND,
+                            index++,
+                        )
+                    )
+                }
+            },
+        )
+        doReturn(
+            CradleResult(
+                groupBatch
+            )
+        ).whenever(storage).getGroupedMessageBatches(argThat {
+            groupName == "test-group"
+        })
+
+        val handler = spy(MessageResponseHandlerTestImpl(measurement, 4))
+        searchHandler.loadMessageGroups(
+            MessagesGroupRequest(
+                groups = setOf("test-group"),
+                startTimestamp = start,
+                endTimestamp = Instant.now(),
+                sort = sort,
+                keepOpen = false,
+                bookId = BookId("test-book"),
+                responseFormats = setOf(ResponseFormat.BASE_64),
+                includeStreams = setOf(ProviderMessageStream("test-0", Direction.FIRST)),
+            ),
+            handler,
+            measurement,
+        )
+
+        val messages = argumentCaptor<RequestedMessageDetails>()
+        inOrder(handler) {
+            verify(handler, times(1)).handleNext(messages.capture())
+            verify(handler).complete()
+        }
+        expectThat(messages.allValues).elementsEquals(
+            groupBatch.messages.filter { it.sessionAlias == "test-0" && it.direction == Direction.FIRST },
+            isParsed = false
+        )
+        verifyNoInteractions(decoder)
+    }
 
     @Test
     fun `stops when limit per request is reached`() {
@@ -131,22 +229,22 @@ internal class TestSearchMessagesHandler {
             )
         }
 
-        verify(decoder, timeout(200).times(1)).sendBatchMessage(any(), any(), any())
+        verify(decoder, timeout(200).times(1)).sendBatchMessage(any<MessageGroupBatch.Builder>(), any(), any())
         verify(handler, never()).complete()
 
-        expectThat(decoder.queue.size).isEqualTo(3)
+        expectThat(decoder.protoQueue.size).isEqualTo(3)
         val offset = 3
         repeat(offset) {
-            decoder.queue.poll()?.apply {
-                parsedMessage = listOf(message("Test$it").build())
+            decoder.protoQueue.poll()?.apply {
+                protoParsedMessages = listOf(message("Test$it").build())
                 responseMessage()
             }
         }
         future.get(100, TimeUnit.MILLISECONDS)
 
-        expectThat(decoder.queue.size).isEqualTo(2)
-        decoder.queue.forEachIndexed { index, details ->
-            details.parsedMessage = listOf(message("Test${index + offset}").build())
+        expectThat(decoder.protoQueue.size).isEqualTo(2)
+        decoder.protoQueue.forEachIndexed { index, details ->
+            details.protoParsedMessages = listOf(message("Test${index + offset}").build())
             details.responseMessage()
         }
 
@@ -180,12 +278,12 @@ internal class TestSearchMessagesHandler {
             measurement,
         )
 
-        verify(decoder, times(2)).sendBatchMessage(any(), any(), any())
+        verify(decoder, times(2)).sendBatchMessage(any<MessageGroupBatch.Builder>(), any(), any())
         verify(handler, never()).complete()
 
-        expectThat(decoder.queue.size).isEqualTo(4)
-        decoder.queue.forEachIndexed { index, details ->
-            details.parsedMessage = listOf(message("Test$index").build())
+        expectThat(decoder.protoQueue.size).isEqualTo(4)
+        decoder.protoQueue.forEachIndexed { index, details ->
+            details.protoParsedMessages = listOf(message("Test$index").build())
             details.responseMessage()
         }
 
@@ -245,19 +343,78 @@ internal class TestSearchMessagesHandler {
 
         verify(handler, never()).complete()
 
-        expectThat(decoder.queue.size).isEqualTo(2)
-        decoder.queue.forEachIndexed { index, details ->
-            details.parsedMessage = listOf(message("Test$index").build())
+        expectThat(decoder.protoQueue.size).isEqualTo(2)
+        decoder.protoQueue.forEachIndexed { index, details ->
+            details.protoParsedMessages = listOf(message("Test$index").build())
             details.responseMessage()
         }
 
         val messages = argumentCaptor<RequestedMessageDetails>()
         inOrder(handler, decoder) {
             verify(handler, times(2)).handleNext(messages.capture())
-            verify(decoder).sendBatchMessage(any(), any(), any())
+            verify(decoder).sendBatchMessage(any<MessageGroupBatch.Builder>(), any(), any())
             verify(handler).complete()
         }
         expectThat(messages.allValues).elementsEquals(storedMessages)
+    }
+
+    @Test
+    fun `returns parsed messages transport mode`() {
+        val decoder = spy(TestDecoder())
+        val searchHandler = createSearchMessagesHandler(decoder, true)
+
+        val startTimestamp = Instant.now()
+        val endTimestamp = startTimestamp.plus(10L, ChronoUnit.MINUTES)
+        val messagesCount = 10
+        val increase = 5L
+        val group = "test"
+
+        val batches = createBatches(10, 1, 0, increase, startTimestamp, endTimestamp)
+
+        whenever(storage.getGroupedMessageBatches(argThat {
+            groupName == group
+        })).thenReturn(ImmutableListCradleResult(batches))
+
+        val handler = spy(MessageResponseHandlerTestImpl(measurement))
+        val request = MessagesGroupRequest(
+            groups = setOf("test"),
+            startTimestamp,
+            endTimestamp,
+            sort = true,
+            keepOpen = false,
+            BookId("test"),
+        )
+        searchHandler.loadMessageGroups(
+            request,
+            handler,
+            measurement,
+        )
+
+        verify(handler, never()).complete()
+
+        assertEquals(messagesCount, decoder.transportQueue.size)
+        assertEquals(0, decoder.protoQueue.size)
+        decoder.transportQueue.forEachIndexed { index, details ->
+            details.protoParsedMessages = listOf(message("Test$index").build())
+            details.responseMessage()
+        }
+
+        val captor = argumentCaptor<RequestedMessageDetails>()
+        verify(handler, atMost(messagesCount)).handleNext(captor.capture())
+        verify(handler, never()).writeErrorMessage(any<String>(), any(), any())
+        verify(handler, never()).writeErrorMessage(any<Throwable>(), any(), any())
+        val messages: List<RequestedMessageDetails> = captor.allValues
+        assertEquals(messagesCount, messages.size) {
+            val missing: List<StoredMessage> =
+                (batches.asSequence() + batches.asSequence()).flatMap { it.messages }.filter { stored ->
+                    messages.none {
+                        val raw = it.storedMessage
+                        raw.sessionAlias == stored.sessionAlias && raw.sequence == stored.sequence && raw.direction == stored.direction
+                    }
+                }.toList()
+            "Missing ${missing.size} message(s): $missing"
+        }
+        validateMessagesOrder(messages, messagesCount)
     }
 
     @Test
@@ -280,9 +437,9 @@ internal class TestSearchMessagesHandler {
 
         verify(handler, never()).complete()
 
-        expectThat(decoder.queue.size).isEqualTo(1)
-        decoder.queue.forEachIndexed { index, details ->
-            details.parsedMessage = listOf(message("Test$index").build())
+        expectThat(decoder.protoQueue.size).isEqualTo(1)
+        decoder.protoQueue.forEachIndexed { index, details ->
+            details.protoParsedMessages = listOf(message("Test$index").build())
             details.responseMessage()
         }
 
@@ -296,7 +453,7 @@ internal class TestSearchMessagesHandler {
 
     @Test
     fun `returns single raw message`() {
-        val messageId = StoredMessageId(BookId("test"),"test-stream", Direction.FIRST, Instant.now(), 1)
+        val messageId = StoredMessageId(BookId("test"), "test-stream", Direction.FIRST, Instant.now(), 1)
         val message = createCradleStoredMessage("test-stream", Direction.FIRST, index = 1)
         doReturn(
             message,
@@ -377,9 +534,9 @@ internal class TestSearchMessagesHandler {
             startTimestamp,
             endTimestamp,
             sort = true,
-            rawOnly = true,
             keepOpen = true,
             BookId("test"),
+            responseFormats = setOf(ResponseFormat.BASE_64),
         )
         searchHandler.loadMessageGroups(request, handler, measurement)
 
@@ -388,17 +545,33 @@ internal class TestSearchMessagesHandler {
         verify(handler, never()).writeErrorMessage(any<String>(), any(), any())
         verify(handler, never()).writeErrorMessage(any<Throwable>(), any(), any())
         val messages: List<RequestedMessageDetails> = captor.allValues
-        Assertions.assertEquals(messagesCount, messages.size) {
-            val missing: List<StoredMessage> = (firstBatches.asSequence() + lastBatches.asSequence()).flatMap { it.messages }.filter { stored ->
-                messages.none {
-                    val raw = it.rawMessage
-                    raw.sessionAlias == stored.sessionAlias && raw.sequence == stored.sequence && raw.direction.toCradleDirection() == stored.direction
-                }
-            }.toList()
+        assertEquals(messagesCount, messages.size) {
+            val missing: List<StoredMessage> =
+                (firstBatches.asSequence() + lastBatches.asSequence()).flatMap { it.messages }.filter { stored ->
+                    messages.none {
+                        val raw = it.storedMessage
+                        raw.sessionAlias == stored.sessionAlias && raw.sequence == stored.sequence && raw.direction == stored.direction
+                    }
+                }.toList()
             "Missing ${missing.size} message(s): $missing"
         }
         validateMessagesOrder(messages, messagesCount)
     }
+
+    private fun createSearchMessagesHandler(
+        decoder: Decoder,
+        useTransportMode: Boolean
+    ) = SearchMessagesHandler(
+        CradleMessageExtractor(10, manager, DummyDataMeasurement),
+        decoder,
+        executor,
+        Configuration(
+            CustomConfigurationClass(
+                batchSize = 3,
+                useTransportMode = useTransportMode,
+            )
+        )
+    )
 
     @Test
     fun `different groups does not appear in the same batch`() {
@@ -436,7 +609,7 @@ internal class TestSearchMessagesHandler {
             startTimestamp = timestamp,
             endTimestamp = endTimestamp,
             sort = false,
-            rawOnly = false,
+            responseFormats = setOf(ResponseFormat.JSON_PARSED, ResponseFormat.BASE_64),
             keepOpen = false,
             bookId = BookId("test"),
         )
@@ -444,19 +617,22 @@ internal class TestSearchMessagesHandler {
         searchHandler.loadMessageGroups(request, handler, measurement)
 
         inOrder(decoder) {
-            verify(decoder, times(1)).sendBatchMessage(any(), any(), eq("first"))
-            verify(decoder, times(1)).sendBatchMessage(any(), any(), eq("second"))
+            verify(decoder, times(1)).sendBatchMessage(any<MessageGroupBatch.Builder>(), any(), eq("first"))
+            verify(decoder, times(1)).sendBatchMessage(any<MessageGroupBatch.Builder>(), any(), eq("second"))
         }
-        expectThat(decoder.queue)
+        expectThat(decoder.protoQueue)
             .hasSize(2)
             .withElementAt(0) {
-                get { group } isEqualTo "first"
+                get { sessionGroup } isEqualTo "first"
             }.withElementAt(1) {
-                get { group } isEqualTo "second"
+                get { sessionGroup } isEqualTo "second"
             }
     }
 
-    private fun Assertion.Builder<List<RequestedMessageDetails>>.elementsEquals(expected: List<StoredMessage>, isParsed: Boolean = true) {
+    private fun Assertion.Builder<List<RequestedMessageDetails>>.elementsEquals(
+        expected: List<StoredMessage>,
+        isParsed: Boolean = true
+    ) {
         expected.forEachIndexed { index, storedMessage ->
             withElementAt(index) {
                 get { awaitAndGet() }.equalsMessage(storedMessage, isParsed, index)
@@ -469,8 +645,8 @@ internal class TestSearchMessagesHandler {
         isParsed: Boolean = true,
         index: Int = 0,
     ) {
-        get { id } isEqualTo storedMessage.id.toString()
-        get { parsedMessage }.apply {
+        get { requestId } isEqualTo CradleRequestId(storedMessage.id)
+        get { protoMessage }.apply {
             if (isParsed) {
                 isNotNull().single()
                     .get { messageType } isEqualTo "Test$index"
@@ -480,28 +656,42 @@ internal class TestSearchMessagesHandler {
         }
     }
 
-    private fun createSearchRequest(streams: List<ProviderMessageStream>, isRawOnly: Boolean): SseMessageSearchRequest = SseMessageSearchRequest(
-        startTimestamp = Instant.now(),
-        endTimestamp = Instant.now(),
-        stream = streams,
-        searchDirection = SearchDirection.next,
-        resultCountLimit = null,
-        keepOpen = false,
-        responseFormats = if (isRawOnly) setOf(ResponseFormat.BASE_64) else null,
-        resumeFromIdsList = null,
-        bookId = BookId("test"),
-    )
+    private fun createSearchRequest(streams: List<ProviderMessageStream>, isRawOnly: Boolean): SseMessageSearchRequest =
+        SseMessageSearchRequest(
+            startTimestamp = Instant.now(),
+            endTimestamp = Instant.now(),
+            stream = streams,
+            searchDirection = SearchDirection.next,
+            resultCountLimit = null,
+            keepOpen = false,
+            responseFormats = if (isRawOnly) setOf(ResponseFormat.BASE_64) else null,
+            resumeFromIdsList = null,
+            bookId = BookId("test"),
+        )
 }
 
-private open class TestDecoder : Decoder {
-    val queue: Queue<RequestedMessageDetails> = ArrayBlockingQueue(10)
-    override fun sendBatchMessage(batchBuilder: MessageGroupBatch.Builder, requests: Collection<RequestedMessageDetails>, session: String) {
-        queue.addAll(requests)
+private open class TestDecoder(
+    capacity: Int = 10
+) : Decoder {
+    val protoQueue: Queue<RequestedMessageDetails> = ArrayBlockingQueue(capacity)
+    val transportQueue: Queue<RequestedMessageDetails> = ArrayBlockingQueue(capacity)
+    override fun sendBatchMessage(
+        batchBuilder: MessageGroupBatch.Builder,
+        requests: Collection<RequestedMessageDetails>,
+        session: String
+    ) {
+        protoQueue.addAll(requests)
     }
 
-    override fun sendMessage(message: RequestedMessageDetails, session: String) {
-        queue.add(message)
+    override fun sendBatchMessage(
+        batchBuilder: GroupBatch.Builder,
+        requests: Collection<RequestedMessageDetails>,
+        session: String
+    ) {
+        transportQueue.addAll(requests)
     }
+
+    //FIXME: implement for transport
 }
 
 private open class MessageResponseHandlerTestImpl(

@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,15 +17,22 @@
 package com.exactpro.th2.lwdataprovider.workers
 
 import com.exactpro.th2.common.grpc.Message
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 
 interface RequestsBuffer {
-
     /**
-     * @param id message ID for which the response was received
+     * Notifies the [RequestsBuffer] that the batch with first group [RequestId] is received.
+     * Used to stop all internal measurements for that batch
+     */
+    fun batchReceived(firstRequestId: RequestId)
+    /**
+     * @param id [RequestId] for which the response was received
      * @param response the supplier function that will be invoked it the [id] is in the decoding queue
      */
-    fun responseReceived(id: String, response: () -> List<Message>)
-    fun bulkResponsesReceived(responses: Map<String, () -> List<Message>>)
+    fun responseProtoReceived(id: RequestId, response: () -> List<Message>)
+    fun responseTransportReceived(id: RequestId, response: () -> List<ParsedMessage>)
+    fun bulkResponsesProtoReceived(responses: Map<RequestId, () -> List<Message>>)
+    fun bulkResponsesTransportReceived(responses: Map<RequestId, () -> List<ParsedMessage>>)
 
     /**
      * @return the sending time of the oldest message request or current time in epoch millis

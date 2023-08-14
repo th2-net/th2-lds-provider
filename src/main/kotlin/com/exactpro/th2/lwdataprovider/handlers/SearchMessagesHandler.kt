@@ -1,5 +1,5 @@
-/*******************************************************************************
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+/*
+ * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ */
 
 package com.exactpro.th2.lwdataprovider.handlers
 
@@ -23,17 +23,15 @@ import com.exactpro.cradle.messages.GroupedMessageFilter
 import com.exactpro.cradle.messages.MessageFilterBuilder
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageId
-import com.exactpro.th2.common.grpc.MessageGroupBatch
-import com.exactpro.th2.lwdataprovider.BasicResponseHandler
 import com.exactpro.th2.lwdataprovider.Decoder
 import com.exactpro.th2.lwdataprovider.ProviderStreamInfo
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
-import com.exactpro.th2.lwdataprovider.ResponseHandler
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.CradleGroupRequest
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
+import com.exactpro.th2.lwdataprovider.entities.requests.GetGroupMessageRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
@@ -76,30 +74,50 @@ class SearchMessagesHandler(
         return cradleMsgExtractor.getStreams(bookId, from, to)
     }
 
-    fun loadMessages(request: SseMessageSearchRequest, requestContext: MessageResponseHandler, dataMeasurement: DataMeasurement) {
+    fun loadMessages(
+        request: SseMessageSearchRequest,
+        requestContext: MessageResponseHandler,
+        dataMeasurement: DataMeasurement
+    ) {
 
         if (request.stream.isNullOrEmpty() && request.resumeFromIdsList.isNullOrEmpty()) {
             return
         }
 
         threadPool.execute {
-            RootMessagesDataSink(
+            val rootSink = RootMessagesDataSink(
                 requestContext,
                 if (request.responseFormats.hasRowOnly()) {
                     RawStoredMessageHandler(requestContext)
                 } else {
-                    ParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
+                    if (configuration.useTransportMode) {
+                        TransportParsedStoredMessageHandler(
+                            requestContext,
+                            decoder,
+                            dataMeasurement,
+                            configuration.batchSize
+                        )
+                    } else {
+                        ProtoParsedStoredMessageHandler(
+                            requestContext,
+                            decoder,
+                            dataMeasurement,
+                            configuration.batchSize
+                        )
+                    }
                 },
                 limit = request.resultCountLimit
-            ).use { sink ->
-                try {
+            )
+            try {
+                rootSink.use { sink ->
+
                     if (!request.resumeFromIdsList.isNullOrEmpty()) {
                         request.resumeFromIdsList.forEach { resumeFromId ->
                             sink.canceled?.apply {
                                 logger.info { "loading canceled: $message" }
                                 return@use
                             }
-                            loadByResumeId(resumeFromId, request, sink, dataMeasurement)
+                            loadByResumeId(resumeFromId, request, sink)
                         }
                     } else {
                         request.stream?.forEach { (stream, direction) ->
@@ -108,11 +126,11 @@ class SearchMessagesHandler(
                                 return@use
                             }
 
-                            loadByStream(stream, direction, request, sink, dataMeasurement)
+                            loadByStream(stream, direction, request, sink)
                         }
                     }
 
-                    if (request.keepOpen ) {
+                    if (request.keepOpen) {
                         sink.canceled?.apply {
                             logger.info { "request canceled: $message" }
                             return@use
@@ -120,57 +138,139 @@ class SearchMessagesHandler(
                         val order = orderFrom(request)
                         val allLoaded = hashSetOf<Stream>()
                         do {
-                            val continuePulling = pullUpdates(request, order, sink, allLoaded, dataMeasurement)
+                            val continuePulling = pullUpdates(request, order, sink, allLoaded)
                         } while (continuePulling)
                     }
-
-                } catch (e: Exception) {
-                    logger.error(e) { "error getting messages" }
-                    sink.onError(e)
                 }
+            } catch (e: Exception) {
+                logger.error(e) { "error getting messages" }
+                rootSink.onError(e)
             }
         }
     }
 
-    fun loadOneMessage(request: GetMessageRequest, requestContext: MessageResponseHandler, dataMeasurement: DataMeasurement) {
+    fun loadOneMessage(
+        request: GetMessageRequest,
+        requestContext: MessageResponseHandler,
+        dataMeasurement: DataMeasurement
+    ) {
         threadPool.execute {
-            RootMessagesDataSink(
+            val rootSink = RootMessagesDataSink(
                 requestContext,
                 if (request.onlyRaw) {
                     RawStoredMessageHandler(requestContext)
                 } else {
-                    ParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize)
+                    if (configuration.useTransportMode) {
+                        TransportParsedStoredMessageHandler(
+                            requestContext,
+                            decoder,
+                            dataMeasurement,
+                            configuration.batchSize
+                        )
+                    } else {
+                        ProtoParsedStoredMessageHandler(
+                            requestContext,
+                            decoder,
+                            dataMeasurement,
+                            configuration.batchSize
+                        )
+                    }
                 }
-            ).use { sink ->
-                try {
-                    cradleMsgExtractor.getMessage(request.msgId, sink, dataMeasurement)
-                } catch (e: Exception) {
-                    logger.error(e) { "error getting messages" }
-                    sink.onError(e, request.msgId.toReportId())
+            )
+            try {
+                rootSink.use { sink ->
+                    cradleMsgExtractor.getMessage(request.msgId, sink)
                 }
+            } catch (e: Exception) {
+                logger.error(e) { "error getting messages" }
+                rootSink.onError(e, request.msgId.toReportId())
             }
         }
     }
 
-    fun loadMessageGroups(request: MessagesGroupRequest, requestContext: MessageResponseHandler, dataMeasurement: DataMeasurement) {
+    fun loadOneMessageByGroup(
+        request: GetGroupMessageRequest,
+        requestContext: MessageResponseHandler,
+        dataMeasurement: DataMeasurement
+    ) {
+        threadPool.execute {
+            val rootSink = RootMessagesDataSink(
+                requestContext,
+                if (request.rawOnly) {
+                    RawStoredMessageHandler(requestContext)
+                } else {
+                    if (configuration.useTransportMode) {
+                        TransportParsedStoredMessageHandler(
+                            requestContext,
+                            decoder,
+                            dataMeasurement,
+                            configuration.batchSize
+                        )
+                    } else {
+                        ProtoParsedStoredMessageHandler(
+                            requestContext,
+                            decoder,
+                            dataMeasurement,
+                            configuration.batchSize
+                        )
+                    }
+                }
+            )
+            try {
+                rootSink.use { sink ->
+                    cradleMsgExtractor.getMessage(request.group, request.messageId, sink)
+                }
+            } catch (e: Exception) {
+                logger.error(e) { "error getting messages" }
+                rootSink.onError(e, request.messageId.toReportId())
+            }
+        }
+    }
+
+    fun loadMessageGroups(
+        request: MessagesGroupRequest,
+        requestContext: MessageResponseHandler,
+        dataMeasurement: DataMeasurement
+    ) {
         if (request.groups.isEmpty()) {
             requestContext.complete()
         }
 
         threadPool.execute {
             logger.info { "Executing group request $request" }
-            RootMessagesDataSink(
+            val rootSink = RootMessagesDataSink(
                 requestContext,
-                if (request.rawOnly) {
+                if (request.responseFormats.hasRowOnly()) {
                     RawStoredMessageHandler(requestContext)
                 } else {
-                    ParsedStoredMessageHandler(requestContext, decoder, dataMeasurement, configuration.batchSize, markerAsGroup = true)
+                    if (configuration.useTransportMode) {
+                        TransportParsedStoredMessageHandler(
+                            requestContext,
+                            decoder,
+                            dataMeasurement,
+                            configuration.batchSize,
+                            markerAsGroup = true
+                        )
+                    } else {
+                        ProtoParsedStoredMessageHandler(
+                            requestContext,
+                            decoder,
+                            dataMeasurement,
+                            configuration.batchSize,
+                            markerAsGroup = true
+                        )
+                    }
                 },
                 markerAsGroup = true,
-                limit = null,
-            ).use { sink ->
-                try {
-                    val parameters = CradleGroupRequest(request.sort)
+                limit = request.limit,
+            )
+            try {
+                rootSink.use { sink ->
+
+                    val parameters = CradleGroupRequest(
+                        sort = request.sort,
+                        preFilter = createInitialPrefilter(request),
+                    )
                     request.groups.forEach { group ->
                         sink.subSink().use { subSink ->
                             val filter = GroupedMessageFilter.builder()
@@ -180,7 +280,7 @@ class SearchMessagesHandler(
                                 .timestampTo().isLessThan(request.endTimestamp)
                                 .build()
                             logger.info { "Executing request for group $group" }
-                            cradleMsgExtractor.getMessagesGroup(filter, parameters, subSink, dataMeasurement)
+                            cradleMsgExtractor.getMessagesGroup(filter, parameters, subSink)
                             logger.info { "Executing of request for group $group has been finished" }
                         }
                     }
@@ -193,14 +293,39 @@ class SearchMessagesHandler(
                         val lastTimestamp: Instant = request.endTimestamp
                         val allGroupLoaded = hashSetOf<String>()
                         do {
-                            val keepPulling = pullUpdates(request, lastTimestamp, sink, parameters, allGroupLoaded, dataMeasurement)
+                            val keepPulling = pullUpdates(request, lastTimestamp, sink, parameters, allGroupLoaded)
+                            sink.canceled?.apply {
+                                logger.info { "request canceled: $message" }
+                                return@use
+                            }
                         } while (keepPulling)
                     }
-                } catch (ex: Exception) {
-                    logger.error("Error getting messages group", ex)
-                    sink.onError(ex)
+                }
+            } catch (ex: Exception) {
+                logger.error("Error getting messages group", ex)
+                rootSink.onError(ex)
+            }
+        }
+    }
+
+    private fun createInitialPrefilter(request: MessagesGroupRequest): ((StoredMessage) -> Boolean)? {
+        if (request.includeStreams.isEmpty()) {
+            return null
+        }
+        val includeMap: Map<String, Set<Direction>> = request.includeStreams
+            .groupingBy { it.sessionAlias }
+            .aggregate { key, acc: MutableSet<Direction>?, el, first ->
+                el.direction.let {
+                    if (first) {
+                        hashSetOf(it)
+                    } else {
+                        requireNotNull(acc) { "accumulator is null for $key" }.apply { add(it) }
+                    }
                 }
             }
+
+        return { msg ->
+            includeMap[msg.sessionAlias]?.contains(msg.direction) ?: false
         }
     }
 
@@ -214,7 +339,6 @@ class SearchMessagesHandler(
         sink: RootMessagesDataSink,
         parameters: CradleGroupRequest,
         allLoaded: MutableSet<String>,
-        dataMeasurement: DataMeasurement,
     ): Boolean {
         val parametersByBookId: Map<BookGroup, GroupParametersHolder> = computeNewParametersForGroupRequest(
             mapOf(request.bookId to request.groups),
@@ -234,7 +358,7 @@ class SearchMessagesHandler(
                     .timestampFrom().isGreaterThanOrEqualTo(newStart)
                     .timestampTo().isLessThan(request.endTimestamp)
                     .build()
-                cradleMsgExtractor.getMessagesGroup(filter, reqParams, subSink, dataMeasurement)
+                cradleMsgExtractor.getMessagesGroup(filter, reqParams, subSink)
                 logger.info { "Data has been loaded for group $bookGroup" }
             }
         }
@@ -242,12 +366,12 @@ class SearchMessagesHandler(
     }
 
     private data class Stream(val name: String, val direction: Direction)
+
     private fun pullUpdates(
         request: SseMessageSearchRequest,
         order: Order,
         sink: RootMessagesDataSink,
         allLoaded: MutableSet<Stream>,
-        dataMeasurement: DataMeasurement,
     ): Boolean {
         var limitReached = false
         var allDataLoaded = true
@@ -272,9 +396,9 @@ class SearchMessagesHandler(
                 allLoaded += stream
             }
             if (messageId.sequence == 0L) {
-                loadByStream(messageId.sessionAlias, messageId.direction, request, sink, dataMeasurement)
+                loadByStream(messageId.sessionAlias, messageId.direction, request, sink)
             } else {
-                loadByResumeId(messageId, request, sink, dataMeasurement)
+                loadByResumeId(messageId, request, sink)
             }
 
             allDataLoaded = allDataLoaded and hasDataOutside
@@ -294,7 +418,6 @@ class SearchMessagesHandler(
         resumeFromId: StoredMessageId,
         request: SseMessageSearchRequest,
         sink: RootMessagesDataSink,
-        dataMeasurement: DataMeasurement,
     ) {
         sink.subSinkForStream(resumeFromId.sessionAlias, resumeFromId.direction).use { subSink ->
             val filter = MessageFilterBuilder().apply {
@@ -310,7 +433,7 @@ class SearchMessagesHandler(
 
 
             val time = measureTimeMillis {
-                cradleMsgExtractor.getMessages(filter, subSink, dataMeasurement)
+                cradleMsgExtractor.getMessages(filter, subSink)
             }
             logger.info { "Loaded ${subSink.loadedData} messages from DB $time ms" }
         }
@@ -321,7 +444,6 @@ class SearchMessagesHandler(
         direction: Direction,
         request: SseMessageSearchRequest,
         sink: RootMessagesDataSink,
-        dataMeasurement: DataMeasurement,
     ) {
         sink.subSinkForStream(stream, direction).use { subSink ->
             val filter = MessageFilterBuilder().apply {
@@ -335,7 +457,7 @@ class SearchMessagesHandler(
                 limitFilter(sink)
             }.build()
             val time = measureTimeMillis {
-                cradleMsgExtractor.getMessages(filter, subSink, dataMeasurement)
+                cradleMsgExtractor.getMessages(filter, subSink)
             }
             logger.info { "Loaded ${subSink.loadedData} messages from DB $time ms" }
         }
@@ -377,6 +499,7 @@ private class RootMessagesDataSink(
 
     val streamInfo: ProviderStreamInfo
         get() = messageHandler.streamInfo
+
     override fun completed() {
         handler.complete()
         messageHandler.dataLoaded()
@@ -453,61 +576,6 @@ private abstract class MessagesDataSink(
         onNextData(marker, data)
         handler.handleNext(marker, data)
         return true
-    }
-}
-
-private interface MarkedResponseHandler<M, V> : BasicResponseHandler {
-    fun handleNext(marker: M, data: V)
-}
-
-private class ParsedStoredMessageHandler(
-    private val handler: MessageResponseHandler,
-    private val decoder: Decoder,
-    private val measurement: DataMeasurement,
-    private val batchSize: Int,
-    private val markerAsGroup: Boolean = false,
-) : MarkedResponseHandler<String, StoredMessage> {
-    private val batch: MessageGroupBatch.Builder = MessageGroupBatch.newBuilder()
-    private val details: MutableList<RequestedMessageDetails> = arrayListOf()
-    override val isAlive: Boolean
-        get() = handler.isAlive
-
-    override fun complete() {
-        processBatch(details)
-    }
-
-    override fun writeErrorMessage(text: String, id: String?, batchId: String?) {
-        handler.writeErrorMessage(text, id, batchId)
-    }
-
-    override fun writeErrorMessage(error: Throwable, id: String?, batchId: String?) {
-        handler.writeErrorMessage(error, id, batchId)
-    }
-
-    override fun handleNext(marker: String, data: StoredMessage) {
-        val step = measurement.start("decoding")
-        val detail = RequestedMessageDetails(data, group = if (markerAsGroup) marker else null) {
-            step.stop()
-            handler.requestReceived()
-        }
-        details += detail
-        handler.handleNext(detail)
-        if (details.size >= batchSize) {
-            processBatch(details)
-        }
-    }
-
-    private fun processBatch(details: MutableList<RequestedMessageDetails>) {
-        if (details.isEmpty()) {
-            return
-        }
-        try {
-            handler.checkAndWaitForRequestLimit(details.size)
-            decoder.sendBatchMessage(batch, details, details.first().run { group ?: storedMessage.sessionAlias })
-        } finally {
-            details.clear()
-            batch.clear()
-        }
     }
 }
 

@@ -21,6 +21,7 @@ import com.exactpro.th2.lwdataprovider.RequestedMessage
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.ResponseHandler
 import com.exactpro.th2.lwdataprovider.SseEvent
+import com.exactpro.th2.lwdataprovider.SseEvent.Companion.DATA_CHARSET
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
@@ -28,18 +29,21 @@ import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.exactpro.th2.lwdataprovider.failureReason
 import com.exactpro.th2.lwdataprovider.handlers.AbstractCancelableHandler
 import com.exactpro.th2.lwdataprovider.handlers.MessageResponseHandler
+import com.exactpro.th2.lwdataprovider.metrics.HttpWriteMetrics
 import com.exactpro.th2.lwdataprovider.producers.JsonFormatter
-import com.exactpro.th2.lwdataprovider.producers.MessageProducer53
 import com.exactpro.th2.lwdataprovider.producers.ParsedFormats
 import org.apache.commons.lang3.exception.ExceptionUtils
 import java.util.EnumSet
 import java.util.concurrent.BlockingQueue
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.Executor
 import java.util.concurrent.atomic.AtomicLong
 import java.util.function.Supplier
 
 class HttpMessagesRequestHandler(
     private val buffer: BlockingQueue<Supplier<SseEvent>>,
     private val builder: SseResponseBuilder,
+    private val executor: Executor,
     dataMeasurement: DataMeasurement,
     maxMessagesPerRequest: Int = 0,
     responseFormats: Set<ResponseFormat> = EnumSet.of(ResponseFormat.BASE_64, ResponseFormat.PROTO_PARSED),
@@ -62,17 +66,21 @@ class HttpMessagesRequestHandler(
     override fun handleNextInternal(data: RequestedMessageDetails) {
         if (!isAlive) return
         val counter = indexer.nextIndex()
-        buffer.put {
-            val requestedMessage: RequestedMessage = data.awaitAndGet()
-            if (jsonFormatter != null && requestedMessage.parsedMessage == null) {
-                builder.codecTimeoutError(requestedMessage.storedMessage.id, counter)
-            } else {
-                builder.build(
-                    MessageProducer53.createMessage(requestedMessage, jsonFormatter, includeRaw),
-                    counter,
-                )
+        val future: CompletableFuture<SseEvent> = data.completed.thenApplyAsync({ requestedMessage: RequestedMessage ->
+            dataMeasurement.start("convert_to_json").use {
+                if (jsonFormatter != null && requestedMessage.protoMessage == null && requestedMessage.transportMessage == null) {
+                    builder.codecTimeoutError(requestedMessage.storedMessage.id, counter)
+                } else {
+                    builder.build(
+                        requestedMessage, jsonFormatter, includeRaw,
+                        counter,
+                    )
+                }.also {
+                    HttpWriteMetrics.incConverted()
+                }
             }
-        }
+        }, executor)
+        buffer.put(future::get)
     }
 
     override fun complete() {
@@ -82,7 +90,7 @@ class HttpMessagesRequestHandler(
 
     override fun writeErrorMessage(text: String, id: String?, batchId: String?) {
         if (!isAlive) return
-        buffer.put { SseEvent.ErrorData.SimpleError(failureReason(batchId, id, text)) }
+        buffer.put { SseEvent.ErrorData.SimpleError(failureReason(batchId, id, text).toByteArray(DATA_CHARSET)) }
     }
 
     override fun writeErrorMessage(error: Throwable, id: String?, batchId: String?) {
@@ -121,7 +129,7 @@ class HttpGenericResponseHandler<T>(
 
     override fun writeErrorMessage(text: String, id: String?, batchId: String?) {
         if (!isAlive) return
-        buffer.put { SseEvent.ErrorData.SimpleError(failureReason(batchId, id, text)) }
+        buffer.put { SseEvent.ErrorData.SimpleError(failureReason(batchId, id, text).toByteArray(DATA_CHARSET)) }
     }
 
     override fun writeErrorMessage(error: Throwable, id: String?, batchId: String?) {

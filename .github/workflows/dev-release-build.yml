@@ -19,9 +19,6 @@ jobs:
     runs-on: 'ubuntu-20.04'
     steps:
       - uses: actions/checkout@v3
-      - name: Release publication
-        id: close_release
-        run: echo "task=closeAndReleaseSonatypeStagingRepository" >> $GITHUB_OUTPUT
       - name: Set up JDK 'zulu' '11'
         uses: actions/setup-java@v3
         with:
@@ -30,7 +27,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
       - name: Build with Gradle
-        run: ./gradlew -p . --info -Pversion_suffix='dev' clean build publish ${{ steps.close_release.outputs.task }}
+        run: ./gradlew -p . --info -Pversion_suffix='dev' :grpc:clean :grpc:build :grpc:publish :closeAndReleaseSonatypeStagingRepository
         env:
           ORG_GRADLE_PROJECT_sonatypeUsername: ${{ secrets.SONATYPE_NEXUS_USERNAME }}
           ORG_GRADLE_PROJECT_sonatypePassword: ${{ secrets.SONATYPE_NEXUS_PASSWORD }}

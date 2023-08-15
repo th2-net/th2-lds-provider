@@ -196,7 +196,7 @@ class HttpServer(private val context: Context) {
                         "Light Weight Data Provider provides you with fast access to data in Cradle"
                     openApiInfo.contact = openApiContact
                     openApiInfo.license = openApiLicense
-                    openApiInfo.version = "2.0.1"
+                    openApiInfo.version = "2.1.0"
                 }.withServer { openApiServer ->
                     openApiServer.url = "http://localhost:{port}"
                     openApiServer.addVariable("port", "8080", arrayOf("8080"), "Port of the server")

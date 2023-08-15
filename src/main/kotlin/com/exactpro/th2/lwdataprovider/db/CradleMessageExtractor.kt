@@ -370,7 +370,7 @@ private enum class OrderStrategy {
         override fun checkBatchOrdered(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean =
             first.lastTimestamp <= second.firstTimestamp
 
-        override fun checkMessageTimestamp(message: StoredMessage?, batch: StoredGroupedMessageBatch): Boolean =
+        override fun checkMessageInOrderWithBatch(message: StoredMessage?, batch: StoredGroupedMessageBatch): Boolean =
             message?.timestampLess(batch) == true
 
         override fun checkBatchOverlap(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean =
@@ -385,7 +385,7 @@ private enum class OrderStrategy {
         override fun checkBatchOrdered(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean =
             first.firstTimestamp >= second.lastTimestamp
 
-        override fun checkMessageTimestamp(message: StoredMessage?, batch: StoredGroupedMessageBatch): Boolean =
+        override fun checkMessageInOrderWithBatch(message: StoredMessage?, batch: StoredGroupedMessageBatch): Boolean =
             message?.timestampGreater(batch) == true
 
         override fun checkBatchOverlap(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean =
@@ -398,7 +398,7 @@ private enum class OrderStrategy {
      * Check order of grouped batch. Batches should go one by one without overlapping
      */
     abstract fun checkBatchOrdered(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean
-    abstract fun checkMessageTimestamp(message: StoredMessage?, batch: StoredGroupedMessageBatch): Boolean
+    abstract fun checkMessageInOrderWithBatch(message: StoredMessage?, batch: StoredGroupedMessageBatch): Boolean
     abstract fun checkBatchOverlap(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean
 
     abstract fun <T>reorder(collection: Collection<T>): Collection<T>

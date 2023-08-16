@@ -27,7 +27,7 @@ if (!suffix.isEmpty()) {
 }
 
 dependencies {
-    implementation platform('com.exactpro.th2:bom:4.4.0')
+    implementation platform('com.exactpro.th2:bom:4.5.0')
     implementation 'org.slf4j:slf4j-api'
     implementation 'io.github.microutils:kotlin-logging:2.1.23'
 

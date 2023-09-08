@@ -264,9 +264,8 @@ class SearchMessagesHandler(
                 markerAsGroup = true,
                 limit = request.limit,
             )
-            try {
-                rootSink.use { sink ->
-
+            rootSink.use { sink ->
+                try {
                     val parameters = CradleGroupRequest(
                         preFilter = createInitialPrefilter(request),
                     )
@@ -301,10 +300,10 @@ class SearchMessagesHandler(
                             }
                         } while (keepPulling)
                     }
+                } catch (ex: Exception) {
+                    logger.error("Error getting messages group", ex)
+                    rootSink.onError(ex)
                 }
-            } catch (ex: Exception) {
-                logger.error("Error getting messages group", ex)
-                rootSink.onError(ex)
             }
         }
     }

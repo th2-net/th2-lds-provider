@@ -223,6 +223,10 @@ spec:
 + Add support for requesting message groups in reversed order
 + Add filter by stream to gRPC API for group search request
 
+### Fixed:
+
++ error reporting when executing group search (if error occurs during a call to the Cradle API stream were closed before the error was reported)
+
 ## 2.1.0
 
 + Updated bom: `4.5.0-dev`

@@ -65,6 +65,7 @@ abstract class AbstractCradleIntegrationTest {
             CassandraStorageSettings().apply {
                 resultPageSize = 4
                 this.keyspace = keyspace
+                bookRefreshIntervalMillis = 100 // to make tests shorter
             },
             true, // prepare storage
         )

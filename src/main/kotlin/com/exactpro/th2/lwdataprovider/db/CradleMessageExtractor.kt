@@ -338,10 +338,11 @@ internal class GroupBatchCheckIterator(
 ) : Iterator<StoredGroupedMessageBatch> by original {
     override fun next(): StoredGroupedMessageBatch = original.next().also { batch ->
         if (batch.messages.size > 1) {
-            batch.messages.asSequence().chunked(2).forEach { (first, second) ->
+            batch.messages.reduce { first, second ->
                 check(first.timestamp <= second.timestamp) {
                     "Unordered message received for: ${batch.toShortInfo()} batch, between ${first.toShortInfo()} and ${second.toShortInfo()} messages"
                 }
+                second
             }
         }
     }

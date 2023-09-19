@@ -17,6 +17,7 @@
 package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.cradle.Direction
+import com.exactpro.cradle.Order
 import com.exactpro.cradle.messages.StoredMessageIdUtils
 import com.exactpro.th2.common.message.addField
 import com.exactpro.th2.common.message.message
@@ -233,6 +234,64 @@ class TestFileDownloadHandler : AbstractHttpHandlerTest<FileDownloadHandler>() {
                           |{"timestamp":{"epochSecond":${seconds},"nano":${nanos}},"direction":"IN","sessionId":"test-1","messageType":"","attachedEventIds":[],"body":{},"bodyBase64":"aGVsbG8=","messageId":"test-book:test-1:1:${expectedTimestamp}:2"}
                           |{"timestamp":{"epochSecond":${seconds},"nano":${nanos}},"direction":"IN","sessionId":"test-2","messageType":"","attachedEventIds":[],"body":{},"bodyBase64":"aGVsbG8=","messageId":"test-book:test-2:1:${expectedTimestamp}:3"}
                           |{"timestamp":{"epochSecond":${seconds},"nano":${nanos}},"direction":"IN","sessionId":"test-0","messageType":"","attachedEventIds":[],"body":{},"bodyBase64":"aGVsbG8=","messageId":"test-book:test-0:1:${expectedTimestamp}:4"}
+                          |""".trimMargin(marginPrefix = "|")
+                    )
+            }
+        }
+    }
+
+    @Test
+    fun `response with messages in reversed order`() {
+        var index = 1L
+        val start = Instant.now()
+        doReturn(
+            CradleResult(
+                GroupBatch(
+                    "test-group",
+                    book = "test-book",
+                    messages = buildList {
+                        repeat(6) {
+                            add(
+                                createCradleStoredMessage(
+                                    "test-${it % 3}",
+                                    Direction.FIRST,
+                                    index++,
+                                    timestamp = start,
+                                    book = "test-book",
+                                )
+                            )
+                        }
+                    },
+                )
+            )
+        ).whenever(storage).getGroupedMessageBatches(argThat {
+            groupName == "test-group" && bookId.name == "test-book" && order == Order.REVERSE
+        })
+
+        startTest { _, client ->
+            val response = client.get(
+                "/download/messages?" +
+                        "startTimestamp=${Instant.now().toEpochMilli()}&endTimestamp=${start.toEpochMilli()}" +
+                        "&group=test-group" +
+                        "&bookId=test-book" +
+                        "&responseFormat=BASE_64" +
+                        "&searchDirection=previous"
+            )
+
+            val expectedTimestamp = StoredMessageIdUtils.timestampToString(start)
+            val seconds = start.epochSecond
+            val nanos = start.nano
+            expectThat(response) {
+                get { code } isEqualTo HttpStatus.OK.code
+                get { body?.bytes()?.toString(Charsets.UTF_8) }
+                    .isNotNull()
+                    .isEqualTo(
+                        """{"timestamp":{"epochSecond":${seconds},"nano":${nanos}},"direction":"IN","sessionId":"test-2","messageType":"","attachedEventIds":[],"body":{},"bodyBase64":"aGVsbG8=","messageId":"test-book:test-2:1:${expectedTimestamp}:6"}
+                          |{"timestamp":{"epochSecond":${seconds},"nano":${nanos}},"direction":"IN","sessionId":"test-1","messageType":"","attachedEventIds":[],"body":{},"bodyBase64":"aGVsbG8=","messageId":"test-book:test-1:1:${expectedTimestamp}:5"}
+                          |{"timestamp":{"epochSecond":${seconds},"nano":${nanos}},"direction":"IN","sessionId":"test-0","messageType":"","attachedEventIds":[],"body":{},"bodyBase64":"aGVsbG8=","messageId":"test-book:test-0:1:${expectedTimestamp}:4"}
+                          |{"timestamp":{"epochSecond":${seconds},"nano":${nanos}},"direction":"IN","sessionId":"test-2","messageType":"","attachedEventIds":[],"body":{},"bodyBase64":"aGVsbG8=","messageId":"test-book:test-2:1:${expectedTimestamp}:3"}
+                          |{"timestamp":{"epochSecond":${seconds},"nano":${nanos}},"direction":"IN","sessionId":"test-1","messageType":"","attachedEventIds":[],"body":{},"bodyBase64":"aGVsbG8=","messageId":"test-book:test-1:1:${expectedTimestamp}:2"}
+                          |{"timestamp":{"epochSecond":${seconds},"nano":${nanos}},"direction":"IN","sessionId":"test-0","messageType":"","attachedEventIds":[],"body":{},"bodyBase64":"aGVsbG8=","messageId":"test-book:test-0:1:${expectedTimestamp}:1"}
                           |""".trimMargin(marginPrefix = "|")
                     )
             }

@@ -200,9 +200,19 @@ class FileDownloadHandler(
     ) {
         val matchedPath = ctx.matchedPath()
         var dataSent = 0
-        ctx.status(HttpStatus.OK)
-            .contentType(JSON_STREAM_CONTENT_TYPE)
-            .header(Header.TRANSFER_ENCODING, "chunked")
+
+        var writeHeader = true
+        var status: HttpStatus = HttpStatus.OK
+
+        fun writeHeader() {
+            if (writeHeader) {
+                ctx.status(status)
+                    .contentType(JSON_STREAM_CONTENT_TYPE)
+                    .header(Header.TRANSFER_ENCODING, "chunked")
+                writeHeader = false
+            }
+        }
+
         val output = ctx.res().outputStream.buffered()
         try {
             do {
@@ -210,6 +220,11 @@ class FileDownloadHandler(
                     val nextEvent = queue.take()
                     ResponseQueue.currentSize(matchedPath, queue.size)
                     val sseEvent = dataMeasurement.start("await_convert_to_json").use { nextEvent.get() }
+                    if (writeHeader && sseEvent is SseEvent.ErrorData.SimpleError) {
+                        // something happened during request
+                        status = HttpStatus.INTERNAL_SERVER_ERROR
+                    }
+                    writeHeader()
                     when (sseEvent.event) {
                         EventType.KEEP_ALIVE -> output.flush()
                         EventType.CLOSE -> {

@@ -19,6 +19,7 @@ package com.exactpro.th2.lwdataprovider.http
 import com.exactpro.cradle.Direction
 import com.exactpro.cradle.Order
 import com.exactpro.cradle.messages.StoredMessageIdUtils
+import com.exactpro.cradle.utils.CradleStorageException
 import com.exactpro.th2.common.message.addField
 import com.exactpro.th2.common.message.message
 import com.exactpro.th2.common.message.setMetadata
@@ -27,8 +28,10 @@ import com.exactpro.th2.lwdataprovider.util.GroupBatch
 import com.exactpro.th2.lwdataprovider.util.createCradleStoredMessage
 import io.javalin.http.HttpStatus
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.any
 import org.mockito.kotlin.argThat
 import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.whenever
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo
@@ -293,6 +296,33 @@ class TestFileDownloadHandler : AbstractHttpHandlerTest<FileDownloadHandler>() {
                           |{"timestamp":{"epochSecond":${seconds},"nano":${nanos}},"direction":"IN","sessionId":"test-1","messageType":"","attachedEventIds":[],"body":{},"bodyBase64":"aGVsbG8=","messageId":"test-book:test-1:1:${expectedTimestamp}:2"}
                           |{"timestamp":{"epochSecond":${seconds},"nano":${nanos}},"direction":"IN","sessionId":"test-0","messageType":"","attachedEventIds":[],"body":{},"bodyBase64":"aGVsbG8=","messageId":"test-book:test-0:1:${expectedTimestamp}:1"}
                           |""".trimMargin(marginPrefix = "|")
+                    )
+            }
+        }
+    }
+
+    @Test
+    fun `respond with error and correct status if first cradle call throws an exception`() {
+        whenever(storage.getGroupedMessageBatches(any())) doThrow CradleStorageException("ignore")
+
+        startTest { _, client ->
+            val now = Instant.now().toEpochMilli()
+            val response = client.get(
+                "/download/messages?" +
+                        "startTimestamp=${now}&endTimestamp=${now + 100}" +
+                        "&group=test-group" +
+                        "&bookId=test-book" +
+                        "&responseFormat=BASE_64"
+            )
+
+            expectThat(response) {
+                get { code } isEqualTo HttpStatus.INTERNAL_SERVER_ERROR.code
+                get { body?.bytes()?.toString(Charsets.UTF_8) }
+                    .isNotNull()
+                    .isEqualTo(
+                        """{"error":"ignore"}
+                          |
+                        """.trimMargin()
                     )
             }
         }

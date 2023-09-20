@@ -25,6 +25,7 @@ import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
+import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.util.convertToMessageStreams
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
@@ -64,8 +65,7 @@ class FileDownloadHandler(
     @OpenApi(
         path = ROUTE_MESSAGES,
         description = "returns list of messages for specified groups. Each group will be requested one after another " +
-                "(there is no order guaranties between groups). Messages for a group are not sorted by default. " +
-                "Use $SORT_PARAMETER in order to sort messages for each group",
+                "(there is no order guaranties between groups). Messages for a group are not sorted by default. ",
         queryParams = [
             OpenApiParam(
                 GROUP_PARAM,
@@ -91,7 +91,9 @@ class FileDownloadHandler(
             OpenApiParam(
                 SORT_PARAMETER,
                 type = Boolean::class,
-                description = "enables message sorting in the request",
+                description = "enables message sorting in the request. " +
+                        "Parameter is deprecated: grouped message batches are already sorted and haven't got overlapping",
+                deprecated = true,
             ),
             OpenApiParam(
                 RAW_ONLY_PARAMETER,
@@ -126,6 +128,12 @@ class FileDownloadHandler(
                 type = Int::class,
                 description = "limit for messages in the response. No limit if not specified",
             ),
+            OpenApiParam(
+                SEARCH_DIRECTION,
+                type = SearchDirection::class,
+                description = "defines the order of the messages",
+                example = "next",
+            ),
         ],
         methods = [HttpMethod.GET],
         responses = [
@@ -150,8 +158,6 @@ class FileDownloadHandler(
                 .get(),
             endTimestamp = ctx.queryParamAsClass<Instant>(END_TIMESTAMP_PARAM)
                 .get(),
-            sort = ctx.queryParamAsClass<Boolean>(SORT_PARAMETER)
-                .getOrDefault(false),
             keepOpen = ctx.queryParamAsClass<Boolean>(KEEP_OPEN_PARAMETER)
                 .getOrDefault(false),
             bookId = ctx.queryParamAsClass<BookId>(BOOK_ID_PARAM).get(),
@@ -163,6 +169,8 @@ class FileDownloadHandler(
             limit = ctx.queryParamAsClass<Int>(LIMIT).allowNullable().check({
                 it == null || it >= 0
             }, "NEGATIVE_LIMIT").get(),
+            searchDirection = ctx.queryParamAsClass<SearchDirection>(SEARCH_DIRECTION)
+                .getOrDefault(SearchDirection.next),
         )
 
         val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
@@ -245,6 +253,7 @@ class FileDownloadHandler(
         private const val RESPONSE_FORMAT = "responseFormat"
         private const val STREAM = "stream"
         private const val LIMIT = "limit"
+        private const val SEARCH_DIRECTION = "searchDirection"
         private val LOGGER = KotlinLogging.logger { }
         const val ROUTE_MESSAGES = "/download/messages"
     }

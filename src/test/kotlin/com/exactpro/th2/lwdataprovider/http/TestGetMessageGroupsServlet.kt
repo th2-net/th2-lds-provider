@@ -17,6 +17,7 @@
 package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.cradle.Direction
+import com.exactpro.cradle.Order
 import com.exactpro.cradle.messages.StoredMessageIdUtils
 import com.exactpro.th2.lwdataprovider.util.CradleResult
 import com.exactpro.th2.lwdataprovider.util.GroupBatch
@@ -278,6 +279,69 @@ internal class TestGetMessageGroupsServlet : AbstractHttpHandlerTest<GetMessageG
                           |id: 2
                           |event: message
                           |data: {"timestamp":{"epochSecond":${seconds},"nano":${nanos}},"direction":"IN","sessionId":"test-1","messageType":"","attachedEventIds":[],"body":{},"bodyBase64":"aGVsbG8=","messageId":"test:test-1:1:${expectedTimestamp}:2"}
+                          |
+                          |event: close
+                          |data: empty data
+                          |
+                          |""".trimMargin(marginPrefix = "|")
+                    )
+            }
+        }
+    }
+
+    @Test
+    fun `returns responses in reversed direciton`() {
+        var index = 1L
+        val start = Instant.now()
+        doReturn(
+            CradleResult(
+                GroupBatch(
+                    "test-group",
+                    book = "test-book",
+                    messages = buildList {
+                        repeat(4) {
+                            add(createCradleStoredMessage("test-$it", Direction.FIRST, index++, timestamp = start))
+                        }
+                    },
+                )
+            )
+        ).whenever(storage).getGroupedMessageBatches(argThat {
+            groupName == "test-group" && bookId.name == "test-book" && order == Order.REVERSE
+        })
+
+        startTest { _, client ->
+            val response = client.sse(
+                "/search/sse/messages/group?" +
+                        "startTimestamp=${Instant.now().toEpochMilli()}&endTimestamp=${start.toEpochMilli()}" +
+                        "&group=test-group" +
+                        "&bookId=test-book" +
+                        "&responseFormat=BASE_64" +
+                        "&searchDirection=previous"
+            )
+
+            val expectedTimestamp = StoredMessageIdUtils.timestampToString(start)
+            val seconds = start.epochSecond
+            val nanos = start.nano
+            expectThat(response) {
+                get { code } isEqualTo HttpStatus.OK.code
+                get { body?.bytes()?.toString(Charsets.UTF_8) }
+                    .isNotNull()
+                    .isEqualTo(
+                        """id: 1
+                          |event: message
+                          |data: {"timestamp":{"epochSecond":${seconds},"nano":${nanos}},"direction":"IN","sessionId":"test-3","messageType":"","attachedEventIds":[],"body":{},"bodyBase64":"aGVsbG8=","messageId":"test:test-3:1:${expectedTimestamp}:4"}
+                          |
+                          |id: 2
+                          |event: message
+                          |data: {"timestamp":{"epochSecond":${seconds},"nano":${nanos}},"direction":"IN","sessionId":"test-2","messageType":"","attachedEventIds":[],"body":{},"bodyBase64":"aGVsbG8=","messageId":"test:test-2:1:${expectedTimestamp}:3"}
+                          |
+                          |id: 3
+                          |event: message
+                          |data: {"timestamp":{"epochSecond":${seconds},"nano":${nanos}},"direction":"IN","sessionId":"test-1","messageType":"","attachedEventIds":[],"body":{},"bodyBase64":"aGVsbG8=","messageId":"test:test-1:1:${expectedTimestamp}:2"}
+                          |
+                          |id: 4
+                          |event: message
+                          |data: {"timestamp":{"epochSecond":${seconds},"nano":${nanos}},"direction":"IN","sessionId":"test-0","messageType":"","attachedEventIds":[],"body":{},"bodyBase64":"aGVsbG8=","messageId":"test:test-0:1:${expectedTimestamp}:1"}
                           |
                           |event: close
                           |data: empty data

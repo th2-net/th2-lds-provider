@@ -16,15 +16,22 @@
 
 package com.exactpro.th2.lwdataprovider.db.integration
 
+import com.exactpro.cradle.BookId
 import com.exactpro.cradle.BookToAdd
 import com.exactpro.cradle.Direction
+import com.exactpro.cradle.Order
 import com.exactpro.cradle.messages.GroupedMessageBatchToStore
+import com.exactpro.cradle.messages.GroupedMessageFilter
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.annotations.IntegrationTest
+import com.exactpro.th2.lwdataprovider.db.CradleGroupRequest
 import com.exactpro.th2.lwdataprovider.db.MessageDataSink
+import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
+import com.exactpro.th2.lwdataprovider.handlers.util.modifyFilterBuilderTimestamps
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.DynamicTest
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
@@ -34,8 +41,12 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import strikt.api.expectThat
+import strikt.assertions.allIndexed
+import strikt.assertions.flatMap
+import strikt.assertions.hasSize
 import strikt.assertions.isEqualTo
 import strikt.assertions.single
+import strikt.assertions.withElementAt
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeUnit
@@ -69,7 +80,7 @@ class TestCradleMessageExtractorIntegration : AbstractCradleIntegrationTest() {
         // We need to have multiple pages for proper testing
         // But because of the verifications in cradle we cannot create pages in the past
         // So we increase timestamp into the future to create a new page
-        val offsetMills: Long = 100
+        val offsetMills: Long = 300
         startTime = Instant.now().plusMillis(offsetMills)
         cradleStorage.addPage(bookInfo.id, "test_page2", startTime, "comment")
         // but we cannot write into the future...
@@ -171,6 +182,23 @@ class TestCradleMessageExtractorIntegration : AbstractCradleIntegrationTest() {
         )
     }
 
+    @Test
+    fun `finds messages in reversed order`() {
+        val sink = mock<MessageDataSink<String, StoredMessage>> { }
+        messageExtractor.getMessagesGroup(
+            GroupedMessageFilter.builder()
+                .groupName(testGroup)
+                .bookId(BookId("test_book1"))
+                .order(Order.REVERSE)
+                .timestampFrom().isGreaterThan(batchToStore.firstTimestamp.minusSeconds(1))
+                .timestampTo().isLessThanOrEqualTo(batchToStore.lastTimestamp.plusSeconds(1))
+                .build(),
+            CradleGroupRequest(),
+            sink,
+        )
+        assertReceiveAll(sink, testGroup, batchToStore.messages.sortedByDescending { it.timestamp })
+    }
+
     private fun assertReceive(sink: MessageDataSink<String, StoredMessage>, group: String, expectedMessage: StoredMessage) {
         val message = argumentCaptor<StoredMessage>()
         verify(sink).onNext(eq(group), message.capture())
@@ -178,6 +206,19 @@ class TestCradleMessageExtractorIntegration : AbstractCradleIntegrationTest() {
         expectThat(message.allValues)
             .single()
             .get { id }.isEqualTo(expectedMessage.id)
+    }
+
+    private fun assertReceiveAll(sink: MessageDataSink<String, StoredMessage>, group: String, messages: List<StoredMessage>) {
+        val message = argumentCaptor<Collection<StoredMessage>>()
+        verify(sink).onNext(eq(group), message.capture())
+        verify(sink, never()).onError(any<String>(), any(), anyOrNull())
+        expectThat(message.allValues)
+            .flatMap { it }
+            .hasSize(messages.size)
+            .allIndexed {
+                val expectedMessage = messages[it]
+                get { id }.isEqualTo(expectedMessage.id)
+            }
     }
 
     private fun assertNotFound(sink: MessageDataSink<String, StoredMessage>, expectedErrorMessage: String) {

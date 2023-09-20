@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ import com.exactpro.cradle.BookId
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
 import com.exactpro.cradle.Direction
+import com.exactpro.cradle.Order
+import com.exactpro.cradle.PageId
 import com.exactpro.cradle.messages.GroupedMessageFilter
 import com.exactpro.cradle.messages.MessageFilter
 import com.exactpro.cradle.messages.MessageFilterBuilder
@@ -30,15 +32,20 @@ import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.lwdataprovider.util.DummyDataMeasurement
 import com.exactpro.th2.lwdataprovider.util.ImmutableListCradleResult
 import com.exactpro.th2.lwdataprovider.util.ListCradleResult
+import com.exactpro.th2.lwdataprovider.util.TEST_SESSION_GROUP
 import com.exactpro.th2.lwdataprovider.util.createBatches
 import com.exactpro.th2.lwdataprovider.util.createCradleStoredMessage
+import com.exactpro.th2.lwdataprovider.util.createMessages
 import com.exactpro.th2.lwdataprovider.util.validateOrder
+import org.hamcrest.CoreMatchers.startsWith
+import org.hamcrest.MatcherAssert.assertThat
 import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Assertions.assertThrowsExactly
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.ValueSource
+import org.junit.jupiter.params.provider.EnumSource
 import org.mockito.Mockito.spy
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argThat
@@ -60,9 +67,9 @@ import java.time.temporal.ChronoUnit
 internal class TestCradleMessageExtractor {
     private val startTimestamp = Instant.now()
     private val endTimestamp = startTimestamp.plus(10, ChronoUnit.MINUTES)
-    private val groupRequestBuffer = 200
 
     private lateinit var storage: CradleStorage
+    private val sinkMock: MessageDataSink<String, StoredMessage> = mock { }
 
     private val messageRouter: MessageRouter<MessageGroupBatch> = mock { }
 
@@ -74,7 +81,7 @@ internal class TestCradleMessageExtractor {
     internal fun setUp() {
         storage = mock { }
         manager = mock { on { this.storage }.thenReturn(storage) }
-        extractor = CradleMessageExtractor(groupRequestBuffer, manager, DummyDataMeasurement)
+        extractor = CradleMessageExtractor(manager, DummyDataMeasurement)
         clearInvocations(storage, messageRouter, manager)
     }
 
@@ -225,73 +232,185 @@ internal class TestCradleMessageExtractor {
         .direction(Direction.FIRST)
         .build()
 
-    @Test
-    fun getMessagesGroupWithOverlapping() {
-        val batchesCount = 5
-        val increase = 5L
-        val messagesCount = (endTimestamp.epochSecond - startTimestamp.epochSecond) / increase
-        val messagesPerBatch = messagesCount / batchesCount
-        checkMessagesReturnsInOrder(
-            messagesPerBatch,
-            batchesCount,
-            increase,
-            messagesCount,
-            overlap = messagesPerBatch / 2
-        )
-    }
-
     @ParameterizedTest
-    @ValueSource(ints = [1, 2, 5, 10])
-    fun getMessagesGroupWithoutOverlapping(batchesCount: Int) {
-        val increase = 1L
-        val messagesCount = (endTimestamp.epochSecond - startTimestamp.epochSecond) / increase
-        val messagesPerBatch = messagesCount / batchesCount
-        checkMessagesReturnsInOrder(messagesPerBatch, batchesCount, increase, messagesCount, overlap = 0)
-    }
-
-    @Test
-    fun getMessagesGroupWithFullOverlapping() {
+    @EnumSource(Order::class)
+    fun getMessagesGroupWithOverlapping(order: Order) {
         val batchesCount = 5
         val increase = 5L
         val messagesCount = (endTimestamp.epochSecond - startTimestamp.epochSecond) / increase
         val messagesPerBatch = messagesCount / batchesCount
-        checkMessagesReturnsInOrder(messagesPerBatch, batchesCount, increase, messagesCount, overlap = messagesPerBatch)
-    }
 
-    private fun checkMessagesReturnsInOrder(
-        messagesPerBatch: Long,
-        batchesCount: Int,
-        increase: Long,
-        messagesCount: Long,
-        overlap: Long
-    ) {
         val batchesList: MutableList<StoredGroupedMessageBatch> = createBatches(
             messagesPerBatch = messagesPerBatch,
             batchesCount = batchesCount,
-            overlapCount = overlap,
+            overlapCount = messagesPerBatch / 2,
             increase = increase,
             startTimestamp = startTimestamp,
             end = endTimestamp,
         ).toMutableList()
+
         whenever(storage.getGroupedMessageBatches(any())).thenReturn(ListCradleResult(batchesList))
+
+        val exception = assertThrowsExactly(IllegalStateException::class.java) {
+            extractor.getMessagesGroup(
+                GroupedMessageFilter.builder()
+                    .bookId(BookId("book"))
+                    .groupName("test")
+                    .timestampFrom().isGreaterThanOrEqualTo(startTimestamp)
+                    .timestampTo().isLessThan(endTimestamp)
+                    .order(order)
+                    .build(),
+                CradleGroupRequest(),
+                sinkMock
+            )
+        }
+        assertThat(exception.message, startsWith("Unordered batches received for $order: "))
+    }
+
+    @ParameterizedTest
+    @EnumSource(Order::class)
+    fun getMessagesGroupWithFullOverlapping(order: Order) {
+        val batchesCount = 5
+        val increase = 5L
+        val messagesCount = (endTimestamp.epochSecond - startTimestamp.epochSecond) / increase
+        val messagesPerBatch = messagesCount / batchesCount
+
+        val batchesList: MutableList<StoredGroupedMessageBatch> = createBatches(
+            messagesPerBatch = messagesPerBatch,
+            batchesCount = batchesCount,
+            overlapCount = messagesPerBatch,
+            increase = increase,
+            startTimestamp = startTimestamp,
+            end = endTimestamp,
+        ).toMutableList()
+
+        whenever(storage.getGroupedMessageBatches(any())).thenReturn(ListCradleResult(batchesList))
+
+        val exception = assertThrowsExactly(IllegalStateException::class.java) {
+            extractor.getMessagesGroup(
+                GroupedMessageFilter.builder()
+                    .bookId(BookId("book"))
+                    .groupName("test")
+                    .timestampFrom().isGreaterThanOrEqualTo(startTimestamp)
+                    .timestampTo().isLessThan(endTimestamp)
+                    .order(order)
+                    .build(),
+                CradleGroupRequest(),
+                sinkMock
+            )
+        }
+        assertThat(exception.message, startsWith("Unordered batches received for $order: "))
+    }
+
+    @ParameterizedTest
+    @EnumSource(Order::class)
+    fun getMessagesGroupUnorderedMessages(order: Order) {
+        val correctMessages = createMessages().take(5).toList()
+        val incorrectMessages = with(correctMessages) {
+            listOf(get(1), get(0), get(2), get(3), get(4))
+        }
+
+        val batchesList = mutableListOf(
+            StoredGroupedMessageBatch(
+                TEST_SESSION_GROUP,
+                incorrectMessages,
+                PageId(BookId("test-book"), "test-page"),
+                Instant.now(),
+            )
+        )
+
+        whenever(storage.getGroupedMessageBatches(any())).thenReturn(ListCradleResult(batchesList))
+
+        val exception = assertThrowsExactly(IllegalStateException::class.java) {
+            extractor.getMessagesGroup(
+                GroupedMessageFilter.builder()
+                    .bookId(BookId("book"))
+                    .groupName("test")
+                    .timestampFrom().isGreaterThanOrEqualTo(startTimestamp)
+                    .timestampTo().isLessThan(endTimestamp)
+                    .order(order)
+                    .build(),
+                CradleGroupRequest(),
+                sinkMock
+            )
+        }
+        assertThat(exception.message, startsWith("Unordered message received for: "))
+    }
+
+    @ParameterizedTest
+    @EnumSource(Order::class)
+    fun getMessagesGroupDifferentOrder(order: Order) {
+        val batchCount = 10
+        val messagesPerBatch = 10
+
+        val messageCount = batchCount * messagesPerBatch
+
+        val batches = createBatches(messagesPerBatch = messagesPerBatch).take(batchCount).toList().run {
+            when(order) {
+                Order.DIRECT -> this
+                Order.REVERSE -> reversed()
+            }
+        }.toMutableList()
+
+        whenever(storage.getGroupedMessageBatches(any())).thenReturn(ListCradleResult(batches))
 
         val sink = spy(StoredMessageDataSink())
         extractor.getMessagesGroup(
             GroupedMessageFilter.builder()
-                .bookId(BookId("book"))
-                .groupName("test")
+                .bookId(BookId("book")) // Unchecked
+                .groupName("test") // Unchecked
                 .timestampFrom().isGreaterThanOrEqualTo(startTimestamp)
                 .timestampTo().isLessThan(endTimestamp)
-                .build(), CradleGroupRequest(true), sink
+                .order(order)
+                .build(), CradleGroupRequest(),
+            sink
         )
 
-        verify(sink, atMost(messagesCount.toInt())).onNext(any(), any<Collection<StoredMessage>>())
+        verify(sink, atMost(messageCount)).onNext(any(), any<Collection<StoredMessage>>())
         verify(sink, never()).onError(any<String>(), any(), any())
         val messages = sink.messages
-        Assertions.assertEquals(messagesCount.toInt(), messages.size) {
+        Assertions.assertEquals(messageCount, messages.size) {
             "Unexpected messages count: $messages"
         }
-        validateOrder(messages, messagesCount.toInt())
+        validateOrder(messages, messageCount, order)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Order::class)
+    fun getMessagesGroupDifferentOrderWithTheSameTimestamp(order: Order) {
+        val batchCount = 10
+        val messagesPerBatch = 10
+
+        val messageCount = batchCount * messagesPerBatch
+
+        val batches = createBatches(messagesPerBatch = messagesPerBatch, timestamp = Instant.now()).take(batchCount).toList().run {
+            when(order) {
+                Order.DIRECT -> this
+                Order.REVERSE -> reversed()
+            }
+        }.toMutableList()
+
+        whenever(storage.getGroupedMessageBatches(any())).thenReturn(ListCradleResult(batches))
+
+        val sink = spy(StoredMessageDataSink())
+        extractor.getMessagesGroup(
+            GroupedMessageFilter.builder()
+                .bookId(BookId("book")) // Unchecked
+                .groupName("test") // Unchecked
+                .timestampFrom().isGreaterThanOrEqualTo(startTimestamp)
+                .timestampTo().isLessThan(endTimestamp)
+                .order(order)
+                .build(), CradleGroupRequest(),
+            sink
+        )
+
+        verify(sink, atMost(messageCount)).onNext(any(), any<Collection<StoredMessage>>())
+        verify(sink, never()).onError(any<String>(), any(), any())
+        val messages = sink.messages
+        Assertions.assertEquals(messageCount, messages.size) {
+            "Unexpected messages count: $messages"
+        }
+        validateOrder(messages, messageCount, order)
     }
 }
 

@@ -73,11 +73,15 @@ message MessageGroupsSearchRequest {
   google.protobuf.Timestamp end_timestamp = 2;
   BookId book_id = 7;
   repeated Group message_group = 3;
-  google.protobuf.BoolValue sort = 4;
+  // deprecated: grouped message batches are already sorted and haven't got overlapping
+  google.protobuf.BoolValue sort = 4 [deprecated = true];
   // deprecated: use response_formats with only BASE_64 to achieve the same effect
   bool raw_only = 5 [deprecated = true];
   bool keep_open = 6;
   repeated string response_formats = 8; // List of possible response formats (e.g. PARSED or BASE_64)
+  repeated MessageStream stream = 9; // Sets the stream names and directions to search in. Case-sensitive.
+  TimeRelation search_direction = 10; // Sets the lookup direction. Can be used for pagination. Set by default to NEXT.
+  google.protobuf.Int32Value result_count_limit = 11; // Sets the maximum amount of messages to return. By default it is absent (unlimited)
 }
 
 message MessageStreamsRequest {

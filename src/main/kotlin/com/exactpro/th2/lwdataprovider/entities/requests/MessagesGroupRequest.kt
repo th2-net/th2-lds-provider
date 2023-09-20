@@ -18,8 +18,11 @@ package com.exactpro.th2.lwdataprovider.entities.requests
 
 import com.exactpro.cradle.BookId
 import com.exactpro.th2.dataprovider.lw.grpc.MessageGroupsSearchRequest
+import com.exactpro.th2.dataprovider.lw.grpc.MessageStream
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.grpc.toInstant
+import com.exactpro.th2.lwdataprovider.grpc.toProviderMessageStreams
+import com.exactpro.th2.lwdataprovider.grpc.toProviderRelation
 import com.exactpro.th2.lwdataprovider.toCradle
 import java.time.Instant
 
@@ -27,16 +30,14 @@ data class MessagesGroupRequest(
     val groups: Set<String>,
     val startTimestamp: Instant,
     val endTimestamp: Instant,
-    val sort: Boolean,
     val keepOpen: Boolean,
     val bookId: BookId,
     val responseFormats: Set<ResponseFormat>? = null,
     val includeStreams: Set<ProviderMessageStream> = emptySet(),
     val limit: Int? = null,
+    val searchDirection: SearchDirection = SearchDirection.next
 ) {
     init {
-        require(startTimestamp <= endTimestamp) { "$START_TIMESTAMP_PARAM must be greater than $END_TIMESTAMP_PARAM" }
-
         if (!responseFormats.isNullOrEmpty()) {
             ResponseFormat.validate(responseFormats)
         }
@@ -58,7 +59,6 @@ data class MessagesGroupRequest(
                 },
                 if (hasStartTimestamp()) startTimestamp.toInstant() else error("missing start timestamp"),
                 if (hasEndTimestamp()) endTimestamp.toInstant() else error("missing end timestamp"),
-                if (hasSort()) sort.value else false,
                 false, // FIXME: update gRPC
                 if (hasBookId()) bookId.toCradle() else error("parameter '$BOOK_ID_PARAM' is required"),
                 request.responseFormatsList.takeIf { it.isNotEmpty() }
@@ -70,18 +70,10 @@ data class MessagesGroupRequest(
                             formats
                         }
                     },
+                request.streamList.asSequence().map(MessageStream::toProviderMessageStreams).toSet(),
+                if (request.hasResultCountLimit()) request.resultCountLimit.value else null,
+                request.searchDirection.toProviderRelation()
             )
         }
-
-        private fun Map<String, List<String>>.booleanOrDefault(name: String, default: Boolean): Boolean {
-            val params = this[name] ?: return default
-            return params.singleOrNull()
-                ?.toBoolean() ?: error("More than one parameter $name was specified")
-        }
-
-        private fun extractInstant(map: Map<String, List<String>>, paramName: String): Instant =
-            (map[paramName] ?: error("No $paramName param was set"))
-                .singleOrNull()?.run { Instant.ofEpochMilli(toLong()) }
-                ?: error("Unexpected count of $paramName param")
     }
 }

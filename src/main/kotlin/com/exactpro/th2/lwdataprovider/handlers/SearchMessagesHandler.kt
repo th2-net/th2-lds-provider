@@ -135,7 +135,7 @@ class SearchMessagesHandler(
                             logger.info { "request canceled: $message" }
                             return@use
                         }
-                        val order = orderFrom(request)
+                        val order = orderFrom(request.searchDirection)
                         val allLoaded = hashSetOf<Stream>()
                         do {
                             val continuePulling = pullUpdates(request, order, sink, allLoaded)
@@ -268,7 +268,6 @@ class SearchMessagesHandler(
                 rootSink.use { sink ->
 
                     val parameters = CradleGroupRequest(
-                        sort = request.sort,
                         preFilter = createInitialPrefilter(request),
                     )
                     request.groups.forEach { group ->
@@ -276,8 +275,10 @@ class SearchMessagesHandler(
                             val filter = GroupedMessageFilter.builder()
                                 .groupName(group)
                                 .bookId(request.bookId)
-                                .timestampFrom().isGreaterThanOrEqualTo(request.startTimestamp)
-                                .timestampTo().isLessThan(request.endTimestamp)
+                                .order(orderFrom(request.searchDirection))
+                                .apply {
+                                    modifyFilterBuilderTimestamps(request)
+                                }
                                 .build()
                             logger.info { "Executing request for group $group" }
                             cradleMsgExtractor.getMessagesGroup(filter, parameters, subSink)
@@ -424,8 +425,7 @@ class SearchMessagesHandler(
                 bookId(request.bookId)
                 sessionAlias(resumeFromId.sessionAlias)
                 direction(resumeFromId.direction)
-                val order = orderFrom(request)
-                order(order)
+                order(orderFrom(request.searchDirection))
                 indexFilter(request, resumeFromId)
                 modifyFilterBuilderTimestamps(request)
                 limitFilter(sink)
@@ -450,10 +450,8 @@ class SearchMessagesHandler(
                 bookId(request.bookId)
                 sessionAlias(stream)
                 direction(direction)
+                order(orderFrom(request.searchDirection))
                 modifyFilterBuilderTimestamps(request)
-                if (request.searchDirection == SearchDirection.previous) {
-                    order(Order.REVERSE)
-                }
                 limitFilter(sink)
             }.build()
             val time = measureTimeMillis {
@@ -469,13 +467,9 @@ class SearchMessagesHandler(
         sink.limit?.let { limit(max(it, 0)) }
     }
 
-    private fun orderFrom(request: SseMessageSearchRequest): Order {
-        val order = if (request.searchDirection == SearchDirection.next) {
-            Order.DIRECT
-        } else {
-            Order.REVERSE
-        }
-        return order
+    private fun orderFrom(searchDirection: SearchDirection): Order = when(searchDirection) {
+        SearchDirection.next -> Order.DIRECT
+        SearchDirection.previous -> Order.REVERSE
     }
 
     private fun MessageFilterBuilder.indexFilter(

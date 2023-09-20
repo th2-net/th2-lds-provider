@@ -98,9 +98,8 @@ internal class TestSearchMessagesHandler {
 
     private val searchHandler = createSearchMessagesHandler(decoder, false)
 
-    @ParameterizedTest(name = "sort: {0}")
-    @ValueSource(booleans = [true, false])
-    fun `excludes alias from group search`(sort: Boolean) {
+    @Test
+    fun `excludes alias from group search`() {
         var index = 1L
         val start = Instant.now()
         val groupBatch = GroupBatch(
@@ -125,7 +124,6 @@ internal class TestSearchMessagesHandler {
                 groups = setOf("test-group"),
                 startTimestamp = start,
                 endTimestamp = Instant.now(),
-                sort = sort,
                 keepOpen = false,
                 bookId = BookId("test-book"),
                 responseFormats = setOf(ResponseFormat.BASE_64),
@@ -149,9 +147,8 @@ internal class TestSearchMessagesHandler {
         verifyNoInteractions(decoder)
     }
 
-    @ParameterizedTest(name = "sort: {0}")
-    @ValueSource(booleans = [true, false])
-    fun `excludes alias and direction from group search`(sort: Boolean) {
+    @Test
+    fun `excludes alias and direction from group search`() {
         var index = 1L
         val start = Instant.now()
         val groupBatch = GroupBatch(
@@ -182,7 +179,6 @@ internal class TestSearchMessagesHandler {
                 groups = setOf("test-group"),
                 startTimestamp = start,
                 endTimestamp = Instant.now(),
-                sort = sort,
                 keepOpen = false,
                 bookId = BookId("test-book"),
                 responseFormats = setOf(ResponseFormat.BASE_64),
@@ -380,7 +376,6 @@ internal class TestSearchMessagesHandler {
             groups = setOf("test"),
             startTimestamp,
             endTimestamp,
-            sort = true,
             keepOpen = false,
             BookId("test"),
         )
@@ -533,7 +528,6 @@ internal class TestSearchMessagesHandler {
             groups = setOf("test"),
             startTimestamp,
             endTimestamp,
-            sort = true,
             keepOpen = true,
             BookId("test"),
             responseFormats = setOf(ResponseFormat.BASE_64),
@@ -562,7 +556,7 @@ internal class TestSearchMessagesHandler {
         decoder: Decoder,
         useTransportMode: Boolean
     ) = SearchMessagesHandler(
-        CradleMessageExtractor(10, manager, DummyDataMeasurement),
+        CradleMessageExtractor(manager, DummyDataMeasurement),
         decoder,
         executor,
         Configuration(
@@ -608,7 +602,6 @@ internal class TestSearchMessagesHandler {
             groups = setOf("first", "second"),
             startTimestamp = timestamp,
             endTimestamp = endTimestamp,
-            sort = false,
             responseFormats = setOf(ResponseFormat.JSON_PARSED, ResponseFormat.BASE_64),
             keepOpen = false,
             bookId = BookId("test"),

@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: younited/get-previous-tag-action@v1.0.0
         with:
-          match: "*.*.*-dev"
+          match: "*-dev"
     outputs:
       tag: ${{ steps.previous-tag.outputs.value }}
   changes:

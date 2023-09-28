@@ -55,7 +55,6 @@ import org.eclipse.jetty.util.compression.CompressionPool
 import org.eclipse.jetty.util.compression.DeflaterPool
 import org.eclipse.jetty.util.thread.ThreadPool.SizedThreadPool
 import java.time.Instant
-import java.util.zip.Deflater
 import kotlin.math.pow
 
 class HttpServer(private val context: Context) {
@@ -156,7 +155,9 @@ class HttpServer(private val context: Context) {
                 handler.setup(this, javalinContext)
             }
             setupExceptionHandlers(this)
-            jettyServer()?.server()?.insertHandler(createGzipHandler())
+            jettyServer()?.server()?.let { server ->
+                server.insertHandler(createGzipHandler(server, configuration.gzipCompressionLevel))
+            }
         }.start(configuration.hostname, configuration.port)
 
         logger.info { "serving on: http://${configuration.hostname}:${configuration.port}" }
@@ -261,18 +262,12 @@ class HttpServer(private val context: Context) {
     }
 }
 
-private fun configureGzip(server: Server) {
-    // copied from GzipHandler.doStart
-    val capacity = server.getBean(SizedThreadPool::class.java)?.maxThreads
-        ?: CompressionPool.DEFAULT_CAPACITY
-
-    val pool = DeflaterPool(capacity, Deflater.BEST_SPEED, true)
-    server.addBean(pool, true)
-    server.insertHandler(createGzipHandler())
-}
-
-private fun createGzipHandler(): GzipHandler {
+private fun createGzipHandler(server: Server, gzipCompressionLevel: Int): GzipHandler {
     return GzipHandler().apply {
+        // copied from DeflaterPool.ensurePool method
+        val capacity = server.getBean(SizedThreadPool::class.java)?.maxThreads ?: CompressionPool.DEFAULT_CAPACITY
+
+        deflaterPool = DeflaterPool(capacity, gzipCompressionLevel, true)
         setExcludedMimeTypes(*excludedMimeTypes.asSequence()
             .filter { it != "text/event-stream" }
             .toList().toTypedArray())

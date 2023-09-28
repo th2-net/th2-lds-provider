@@ -43,6 +43,7 @@ class CustomConfigurationClass(
     val listOfMessageAsSingleMessage: Boolean? = null,
     val useTransportMode: Boolean? = null,
     val flushSseAfter: Int? = null,
+    val gzipCompressionLevel: Int? = null,
 )
 
 class Configuration(customConfiguration: CustomConfigurationClass) {
@@ -69,6 +70,7 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     val listOfMessageAsSingleMessage: Boolean = VariableBuilder.getVariable(customConfiguration::listOfMessageAsSingleMessage, true)
     val useTransportMode: Boolean = VariableBuilder.getVariable(customConfiguration::useTransportMode, false)
     val flushSseAfter: Int = VariableBuilder.getVariable(customConfiguration::flushSseAfter, 0)
+    val gzipCompressionLevel: Int = VariableBuilder.getVariable(customConfiguration::gzipCompressionLevel, -1)
     init {
         require(bufferPerQuery <= maxBufferDecodeQueue) {
             "buffer per queue ($bufferPerQuery) must be less or equal to the total buffer size ($maxBufferDecodeQueue)"
@@ -85,6 +87,9 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
         }
         require(flushSseAfter >= 0) {
             "flushSseAfter must be positive integer or zero"
+        }
+        require(gzipCompressionLevel <= 9 && gzipCompressionLevel >= -1) {
+            "gzipCompressionLevel must be integer in the [-1, 9] range"
         }
     }
 }

@@ -118,7 +118,11 @@ spec:
 #   codecUsePinAttributes: true # send raw message to specified codec (true) or send to all codecs (false) 
 #   responseFormats: string list # resolve data for selected formats only. (allowed values: BASE_64, PARSED)
 #   flushSseAfter: 0 # number of SSE emitted before flushing data to the output stream. 0 means flush after each event
-#   gzipCompressionLevel: -1 # integer value of gzip compression level. This option is used when user requests data via HTTP with enabled commpression. -1 means default compression level
+#   gzipCompressionLevel: -1 # integer value of gzip compression level. This option is used when user requests data via HTTP with enabled commpression. 
+#      * -1: default compression level
+#      * 0: no compression
+#      * 1: best speed
+#      * 9: best compression
 
   pins: # pins are used to communicate with codec components to parse message data
     - name: to_codec

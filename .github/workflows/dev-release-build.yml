@@ -11,9 +11,21 @@ jobs:
     uses: th2-net/.github/.github/workflows/compound-prebuild-java-workflow.yml@main
     with:
       project-path: .
+  get-previous-tag:
+    name: Get previous tag
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+      - uses: younited/get-previous-tag-action@v1.0.0
+        with:
+          match: "*.*.*-dev"
+    outputs:
+      tag: ${{ steps.previous-tag.outputs.value }}
   changes:
     name: Collect changed files
     runs-on: ubuntu-20.04
+    needs:
+      - get-previous-tag
     outputs:
       app: ${{ steps.filter.outputs.app }}
       grpc: ${{ steps.filter.outputs.grpc }}

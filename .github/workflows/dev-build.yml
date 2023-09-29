@@ -16,6 +16,11 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-tags: true
+      - uses: younited/get-previous-tag-action@v1.0.0
+        with:
+          match: "*.*.*-dev"
       - id: previous-tag
         run: |
           FOUND_TAG=$(git tag --list --sort=-version:refname '*.*.*-dev' | head --lines 1)

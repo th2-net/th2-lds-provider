@@ -13,26 +13,9 @@ jobs:
   versions:
     name: Extract app version
     uses: th2-net/.github/.github/workflows/compound-prebuild-java-workflow.yml@main
-  get-previous-tag:
-    name: Get previous tag
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 100
-          fetch-tags: true
-      - id: previous-tag
-        run: |
-          FOUND_TAG=$(git tag --list --sort=-version:refname '*.*.*-dev' | head --lines 1)
-          echo "result=$FOUND_TAG" >> "$GITHUB_OUTPUT"
-          [[ -z $(echo "$FOUND_TAG") ]] && { echo "No tag found..."; exit 1; } || { echo "Tag found: ${FOUND_TAG}"; }
-    outputs:
-      tag: ${{ steps.previous-tag.outputs.result }}
   changes:
     name: Collect changed files
     runs-on: ubuntu-20.04
-    needs:
-      - get-previous-tag
     outputs:
       app: ${{ steps.filter.outputs.app }}
       grpc: ${{ steps.filter.outputs.grpc }}
@@ -41,7 +24,7 @@ jobs:
       - uses: dorny/paths-filter@v2
         id: filter
         with:
-          base: ${{ needs.get-previous-tag.outputs.tag }}
+          base: ${{ github.ref }}
           filters: |
             app:
               - 'gradle.properties'

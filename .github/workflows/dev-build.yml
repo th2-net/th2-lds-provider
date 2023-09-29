@@ -16,11 +16,11 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
-      - uses: younited/get-previous-tag-action@v1.0.0
-        with:
-          match: "*-dev"
+      - id: previous-tag
+        run: |
+          echo "result=$(git tag --list --sort=-version:refname '*.*.*-dev' | head --lines 1)" >> "$GITHUB_OUTPUT"
     outputs:
-      tag: ${{ steps.previous-tag.outputs.value }}
+      previous-tag: ${{ steps.previous-tag.outputs.result }}
   grpc-version:
     name: Collect grpc version
     uses: th2-net/.github/.github/workflows/compound-prebuild-java-dev-workflow.yml@main

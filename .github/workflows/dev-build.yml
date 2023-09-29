@@ -18,7 +18,9 @@ jobs:
       - uses: actions/checkout@v3
       - id: previous-tag
         run: |
-          echo "result=$(git tag --list --sort=-version:refname '*.*.*-dev' | head --lines 1)" >> "$GITHUB_OUTPUT"
+          FOUND_TAG=$(git tag --list --sort=-version:refname '*.*.*-dev' | head --lines 1)
+          echo "result=$FOUND_TAG" >> "$GITHUB_OUTPUT"
+          [[ -z $(echo "$FOUND_TAG") ]] && { echo "No tag found..."; exit 1; } || { echo "Tag found: ${FOUND_TAG}"; }
     outputs:
       previous-tag: ${{ steps.previous-tag.outputs.result }}
   grpc-version:

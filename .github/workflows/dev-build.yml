@@ -17,6 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
+          fetch-depth: 100
           fetch-tags: true
       - uses: younited/get-previous-tag-action@v1.0.0
         with:

@@ -11,24 +11,6 @@ on:
       - .gitignore
 
 jobs:
-  get-previous-tag:
-    name: Get previous tag
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 100
-          fetch-tags: true
-      - uses: younited/get-previous-tag-action@v1.0.0
-        with:
-          match: "*.*.*-dev"
-      - id: previous-tag
-        run: |
-          FOUND_TAG=$(git tag --list --sort=-version:refname '*.*.*-dev' | head --lines 1)
-          echo "result=$FOUND_TAG" >> "$GITHUB_OUTPUT"
-          [[ -z $(echo "$FOUND_TAG") ]] && { echo "No tag found..."; exit 1; } || { echo "Tag found: ${FOUND_TAG}"; }
-    outputs:
-      previous-tag: ${{ steps.previous-tag.outputs.result }}
   grpc-version:
     name: Collect grpc version
     uses: th2-net/.github/.github/workflows/compound-prebuild-java-dev-workflow.yml@main

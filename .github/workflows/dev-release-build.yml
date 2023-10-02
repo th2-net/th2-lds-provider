@@ -17,12 +17,12 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.ref }}
           fetch-depth: 100
           fetch-tags: true
       - id: previous-tag
         run: |
-          FOUND_TAG=$(git tag --list --sort=-version:refname '*.*.*-dev' | head --lines 1)
+          FOUND_TAG=$(git tag --list --sort=-version:refname '*.*.*-dev' | head --lines 2 | tail --lines 1)
           echo "result=$FOUND_TAG" >> "$GITHUB_OUTPUT"
           [[ -z $(echo "$FOUND_TAG") ]] && { echo "No tag found..."; exit 1; } || { echo "Tag found: ${FOUND_TAG}"; }
     outputs:

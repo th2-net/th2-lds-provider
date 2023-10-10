@@ -16,7 +16,6 @@
 
 package com.exactpro.th2.lwdataprovider.entities.responses
 
-import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.utils.EscapeUtils.escape
 import com.exactpro.cradle.utils.TimeUtils
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
@@ -25,9 +24,6 @@ import com.exactpro.th2.lwdataprovider.entities.responses.ser.numberOfDigits
 import java.io.ByteArrayOutputStream
 import java.io.OutputStream
 import java.time.Instant
-import kotlin.math.ceil
-import kotlin.math.log10
-import kotlin.math.max
 import kotlin.text.Charsets.UTF_8
 
 private val COMMA = ",".toByteArray(UTF_8).first().toInt()
@@ -80,28 +76,34 @@ fun ProviderMessage53Transport.toJSONByteArray(): ByteArray =
         write(CLOSING_CURLY_BRACE)
     }.toByteArray()
 
-private fun OutputStream.writeMessageId(messageId: StoredMessageId) {
+private fun OutputStream.writeMessageId(idWithGroup: MessageIdWithGroup) {
     write(MESSAGE_ID_FILED)
     write(COLON)
     write(DOUBLE_QUOTE)
-    with(messageId) {
-        write(escape(bookId.toString()).toByteArray(UTF_8))
-        write(COLON)
-        write(escape(sessionAlias).toByteArray(UTF_8))
-        write(COLON)
-        write(direction.label.toByteArray(UTF_8))
-        write(COLON)
-        TimeUtils.toLocalTimestamp(timestamp).apply {
-            writeNumber(year, 4)
-            writeTwoDigits(monthValue)
-            writeTwoDigits(dayOfMonth)
-            writeTwoDigits(hour)
-            writeTwoDigits(minute)
-            writeTwoDigits(second)
-            writeNumber(nano, 9)
+    with(idWithGroup) {
+        with(messageId) {
+            write(escape(bookId.toString()).toByteArray(UTF_8))
+            write(COLON)
+            if (group != null) {
+                write(escape(group).toByteArray(UTF_8))
+                write(COLON)
+            }
+            write(escape(sessionAlias).toByteArray(UTF_8))
+            write(COLON)
+            write(direction.label.toByteArray(UTF_8))
+            write(COLON)
+            TimeUtils.toLocalTimestamp(timestamp).apply {
+                writeNumber(year, 4)
+                writeTwoDigits(monthValue)
+                writeTwoDigits(dayOfMonth)
+                writeTwoDigits(hour)
+                writeTwoDigits(minute)
+                writeTwoDigits(second)
+                writeNumber(nano, 9)
+            }
+            write(COLON)
+            write(sequence.toString().toByteArray(UTF_8))
         }
-        write(COLON)
-        write(sequence.toString().toByteArray(UTF_8))
     }
     write(DOUBLE_QUOTE)
 }

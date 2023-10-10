@@ -18,7 +18,6 @@ package com.exactpro.th2.lwdataprovider.entities.responses
 
 import com.exactpro.cradle.Direction.FIRST
 import com.exactpro.cradle.messages.StoredMessage
-import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 import com.exactpro.th2.lwdataprovider.entities.internal.Direction
 import kotlinx.serialization.Serializable
@@ -40,8 +39,8 @@ data class ProviderMessage53Transport constructor(
 
     val bodyBase64: String?,
 
-    @Serializable(with = StoredMessageIdSerializer::class)
-    val messageId: StoredMessageId,
+    @Serializable(with = MessageIDWithGroupSerializer::class)
+    val messageId: MessageIdWithGroup,
 ) : ResponseMessage {
 
     constructor(
@@ -58,6 +57,6 @@ data class ProviderMessage53Transport constructor(
         attachedEventIds = events,
         body = body?.map { TransportMessageContainer(sessionGroup, it) },
         bodyBase64 = base64Body,
-        messageId = rawStoredMessage.id
+        messageId = MessageIdWithGroup.create(sessionGroup, rawStoredMessage.id),
     )
 }

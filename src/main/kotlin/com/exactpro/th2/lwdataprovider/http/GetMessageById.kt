@@ -16,17 +16,18 @@
 
 package com.exactpro.th2.lwdataprovider.http
 
-import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.lwdataprovider.ExceptionInfo
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
+import com.exactpro.th2.lwdataprovider.entities.requests.GetGroupMessageRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.failureReason
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
+import com.exactpro.th2.lwdataprovider.entities.responses.MessageIdWithGroup
 import io.javalin.Javalin
 import io.javalin.http.Context
 import io.javalin.http.pathParamAsClass
@@ -99,20 +100,24 @@ class GetMessageById(
         val onlyRaw = ctx.queryParamAsClass<Boolean>("onlyRaw")
             .getOrDefault(false)
 
-
         val handler = HttpMessagesRequestHandler(
             queue, sseResponseBuilder, convExecutor,
             dataMeasurement,
             responseFormats = if (onlyRaw) EnumSet.of(ResponseFormat.BASE_64) else configuration.responseFormats
         )
-        var newMsgId: StoredMessageId? = null
+        var newMsgId: MessageIdWithGroup? = null
         try {
             newMsgId = parseMessageId(msgId)
             logger.info { "Received message request with id $msgId (onlyRaw: $onlyRaw)" }
 
-            val request = GetMessageRequest(newMsgId, onlyRaw)
-
-            searchMessagesHandler.loadOneMessage(request, handler, dataMeasurement)
+            val messageGroup = newMsgId.group
+            if (messageGroup == null) {
+                val request = GetMessageRequest(newMsgId.messageId, onlyRaw)
+                searchMessagesHandler.loadOneMessage(request, handler, dataMeasurement)
+            } else {
+                val request = GetGroupMessageRequest(messageGroup, newMsgId.messageId, onlyRaw)
+                searchMessagesHandler.loadOneMessageByGroup(request, handler, dataMeasurement)
+            }
         } catch (ex: Exception) {
             logger.error(ex) { "cannot load message $msgId" }
             handler.writeErrorMessage(ex.message ?: ex.toString())
@@ -123,8 +128,8 @@ class GetMessageById(
         ctx.waitAndWrite(queue) { newMsgId?.failureReason(it) ?: it }
     }
 
-    private fun parseMessageId(msgId: String): StoredMessageId = try {
-        StoredMessageId.fromString(msgId)
+    private fun parseMessageId(msgId: String): MessageIdWithGroup = try {
+        MessageIdWithGroup.fromString(msgId)
     } catch (ex: Exception) {
         throw IllegalArgumentException("Invalid message id: $msgId", ex)
     }

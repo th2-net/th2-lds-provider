@@ -76,7 +76,11 @@ class TestCradleMessageExtractorIntegration : AbstractCradleIntegrationTest() {
                 )
                 startTime = startTime.plusNanos(5)
             }
-        }.also(cradleStorage::storeGroupedMessageBatch)
+        }.also {
+            retryUntilPageFound(tries = 3) {
+                cradleStorage.storeGroupedMessageBatch(it)
+            }
+        }
         // We need to have multiple pages for proper testing
         // But because of the verifications in cradle we cannot create pages in the past
         // So we increase timestamp into the future to create a new page

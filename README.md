@@ -1,4 +1,4 @@
-# Lightweight data provider (2.3.1)
+# Lightweight data provider (2.4.1)
 
 # Overview
 This component serves as a data provider for [th2-data-services](https://github.com/th2-net/th2-data-services). It will connect to the cassandra database via [cradle api](https://github.com/th2-net/cradleapi) and expose the data stored in there as REST resources.
@@ -114,7 +114,7 @@ spec:
 #   keepAliveTimeout: 5000 # timeout in milliseconds. keep_alive sending frequency
 #   maxBufferDecodeQueue: 10000 # buffer size for messages that sent to decode but anwers hasn't been received 
 #   decodingTimeout: 60000 # timeout expecting answers from codec. 
-#   batchSize: 100 # batch size from codecs
+#   batchSizeBytes: 256KB # the max size of the batch in bytes. You can use 'MB,KB' suffixes or a plain int value
 #   codecUsePinAttributes: true # send raw message to specified codec (true) or send to all codecs (false) 
 #   responseFormats: string list # resolve data for selected formats only. (allowed values: BASE_64, PARSED)
 #   flushSseAfter: 0 # number of SSE emitted before flushing data to the output stream. 0 means flush after each event
@@ -175,9 +175,9 @@ spec:
     port: 8080 
     
 #   keepAliveTimeout: 5000 # timeout in milliseconds. keep_alive sending frequency
-#   maxBufferDecodeQueue: 10000 # buffer size for messages that sent to decode but anwers hasn't been received 
+#   maxBufferDecodeQueue: 10000 # buffer size for messages that sent to decode but answers hasn't been received 
 #   decodingTimeout: 60000 # timeout expecting answers from codec. 
-#   batchSize: 100 # batch size from codecs
+#   batchSizeBytes: 256KB # the max size of the batch in bytes. You can use 'MB,KB' suffixes or a plain int value
 #   codecUsePinAttributes: true # send raw message to specified codec (true) or send to all codecs (false) 
 #   responseFormats: string list # resolve data for selected formats only. (allowed values: BASE_64, PARSED)
     
@@ -223,6 +223,12 @@ spec:
 
 # Release notes:
 
+## 2.4.0
+
++ Add `batchSizeBytes` parameter to limit batch size by size in bytes rather than count of messages.
++ Parameter `batchSize` deprecated. It no longer has any effect on component configuration.
+  The maximum batch size in messages is computed based on `bufferPerQuery` or `maxBufferDecodeQueue` if previous parameter is not set.
+
 ## 2.3.1
 
 ### Fixed:
@@ -233,7 +239,7 @@ spec:
 
 ### Feature
 
-+ added gzipCompressionLevel option.
++ Add `gzipCompressionLevel` parameter into configuration
 
 ## 2.2.1
 

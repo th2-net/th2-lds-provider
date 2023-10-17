@@ -78,7 +78,7 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     val useTransportMode: Boolean = VariableBuilder.getVariable(customConfiguration::useTransportMode, false)
     val flushSseAfter: Int = VariableBuilder.getVariable(customConfiguration::flushSseAfter, 0)
     val gzipCompressionLevel: Int = VariableBuilder.getVariable(customConfiguration::gzipCompressionLevel, -1)
-    val batchSizeBytes: Int = VariableBuilder.getVariable(customConfiguration::batchSizeBytes, 256 * 1024 * 1024)
+    val batchSizeBytes: Int = VariableBuilder.getVariable(customConfiguration::batchSizeBytes, 256 * 1024)
     init {
         require(bufferPerQuery <= maxBufferDecodeQueue) {
             "buffer per queue ($bufferPerQuery) must be less or equal to the total buffer size ($maxBufferDecodeQueue)"

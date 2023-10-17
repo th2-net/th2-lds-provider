@@ -100,7 +100,10 @@ class TestCradleMessageExtractorIntegration : AbstractCradleIntegrationTest() {
                 startTime = startTime.plusNanos(1)
             }
         }
-        cradleStorage.storeGroupedMessageBatch(batchToStore)
+
+        retryUntilPageFound(tries = 3) {
+            cradleStorage.storeGroupedMessageBatch(batchToStore)
+        }
     }
 
     @TestFactory

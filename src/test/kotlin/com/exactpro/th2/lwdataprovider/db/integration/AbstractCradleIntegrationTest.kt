@@ -23,9 +23,11 @@ import com.exactpro.cradle.Direction
 import com.exactpro.cradle.cassandra.CassandraCradleManager
 import com.exactpro.cradle.cassandra.CassandraStorageSettings
 import com.exactpro.cradle.cassandra.connection.CassandraConnectionSettings
+import com.exactpro.cradle.errors.PageNotFoundException
 import com.exactpro.cradle.messages.MessageToStore
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
 import com.exactpro.th2.lwdataprovider.util.DummyDataMeasurement
+import mu.KotlinLogging
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.TestInstance
@@ -104,10 +106,32 @@ abstract class AbstractCradleIntegrationTest {
     }
 
     companion object {
+        private val LOGGER = KotlinLogging.logger { }
         @Container
         private val cassandraContainer = CassandraContainer<Nothing>(DockerImageName.parse("cassandra:4.0.5"))
             .apply {
                 withLogConsumer(Slf4jLogConsumer(LoggerFactory.getLogger("cassandra")))
             }
+
+        @JvmStatic
+        fun <T> retryUntilPageFound(
+            tries: Int,
+            action: () -> T,
+        ): T {
+            require(tries > 0) {
+                "invalid tries value $tries"
+            }
+            var lastError: Exception? = null
+            repeat(tries) {
+                try {
+                    return action()
+                } catch (ex: PageNotFoundException) {
+                    LOGGER.trace(ex) { "cannot perform action at try: $it" }
+                    lastError = ex
+                    Thread.sleep(100)
+                }
+            }
+            throw IllegalStateException("could not perform action", lastError)
+        }
     }
 }

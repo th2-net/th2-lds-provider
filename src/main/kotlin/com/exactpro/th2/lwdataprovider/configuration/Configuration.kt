@@ -17,6 +17,7 @@
 package com.exactpro.th2.lwdataprovider.configuration
 
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import mu.KotlinLogging
 import java.util.*
 import kotlin.math.max
@@ -48,6 +49,7 @@ class CustomConfigurationClass(
     val useTransportMode: Boolean? = null,
     val flushSseAfter: Int? = null,
     val gzipCompressionLevel: Int? = null,
+    @JsonDeserialize(using = ByteSizeDeserializer::class)
     val batchSizeBytes: Int? = null,
 )
 

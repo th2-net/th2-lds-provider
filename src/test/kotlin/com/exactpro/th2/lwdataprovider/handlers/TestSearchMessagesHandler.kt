@@ -561,8 +561,9 @@ internal class TestSearchMessagesHandler {
         executor,
         Configuration(
             CustomConfigurationClass(
-                batchSize = 3,
+                bufferPerQuery = 4,
                 useTransportMode = useTransportMode,
+                batchSizeBytes = 300,
             )
         )
     )

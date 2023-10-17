@@ -22,14 +22,14 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 import com.exactpro.th2.lwdataprovider.BasicResponseHandler
 import com.exactpro.th2.lwdataprovider.Decoder
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
-import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 
 internal abstract class AbstractParsedStoredMessageHandler(
     private val handler: MessageResponseHandler,
-    private val measurement: DataMeasurement,
     private val batchSize: Int,
+    private val batchSizeBytes: Int,
     private val markerAsGroup: Boolean = false,
 ) : MarkedResponseHandler<String, StoredMessage> {
+    private var currentBatchSize: Int = 0
     private val details: MutableList<RequestedMessageDetails> = arrayListOf()
     override val isAlive: Boolean
         get() = handler.isAlive
@@ -51,8 +51,9 @@ internal abstract class AbstractParsedStoredMessageHandler(
             handler.requestReceived()
         }
         details += detail
+        currentBatchSize += data.serializedSize
         handler.handleNext(detail)
-        if (details.size >= batchSize) {
+        if (details.size >= batchSize || currentBatchSize >= batchSizeBytes) {
             processBatch(details)
         }
     }
@@ -68,6 +69,7 @@ internal abstract class AbstractParsedStoredMessageHandler(
             sendBatchMessage(details)
         } finally {
             details.clear()
+            currentBatchSize = 0
         }
     }
 }
@@ -79,13 +81,13 @@ internal interface MarkedResponseHandler<M, V> : BasicResponseHandler {
 internal class ProtoParsedStoredMessageHandler(
     handler: MessageResponseHandler,
     private val decoder: Decoder,
-    measurement: DataMeasurement,
     batchSize: Int,
+    batchSizeBytes: Int,
     markerAsGroup: Boolean = false,
 ) : AbstractParsedStoredMessageHandler(
     handler,
-    measurement,
     batchSize,
+    batchSizeBytes,
     markerAsGroup
 ) {
     private val batch: MessageGroupBatch.Builder = MessageGroupBatch.newBuilder()
@@ -102,13 +104,13 @@ internal class ProtoParsedStoredMessageHandler(
 internal class TransportParsedStoredMessageHandler(
     handler: MessageResponseHandler,
     private val decoder: Decoder,
-    measurement: DataMeasurement,
     batchSize: Int,
+    batchSizeBytes: Int,
     markerAsGroup: Boolean = false,
 ) : AbstractParsedStoredMessageHandler(
     handler,
-    measurement,
     batchSize,
+    batchSizeBytes,
     markerAsGroup
 ) {
     private var batch: GroupBatch.Builder = GroupBatch.builder()

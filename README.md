@@ -226,7 +226,7 @@ spec:
 ## 2.4.0
 
 + Add `batchSizeBytes` parameter to limit batch size by size in bytes rather than count of messages.
-+ Parameter `batchSize` deprecated. It no longer has any effect on component configuration.
++ Parameters `batchSize` and `groupRequestBuffer` removed.
   The maximum batch size in messages is computed based on `bufferPerQuery` or `maxBufferDecodeQueue` if previous parameter is not set.
 
 ## 2.3.1

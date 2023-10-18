@@ -33,15 +33,9 @@ class CustomConfigurationClass(
     val responseQueueSize: Int? = null,
     val execThreadPoolSize: Int? = null,
     val convThreadPoolSize: Int? = null,
-    @Deprecated("use parameter batchSizeBytes instead to set limit in bytes. " +
-            "This parameter does not have any effect anymore. " +
-            "The batch size limit in messages is defined by bufferPerQuery or maxBufferDecodeQueue (if bufferPerQuery is not set)")
-    val batchSize: Int? = null,
     val mode: String? = null,
     val grpcBackPressure : Boolean? = null,
     val bufferPerQuery: Int? = null,
-    @Deprecated("Parameter is not longer used because the batches for group should not overlap")
-    val groupRequestBuffer: Int? = null,
     val responseFormats: Set<String>? = null,
     val grpcBackPressureReadinessTimeoutMls: Long? = null,
     val codecUsePinAttributes: Boolean? = null,

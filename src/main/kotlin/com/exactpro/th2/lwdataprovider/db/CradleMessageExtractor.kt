@@ -342,8 +342,8 @@ internal class GroupBatchCheckIterator(
             val map = hashMapOf<Stream, StreamMetadata>()
             batch.messages.forEach { message ->
                 val stream = Stream(message.sessionAlias, message.direction)
-                val previous = map[stream] ?: MIN_STREAM_METADATA
-                check(!message.timestamp.isBefore(previous.timestamp)) {
+                val previous = map.put(stream, StreamMetadata(message.timestamp, message.sequence)) ?: MIN_STREAM_METADATA
+                check(message.timestamp >= previous.timestamp) {
                     "Unordered message received for: ${batch.toShortInfo()} batch, " +
                             "${message.sessionAlias} session alias, ${message.direction} direction, " +
                             "${message.timestamp} actual timestamp, ${previous.timestamp} previous timestamp"
@@ -353,7 +353,6 @@ internal class GroupBatchCheckIterator(
                             "${message.sessionAlias} session alias, ${message.direction} direction, " +
                             "${message.sequence} actual sequence, ${previous.sequence} previous sequence"
                 }
-                map[stream] = StreamMetadata(message.timestamp, message.sequence)
             }
         }
     }

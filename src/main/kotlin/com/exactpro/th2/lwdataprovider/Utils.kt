@@ -1,5 +1,5 @@
-/*******************************************************************************
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+/*
+ * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,18 +12,16 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ */
 
 package com.exactpro.th2.lwdataprovider
 
+import com.exactpro.cradle.Direction
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.messages.StoredMessageIdUtils
 import com.exactpro.th2.dataprovider.lw.grpc.BookId
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.google.gson.Gson
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
-import java.util.*
 
 private val gson = Gson()
 
@@ -45,3 +43,5 @@ fun StoredMessageId.failureReason(error: String): String = failureReason(
     toReportId(),
     error
 )
+
+data class Stream(val name: String, val direction: Direction)

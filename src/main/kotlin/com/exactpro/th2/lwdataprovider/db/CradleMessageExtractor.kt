@@ -30,6 +30,7 @@ import com.exactpro.cradle.messages.StoredGroupedMessageBatch
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.resultset.CradleResultSet
+import com.exactpro.th2.lwdataprovider.Stream
 import com.exactpro.th2.lwdataprovider.db.GroupBatchCheckIterator.Companion.withCheck
 import com.exactpro.th2.lwdataprovider.db.OrderStrategy.Companion.toOrderStrategy
 import com.exactpro.th2.lwdataprovider.db.util.getGenericWithSyncInterval
@@ -338,11 +339,20 @@ internal class GroupBatchCheckIterator(
 ) : Iterator<StoredGroupedMessageBatch> by original {
     override fun next(): StoredGroupedMessageBatch = original.next().also { batch ->
         if (batch.messages.size > 1) {
-            batch.messages.reduce { first, second ->
-                check(first.timestamp <= second.timestamp) {
-                    "Unordered message received for: ${batch.toShortInfo()} batch, between ${first.toShortInfo()} and ${second.toShortInfo()} messages"
+            val map = hashMapOf<Stream, StreamMetadata>()
+            batch.messages.forEach { message ->
+                val stream = Stream(message.sessionAlias, message.direction)
+                val previous = map.put(stream, StreamMetadata(message.timestamp, message.sequence)) ?: MIN_STREAM_METADATA
+                check(message.timestamp >= previous.timestamp) {
+                    "Unordered message received for: ${batch.toShortInfo()} batch, " +
+                            "${message.sessionAlias} session alias, ${message.direction} direction, " +
+                            "${message.timestamp} actual timestamp, ${previous.timestamp} previous timestamp"
                 }
-                second
+                check(message.sequence > previous.sequence) {
+                    "Unordered message received for: ${batch.toShortInfo()} batch, " +
+                            "${message.sessionAlias} session alias, ${message.direction} direction, " +
+                            "${message.sequence} actual sequence, ${previous.sequence} previous sequence"
+                }
             }
         }
     }
@@ -353,10 +363,13 @@ internal class GroupBatchCheckIterator(
     }
 }
 
-private fun StoredGroupedMessageBatch.toShortInfo(): String =
+private data class StreamMetadata(val timestamp: Instant, val sequence: Long)
+private val MIN_STREAM_METADATA = StreamMetadata(Instant.MIN, Long.MIN_VALUE)
+
+fun StoredGroupedMessageBatch.toShortInfo(): String =
     "${group}:${firstMessage.sequence}..${lastMessage.sequence} ($firstTimestamp..$lastTimestamp)"
 
-private fun StoredMessage.toShortInfo(): String =
+fun StoredMessage.toShortInfo(): String =
     "${sessionAlias}:${sequence} ($timestamp)"
 
 data class CradleGroupRequest(

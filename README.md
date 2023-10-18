@@ -1,4 +1,4 @@
-# Lightweight data provider (2.3.0)
+# Lightweight data provider (2.3.1)
 
 # Overview
 This component serves as a data provider for [th2-data-services](https://github.com/th2-net/th2-data-services). It will connect to the cassandra database via [cradle api](https://github.com/th2-net/cradleapi) and expose the data stored in there as REST resources.
@@ -222,6 +222,18 @@ spec:
 ```
 
 # Release notes:
+
+## 2.3.1
+
+### Fixed:
+
++ check order of messages in the whole group batch instead of according to streams (session alias + direction).
+
+## 2.3.0
+
+### Feature
+
++ added gzipCompressionLevel option.
 
 ## 2.2.1
 

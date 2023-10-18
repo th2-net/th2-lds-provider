@@ -26,6 +26,7 @@ import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.lwdataprovider.Decoder
 import com.exactpro.th2.lwdataprovider.ProviderStreamInfo
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
+import com.exactpro.th2.lwdataprovider.Stream
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.CradleGroupRequest
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
@@ -364,8 +365,6 @@ class SearchMessagesHandler(
         }
         return allLoaded.size != request.groups.size
     }
-
-    private data class Stream(val name: String, val direction: Direction)
 
     private fun pullUpdates(
         request: SseMessageSearchRequest,

@@ -32,14 +32,14 @@ import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.lwdataprovider.util.DummyDataMeasurement
 import com.exactpro.th2.lwdataprovider.util.ImmutableListCradleResult
 import com.exactpro.th2.lwdataprovider.util.ListCradleResult
+import com.exactpro.th2.lwdataprovider.util.TEST_SESSION_ALIAS
 import com.exactpro.th2.lwdataprovider.util.TEST_SESSION_GROUP
 import com.exactpro.th2.lwdataprovider.util.createBatches
 import com.exactpro.th2.lwdataprovider.util.createCradleStoredMessage
-import com.exactpro.th2.lwdataprovider.util.createMessages
 import com.exactpro.th2.lwdataprovider.util.validateOrder
 import org.hamcrest.CoreMatchers.startsWith
 import org.hamcrest.MatcherAssert.assertThat
-import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrowsExactly
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -304,11 +304,22 @@ internal class TestCradleMessageExtractor {
 
     @ParameterizedTest
     @EnumSource(Order::class)
-    fun getMessagesGroupUnorderedMessages(order: Order) {
-        val correctMessages = createMessages().take(5).toList()
-        val incorrectMessages = with(correctMessages) {
-            listOf(get(1), get(0), get(2), get(3), get(4))
-        }
+    fun getMessagesGroupUnorderedMessagesByTimestamp(order: Order) {
+        val correctMessages = listOf(
+            createCradleStoredMessage(
+                TEST_SESSION_ALIAS,
+                Direction.SECOND,
+                1,
+                timestamp = Instant.now(),
+            ),
+            createCradleStoredMessage(
+                TEST_SESSION_ALIAS,
+                Direction.SECOND,
+                2,
+                timestamp = Instant.now(),
+            )
+        )
+        val incorrectMessages = correctMessages.reversed()
 
         val batchesList = mutableListOf(
             StoredGroupedMessageBatch(
@@ -334,7 +345,72 @@ internal class TestCradleMessageExtractor {
                 sinkMock
             )
         }
-        assertThat(exception.message, startsWith("Unordered message received for: "))
+        val batch = StoredGroupedMessageBatch(
+            TEST_SESSION_GROUP,
+            incorrectMessages,
+            mock<PageId> {},
+            mock<Instant> {},
+        )
+        assertEquals("Unordered message received for: ${batch.toShortInfo()} batch, " +
+                "$TEST_SESSION_ALIAS session alias, ${Direction.SECOND} direction, " +
+                "${correctMessages[0].timestamp} actual timestamp, ${correctMessages[1].timestamp} previous timestamp",
+            exception.message)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Order::class)
+    fun getMessagesGroupUnorderedMessagesBySequence(order: Order) {
+        val now = Instant.now()
+        val correctMessages = listOf(
+            createCradleStoredMessage(
+                TEST_SESSION_ALIAS,
+                Direction.SECOND,
+                1,
+                timestamp = now,
+            ),
+            createCradleStoredMessage(
+                TEST_SESSION_ALIAS,
+                Direction.SECOND,
+                2,
+                timestamp = now,
+            )
+        )
+        val incorrectMessages = correctMessages.reversed()
+
+        val batchesList = mutableListOf(
+            StoredGroupedMessageBatch(
+                TEST_SESSION_GROUP,
+                incorrectMessages,
+                PageId(BookId("test-book"), "test-page"),
+                now,
+            )
+        )
+
+        whenever(storage.getGroupedMessageBatches(any())).thenReturn(ListCradleResult(batchesList))
+
+        val exception = assertThrowsExactly(IllegalStateException::class.java) {
+            extractor.getMessagesGroup(
+                GroupedMessageFilter.builder()
+                    .bookId(BookId("book"))
+                    .groupName("test")
+                    .timestampFrom().isGreaterThanOrEqualTo(startTimestamp)
+                    .timestampTo().isLessThan(endTimestamp)
+                    .order(order)
+                    .build(),
+                CradleGroupRequest(),
+                sinkMock
+            )
+        }
+        val batch = StoredGroupedMessageBatch(
+            TEST_SESSION_GROUP,
+            incorrectMessages,
+            mock<PageId> {},
+            mock<Instant> {},
+        )
+        assertEquals("Unordered message received for: ${batch.toShortInfo()} batch, " +
+                "$TEST_SESSION_ALIAS session alias, ${Direction.SECOND} direction, " +
+                "${correctMessages[0].sequence} actual sequence, ${correctMessages[1].sequence} previous sequence",
+            exception.message)
     }
 
     @ParameterizedTest
@@ -369,7 +445,7 @@ internal class TestCradleMessageExtractor {
         verify(sink, atMost(messageCount)).onNext(any(), any<Collection<StoredMessage>>())
         verify(sink, never()).onError(any<String>(), any(), any())
         val messages = sink.messages
-        Assertions.assertEquals(messageCount, messages.size) {
+        assertEquals(messageCount, messages.size) {
             "Unexpected messages count: $messages"
         }
         validateOrder(messages, messageCount, order)
@@ -407,7 +483,7 @@ internal class TestCradleMessageExtractor {
         verify(sink, atMost(messageCount)).onNext(any(), any<Collection<StoredMessage>>())
         verify(sink, never()).onError(any<String>(), any(), any())
         val messages = sink.messages
-        Assertions.assertEquals(messageCount, messages.size) {
+        assertEquals(messageCount, messages.size) {
             "Unexpected messages count: $messages"
         }
         validateOrder(messages, messageCount, order)

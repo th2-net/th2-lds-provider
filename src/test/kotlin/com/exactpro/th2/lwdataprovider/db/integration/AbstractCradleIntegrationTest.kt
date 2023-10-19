@@ -75,6 +75,7 @@ abstract class AbstractCradleIntegrationTest {
         messageExtractor = CradleMessageExtractor(
             cradleManager = cradleManager,
             DummyDataMeasurement,
+            false
         )
     }
 

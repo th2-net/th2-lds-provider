@@ -41,6 +41,7 @@ class CustomConfigurationClass(
     val codecUsePinAttributes: Boolean? = null,
     val listOfMessageAsSingleMessage: Boolean? = null,
     val useTransportMode: Boolean? = null,
+    val validateCradleData: Boolean? = null,
     val flushSseAfter: Int? = null,
     val gzipCompressionLevel: Int? = null,
     @JsonDeserialize(using = ByteSizeDeserializer::class)
@@ -70,6 +71,7 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     val codecUsePinAttributes: Boolean = VariableBuilder.getVariable(customConfiguration::codecUsePinAttributes, true)
     val listOfMessageAsSingleMessage: Boolean = VariableBuilder.getVariable(customConfiguration::listOfMessageAsSingleMessage, true)
     val useTransportMode: Boolean = VariableBuilder.getVariable(customConfiguration::useTransportMode, false)
+    val validateCradleData: Boolean = VariableBuilder.getVariable(customConfiguration::validateCradleData, false)
     val flushSseAfter: Int = VariableBuilder.getVariable(customConfiguration::flushSseAfter, 0)
     val gzipCompressionLevel: Int = VariableBuilder.getVariable(customConfiguration::gzipCompressionLevel, -1)
     val batchSizeBytes: Int = VariableBuilder.getVariable(customConfiguration::batchSizeBytes, 256 * 1024)

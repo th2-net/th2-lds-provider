@@ -556,7 +556,7 @@ internal class TestSearchMessagesHandler {
         decoder: Decoder,
         useTransportMode: Boolean
     ) = SearchMessagesHandler(
-        CradleMessageExtractor(manager, DummyDataMeasurement),
+        CradleMessageExtractor(manager, DummyDataMeasurement, false),
         decoder,
         executor,
         Configuration(

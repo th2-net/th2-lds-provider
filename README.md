@@ -178,6 +178,7 @@ spec:
 #   maxBufferDecodeQueue: 10000 # buffer size for messages that sent to decode but answers hasn't been received 
 #   decodingTimeout: 60000 # timeout expecting answers from codec. 
 #   batchSizeBytes: 256KB # the max size of the batch in bytes. You can use 'MB,KB' suffixes or a plain int value
+#   validateCradleData: false # validate data loaded from cradle. NOTE: Enabled validation affect performance 
 #   codecUsePinAttributes: true # send raw message to specified codec (true) or send to all codecs (false) 
 #   responseFormats: string list # resolve data for selected formats only. (allowed values: BASE_64, PARSED)
     
@@ -225,7 +226,9 @@ spec:
 
 ## 2.4.0
 
-+ Add `batchSizeBytes` parameter to limit batch size by size in bytes rather than count of messages.
++ Added `batchSizeBytes` parameter to limit batch size by size in bytes rather than count of messages.
++ Added `validateCradleData` parameter to enable/disable validation logic for data loaded from cradle.
+  Currently, managed validation logic includes check for message sequence and timestamp inside a group batch.  
 + Parameters `batchSize` and `groupRequestBuffer` removed.
   The maximum batch size in messages is computed based on `bufferPerQuery` or `maxBufferDecodeQueue` if previous parameter is not set.
 

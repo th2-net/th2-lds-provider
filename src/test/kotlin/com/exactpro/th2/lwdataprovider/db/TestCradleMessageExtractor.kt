@@ -81,7 +81,7 @@ internal class TestCradleMessageExtractor {
     internal fun setUp() {
         storage = mock { }
         manager = mock { on { this.storage }.thenReturn(storage) }
-        extractor = CradleMessageExtractor(manager, DummyDataMeasurement)
+        extractor = CradleMessageExtractor(manager, DummyDataMeasurement, false)
         clearInvocations(storage, messageRouter, manager)
     }
 
@@ -305,6 +305,7 @@ internal class TestCradleMessageExtractor {
     @ParameterizedTest
     @EnumSource(Order::class)
     fun getMessagesGroupUnorderedMessagesByTimestamp(order: Order) {
+        val extractorWithValidation = CradleMessageExtractor(manager, DummyDataMeasurement, true)
         val correctMessages = listOf(
             createCradleStoredMessage(
                 TEST_SESSION_ALIAS,
@@ -333,7 +334,7 @@ internal class TestCradleMessageExtractor {
         whenever(storage.getGroupedMessageBatches(any())).thenReturn(ListCradleResult(batchesList))
 
         val exception = assertThrowsExactly(IllegalStateException::class.java) {
-            extractor.getMessagesGroup(
+            extractorWithValidation.getMessagesGroup(
                 GroupedMessageFilter.builder()
                     .bookId(BookId("book"))
                     .groupName("test")
@@ -360,6 +361,7 @@ internal class TestCradleMessageExtractor {
     @ParameterizedTest
     @EnumSource(Order::class)
     fun getMessagesGroupUnorderedMessagesBySequence(order: Order) {
+        val extractorWithValidation = CradleMessageExtractor(manager, DummyDataMeasurement, true)
         val now = Instant.now()
         val correctMessages = listOf(
             createCradleStoredMessage(
@@ -389,7 +391,7 @@ internal class TestCradleMessageExtractor {
         whenever(storage.getGroupedMessageBatches(any())).thenReturn(ListCradleResult(batchesList))
 
         val exception = assertThrowsExactly(IllegalStateException::class.java) {
-            extractor.getMessagesGroup(
+            extractorWithValidation.getMessagesGroup(
                 GroupedMessageFilter.builder()
                     .bookId(BookId("book"))
                     .groupName("test")

@@ -74,7 +74,8 @@ class Context(
     ),
     val cradleMsgExtractor: CradleMessageExtractor = CradleMessageExtractor(
         cradleManager,
-        DataMeasurementHistogram.create(registry, "cradle message")
+        DataMeasurementHistogram.create(registry, "cradle message"),
+        configuration.validateCradleData
     ),
     val generalCradleExtractor: GeneralCradleExtractor = GeneralCradleExtractor(cradleManager),
     val execExecutor: Executor = Executors.newFixedThreadPool(

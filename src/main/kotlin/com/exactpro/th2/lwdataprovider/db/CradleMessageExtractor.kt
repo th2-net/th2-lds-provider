@@ -45,6 +45,7 @@ import kotlin.system.measureTimeMillis
 class CradleMessageExtractor(
     cradleManager: CradleManager,
     private val dataMeasurement: DataMeasurement,
+    private val validateCradleData: Boolean
 ) {
 
     private val storage: CradleStorage = cradleManager.storage
@@ -120,7 +121,7 @@ class CradleMessageExtractor(
         val orderStrategy = filter.order?.toOrderStrategy() ?: OrderStrategy.DIRECT
         val iterator: Iterator<StoredGroupedMessageBatch> =
             measure("init_groups") { storage.getGroupedMessageBatches(filter) }
-                .withCheck()
+                .withCheck(validateCradleData)
                 .withMeasurements("groups", dataMeasurement)
         if (!iterator.hasNext()) {
             logger.info { "Empty response received from cradle" }
@@ -171,7 +172,7 @@ class CradleMessageExtractor(
                     }
                     tryDrain(group, buffer, sink)
                 } else {
-                    orderStrategy.reorder(prev.messages).forEachIndexed { index, msg ->
+                    orderStrategy.reorder(prev.messages).forEachIndexed { _, msg ->
                         if ((needFiltration && !msg.inRange()) || parameters.preFilter?.invoke(msg) == false) {
                             return@forEachIndexed
                         }
@@ -358,8 +359,13 @@ internal class GroupBatchCheckIterator(
     }
 
     companion object {
-        fun Iterator<StoredGroupedMessageBatch>.withCheck(): Iterator<StoredGroupedMessageBatch> =
+        fun Iterator<StoredGroupedMessageBatch>.withCheck(
+            validateCradleData: Boolean
+        ): Iterator<StoredGroupedMessageBatch> = if (validateCradleData) {
             GroupBatchCheckIterator(this)
+        } else {
+            this
+        }
     }
 }
 

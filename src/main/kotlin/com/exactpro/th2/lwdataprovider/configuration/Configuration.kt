@@ -17,6 +17,7 @@
 package com.exactpro.th2.lwdataprovider.configuration
 
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import mu.KotlinLogging
 import java.util.*
 import kotlin.math.max
@@ -32,11 +33,9 @@ class CustomConfigurationClass(
     val responseQueueSize: Int? = null,
     val execThreadPoolSize: Int? = null,
     val convThreadPoolSize: Int? = null,
-    val batchSize: Int? = null,
     val mode: String? = null,
     val grpcBackPressure : Boolean? = null,
     val bufferPerQuery: Int? = null,
-    val groupRequestBuffer: Int? = null,
     val responseFormats: Set<String>? = null,
     val grpcBackPressureReadinessTimeoutMls: Long? = null,
     val codecUsePinAttributes: Boolean? = null,
@@ -44,6 +43,8 @@ class CustomConfigurationClass(
     val useTransportMode: Boolean? = null,
     val flushSseAfter: Int? = null,
     val gzipCompressionLevel: Int? = null,
+    @JsonDeserialize(using = ByteSizeDeserializer::class)
+    val batchSizeBytes: Int? = null,
 )
 
 class Configuration(customConfiguration: CustomConfigurationClass) {
@@ -56,7 +57,7 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     val responseQueueSize: Int = VariableBuilder.getVariable(customConfiguration::responseQueueSize, 1000)
     val execThreadPoolSize: Int = VariableBuilder.getVariable(customConfiguration::execThreadPoolSize, 10)
     val convThreadPoolSize: Int = VariableBuilder.getVariable(customConfiguration::convThreadPoolSize, 3)
-    val batchSize: Int = VariableBuilder.getVariable(customConfiguration::batchSize, 100)
+    val batchSize: Int
     val mode: Mode = VariableBuilder.getVariable(customConfiguration::mode, Mode.HTTP) {
         it.let { Mode.valueOf(it.uppercase(Locale.getDefault())) }
     }
@@ -71,14 +72,14 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     val useTransportMode: Boolean = VariableBuilder.getVariable(customConfiguration::useTransportMode, false)
     val flushSseAfter: Int = VariableBuilder.getVariable(customConfiguration::flushSseAfter, 0)
     val gzipCompressionLevel: Int = VariableBuilder.getVariable(customConfiguration::gzipCompressionLevel, -1)
+    val batchSizeBytes: Int = VariableBuilder.getVariable(customConfiguration::batchSizeBytes, 256 * 1024)
     init {
         require(bufferPerQuery <= maxBufferDecodeQueue) {
             "buffer per queue ($bufferPerQuery) must be less or equal to the total buffer size ($maxBufferDecodeQueue)"
         }
         val batchBoundary = bufferPerQuery.takeIf { it > 0 } ?: maxBufferDecodeQueue
-        require(batchSize <= batchBoundary) {
-            "bath size ($batchSize) must be less or equal to $batchBoundary (${if (batchBoundary == bufferPerQuery) "bufferPerQuery" else "maxBufferDecodeQueue"})"
-        }
+        // Max batch size in order to meet the queue limits
+        batchSize = batchBoundary
         if (mode != Mode.GRPC && grpcBackPressure) {
             LOGGER.warn { "gRPC backpressure works only with ${Mode.GRPC} mode but current mode is $mode" }
         }

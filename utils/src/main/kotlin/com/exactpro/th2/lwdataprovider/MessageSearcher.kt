@@ -32,10 +32,14 @@ import java.util.function.Function
 
 /**
  * This class provide ability to search messages via lw-data-provider gRPC service
+ * @param requestInterval interval for sending requests via [service]. Searcher uses this value to split search interval to smaller pieces to reduce volume of requested data via one time.
  */
 class MessageSearcher @JvmOverloads constructor(
     private val service: DataProviderService,
     private val requestInterval: Duration = DEFAULT_REQUEST_INTERVAL,
+    private val defaultBook: String = "",
+    private val defaultSessionGroup: String? = null,
+    private val defaultSessionAlias: String = "",
 ) {
     /**
      * Searches the first message in [BASE64_FORMAT] format matched by filter. Execute search from [Instant.now] to previous time
@@ -43,9 +47,9 @@ class MessageSearcher @JvmOverloads constructor(
      * @param interval for searching. Searcher stops to send requests when the next `from` time is before than search start time minus [interval]
      */
     fun searchLastOrNull(
-        book: String,
-        sessionGroup: String?,
-        sessionAlias: String,
+        book: String = defaultBook,
+        sessionGroup: String? = defaultSessionGroup,
+        sessionAlias: String = defaultSessionAlias,
         direction: Direction,
         interval: Duration,
         filter: Function<MessageSearchResponse, Boolean>
@@ -120,9 +124,30 @@ class MessageSearcher @JvmOverloads constructor(
         private val K_LOGGER = KotlinLogging.logger { }
         private const val BASE64_FORMAT = "BASE_64"
 
+        @JvmField
         val DEFAULT_REQUEST_INTERVAL: Duration = Duration.ofDays(1)
 
-        fun <T> withCancellation(code: () -> T): T {
+        @JvmOverloads
+        fun MessageSearcher.with(
+            requestInterval: Duration = DEFAULT_REQUEST_INTERVAL,
+            defaultBook: String = "",
+            defaultSessionGroup: String? = null,
+            defaultSessionAlias: String = "",
+        ) = MessageSearcher(service, requestInterval, defaultBook, defaultSessionGroup, defaultSessionAlias)
+
+        fun MessageSearcher.withRequestInterval(requestInterval: Duration) =
+            with(requestInterval, defaultBook, defaultSessionGroup, defaultSessionAlias)
+
+        fun MessageSearcher.withBook(defaultBook: String) =
+            with(requestInterval, defaultBook, defaultSessionGroup, defaultSessionAlias)
+
+        fun MessageSearcher.withSessionGroup(defaultSessionGroup: String) =
+            with(requestInterval, defaultBook, defaultSessionGroup, defaultSessionAlias)
+
+        fun MessageSearcher.withSessionAlias(defaultSessionAlias: String) =
+            with(requestInterval, defaultBook, defaultSessionGroup, defaultSessionAlias)
+
+        private fun <T> withCancellation(code: () -> T): T {
             return Context.current().withCancellation().use { context ->
                 context.call { code() }
             }

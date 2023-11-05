@@ -21,8 +21,15 @@ import com.exactpro.th2.common.util.toInstant
 import com.exactpro.th2.dataprovider.lw.grpc.DataProviderService
 import com.exactpro.th2.dataprovider.lw.grpc.MessageGroupsSearchRequest
 import com.exactpro.th2.dataprovider.lw.grpc.MessageSearchResponse
+import com.exactpro.th2.lwdataprovider.MessageSearcher.Companion.DEFAULT_REQUEST_INTERVAL
+import com.exactpro.th2.lwdataprovider.MessageSearcher.Companion.with
+import com.exactpro.th2.lwdataprovider.MessageSearcher.Companion.withBook
+import com.exactpro.th2.lwdataprovider.MessageSearcher.Companion.withRequestInterval
+import com.exactpro.th2.lwdataprovider.MessageSearcher.Companion.withSessionAlias
+import com.exactpro.th2.lwdataprovider.MessageSearcher.Companion.withSessionGroup
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import org.mockito.kotlin.any
@@ -32,6 +39,8 @@ import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.verifyNoMoreInteractions
 import org.mockito.kotlin.whenever
+import java.lang.IllegalArgumentException
+import java.time.Duration
 import java.time.Instant
 import java.util.function.Function
 import kotlin.math.ceil
@@ -83,7 +92,6 @@ class MessageSearcherTest {
         verify(service, times(times)).searchMessageGroups(captor.capture())
 
         with(captor.allValues) {
-            assertEquals(times, size)
             var previous = Instant.MAX
             forEach { request ->
                 val start = request.startTimestamp.toInstant()
@@ -108,8 +116,130 @@ class MessageSearcherTest {
                 assertEquals(Direction.SECOND, request.getStream(0).direction)
             }
         }
+    }
 
+    @Test
+    fun `test default values`() {
+        assertThrows<IllegalArgumentException> {
+            searcher.searchLastOrNull(
+                direction = Direction.SECOND,
+                interval = DEFAULT_REQUEST_INTERVAL,
+                filter = { true }
+            )
+        }
+        assertThrows<IllegalArgumentException> {
+            searcher.searchLastOrNull(
+                book = TEST_BOOK,
+                direction = Direction.SECOND,
+                interval = DEFAULT_REQUEST_INTERVAL,
+                filter = { true }
+            )
+        }
+        assertThrows<IllegalArgumentException> {
+            searcher.searchLastOrNull(
+                sessionGroup = TEST_SESSION_GROUP,
+                direction = Direction.SECOND,
+                interval = DEFAULT_REQUEST_INTERVAL,
+                filter = { true }
+            )
+        }
+        assertThrows<IllegalArgumentException> {
+            searcher.searchLastOrNull(
+                sessionAlias = TEST_SESSION_ALIAS,
+                direction = Direction.SECOND,
+                interval = DEFAULT_REQUEST_INTERVAL,
+                filter = { true }
+            )
+        }
+    }
 
+    @Test
+    fun `test with functions`() {
+        val generator = sequence {
+            while (true) {
+                yield(MessageSearchResponse.getDefaultInstance())
+            }
+        }
+
+        val filter = mock<Function<MessageSearchResponse, Boolean>> {
+            on { apply(any()) }.thenReturn(false)
+        }
+
+        val responses = 10
+        whenever(service.searchMessageGroups(any())).thenAnswer {
+            generator.take(responses).iterator()
+        }
+
+        val result = searcher.with(REQUEST_INTERVAL, TEST_BOOK, TEST_SESSION_GROUP, TEST_SESSION_ALIAS)
+            .searchLastOrNull(
+                direction = Direction.SECOND,
+                interval = REQUEST_INTERVAL,
+                filter = filter
+            )
+
+        assertNull(result)
+
+        verify(filter, times(responses * 2)).apply(any())
+        val captor = argumentCaptor<MessageGroupsSearchRequest> { }
+        verify(service, times(2)).searchMessageGroups(captor.capture())
+
+        with(captor.allValues) {
+            forEach { request ->
+                assertEquals(REQUEST_INTERVAL, Duration.between(request.endTimestamp.toInstant(), request.startTimestamp.toInstant()))
+                assertEquals(TEST_BOOK, request.bookId.name)
+                assertEquals(1, request.messageGroupCount)
+                assertEquals(TEST_SESSION_GROUP, request.getMessageGroup(0).name)
+                assertEquals(1, request.streamCount)
+                assertEquals(TEST_SESSION_ALIAS, request.getStream(0).name)
+                assertEquals(Direction.SECOND, request.getStream(0).direction)
+            }
+        }
+    }
+
+    @Test
+    fun `test with plus name functions`() {
+        val generator = sequence {
+            while (true) {
+                yield(MessageSearchResponse.getDefaultInstance())
+            }
+        }
+
+        val filter = mock<Function<MessageSearchResponse, Boolean>> {
+            on { apply(any()) }.thenReturn(false)
+        }
+
+        val responses = 10
+        whenever(service.searchMessageGroups(any())).thenAnswer {
+            generator.take(responses).iterator()
+        }
+
+        val result = searcher.withRequestInterval(REQUEST_INTERVAL)
+            .withBook(TEST_BOOK)
+            .withSessionGroup(TEST_SESSION_GROUP)
+            .withSessionAlias(TEST_SESSION_ALIAS)
+            .searchLastOrNull(
+                direction = Direction.SECOND,
+                interval = REQUEST_INTERVAL,
+                filter = filter
+            )
+
+        assertNull(result)
+
+        verify(filter, times(responses * 2)).apply(any())
+        val captor = argumentCaptor<MessageGroupsSearchRequest> { }
+        verify(service, times(2)).searchMessageGroups(captor.capture())
+
+        with(captor.allValues) {
+            forEach { request ->
+                assertEquals(REQUEST_INTERVAL, Duration.between(request.endTimestamp.toInstant(), request.startTimestamp.toInstant()))
+                assertEquals(TEST_BOOK, request.bookId.name)
+                assertEquals(1, request.messageGroupCount)
+                assertEquals(TEST_SESSION_GROUP, request.getMessageGroup(0).name)
+                assertEquals(1, request.streamCount)
+                assertEquals(TEST_SESSION_ALIAS, request.getStream(0).name)
+                assertEquals(Direction.SECOND, request.getStream(0).direction)
+            }
+        }
     }
 
     @ParameterizedTest
@@ -156,6 +286,6 @@ class MessageSearcherTest {
         private const val TEST_SESSION_GROUP = "test-session-group"
         private const val TEST_SESSION_ALIAS = "test-session-alias"
 
-        private val REQUEST_INTERVAL = MessageSearcher.DEFAULT_REQUEST_INTERVAL.dividedBy(2)
+        private val REQUEST_INTERVAL = DEFAULT_REQUEST_INTERVAL.dividedBy(2)
     }
 }

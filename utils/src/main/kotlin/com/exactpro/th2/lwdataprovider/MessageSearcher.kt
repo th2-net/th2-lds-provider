@@ -17,6 +17,7 @@
 package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.th2.common.grpc.Direction
+import com.exactpro.th2.common.grpc.Direction.UNRECOGNIZED
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.message.toTimestamp
 import com.exactpro.th2.dataprovider.lw.grpc.DataProviderService
@@ -32,51 +33,59 @@ import java.util.function.Function
 
 /**
  * This class provide ability to search messages via lw-data-provider gRPC service
- * @param requestInterval interval for sending requests via [service]. Searcher uses this value to split search interval to smaller pieces to reduce volume of requested data via one time.
+ * @param searchStep interval for sending requests via [service]. Searcher uses this value to split search interval to smaller pieces to reduce volume of requested data via one time.
  */
-class MessageSearcher @JvmOverloads constructor(
+class MessageSearcher private constructor(
     private val service: DataProviderService,
-    private val requestInterval: Duration = DEFAULT_REQUEST_INTERVAL,
-    private val defaultBook: String = "",
-    private val defaultSessionGroup: String? = null,
-    private val defaultSessionAlias: String = "",
+    private val searchStep: Duration = DEFAULT_SEARCH_STEP,
+    private val defaultBook: String,
+    private val defaultSessionGroup: String,
+    private val defaultMessageStreams: Set<MessageStream>,
 ) {
     /**
      * Searches the first message in [BASE64_FORMAT] format matched by filter. Execute search from [Instant.now] to previous time
-     * @param sessionGroup is parameter for request. Searcher uses [sessionAlias] value when [sessionGroup] is null or blank
-     * @param interval for searching. Searcher stops to send requests when the next `from` time is before than search start time minus [interval]
+     * @param sessionGroup is parameter for request. Searcher uses [messageStreams] value when [sessionGroup] is null or blank
+     * @param searchInterval for searching. Searcher stops to send requests when the next `from` time is before than search start time minus [searchInterval]
      */
-    fun searchLastOrNull(
+    @JvmOverloads
+    fun findLastOrNull(
         book: String = defaultBook,
-        sessionGroup: String? = defaultSessionGroup,
-        sessionAlias: String = defaultSessionAlias,
-        direction: Direction,
-        interval: Duration,
+        sessionGroup: String = defaultSessionGroup,
+        messageStreams: Set<MessageStream> = defaultMessageStreams,
+        searchInterval: Duration,
         filter: Function<MessageSearchResponse, Boolean>
     ): MessageSearchResponse? {
         require(book.isNotBlank()) {
             "'book' can't be blank"
         }
-        require(sessionAlias.isNotBlank()) {
-            "'sessionAlias' can't be blank"
+        require(messageStreams.isNotEmpty()) {
+            "'messageStreams' can't be empty"
         }
-        require(!interval.isZero) {
-            "'duration' can't be zero"
+        messageStreams.forEach {
+            require(it.name.isNotBlank()) {
+                "'name' in ${it.toJson()} message stream can't be blank"
+            }
+            require(it.direction != UNRECOGNIZED) {
+                "'direction' in ${it.toJson()} message stream can't be $UNRECOGNIZED"
+            }
         }
-        require(!interval.isNegative) {
-            "'duration' can't be negative"
+
+        require(!searchInterval.isZero) {
+            "'searchInterval' can't be zero"
+        }
+        require(!searchInterval.isNegative) {
+            "'searchInterval' can't be negative"
         }
 
         val now = Instant.now()
-        val end = now.minus(interval)
+        val end = now.minus(searchInterval)
         var from: Instant
         var to = now
 
         val requestBuilder = createRequestBuilder(
             book = book,
-            sessionGroup = sessionGroup?.ifBlank { sessionAlias } ?: sessionAlias,
-            sessionAlias = sessionAlias,
-            direction = direction
+            sessionGroup = sessionGroup,
+            messageStreams = messageStreams
         )
         K_LOGGER.info { "Search the last or null, base request: ${requestBuilder.toJson()}, start time: $now, end time: $end" }
 
@@ -87,7 +96,7 @@ class MessageSearcher @JvmOverloads constructor(
                 }
 
                 from = to
-                to = from.minus(requestInterval)
+                to = from.minus(searchStep)
 
                 service.searchMessageGroups(
                     requestBuilder.apply {
@@ -103,19 +112,34 @@ class MessageSearcher @JvmOverloads constructor(
         }
     }
 
+    @JvmOverloads
+    fun with(
+        requestInterval: Duration = DEFAULT_SEARCH_STEP,
+        defaultBook: String = "",
+        defaultSessionGroup: String = "",
+        defaultMessageStreams: Set<MessageStream> = emptySet(),
+    ) = MessageSearcher(service, requestInterval, defaultBook, defaultSessionGroup, defaultMessageStreams)
+
+    fun withRequestInterval(requestInterval: Duration) =
+        with(requestInterval, defaultBook, defaultSessionGroup, defaultMessageStreams)
+
+    fun withBook(defaultBook: String) =
+        with(searchStep, defaultBook, defaultSessionGroup, defaultMessageStreams)
+
+    fun withSessionGroup(defaultSessionGroup: String) =
+        with(searchStep, defaultBook, defaultSessionGroup, defaultMessageStreams)
+
+    fun withMessageStreams(defaultMessageStreams: Set<MessageStream>) =
+        with(searchStep, defaultBook, defaultSessionGroup, defaultMessageStreams)
+
     private fun createRequestBuilder(
         book: String,
         sessionGroup: String,
-        sessionAlias: String,
-        direction: Direction,
+        messageStreams: Set<MessageStream>,
     ) = MessageGroupsSearchRequest.newBuilder().apply {
         bookIdBuilder.name = book
         addMessageGroup(MessageGroupsSearchRequest.Group.newBuilder().setName(sessionGroup))
-        addStream(
-            MessageStream.newBuilder()
-                .setName(sessionAlias)
-                .setDirection(direction)
-        )
+        addAllStream(messageStreams)
         addResponseFormats(BASE64_FORMAT)
         searchDirection = TimeRelation.PREVIOUS
     }
@@ -125,27 +149,39 @@ class MessageSearcher @JvmOverloads constructor(
         private const val BASE64_FORMAT = "BASE_64"
 
         @JvmField
-        val DEFAULT_REQUEST_INTERVAL: Duration = Duration.ofDays(1)
+        val DEFAULT_SEARCH_STEP: Duration = Duration.ofDays(1)
 
         @JvmOverloads
-        fun MessageSearcher.with(
-            requestInterval: Duration = DEFAULT_REQUEST_INTERVAL,
+        fun create(
+            service: DataProviderService,
+            searchStep: Duration = DEFAULT_SEARCH_STEP,
             defaultBook: String = "",
-            defaultSessionGroup: String? = null,
-            defaultSessionAlias: String = "",
-        ) = MessageSearcher(service, requestInterval, defaultBook, defaultSessionGroup, defaultSessionAlias)
+            defaultSessionGroup: String = "",
+            defaultMessageStreams: Set<MessageStream> = emptySet(),
+        ) = MessageSearcher(
+            service,
+            searchStep,
+            defaultBook,
+            defaultSessionGroup,
+            defaultMessageStreams,
+        )
 
-        fun MessageSearcher.withRequestInterval(requestInterval: Duration) =
-            with(requestInterval, defaultBook, defaultSessionGroup, defaultSessionAlias)
+        fun create(
+            sessionAlias: String,
+            direction: Direction,
+        ): MessageStream {
+            require(sessionAlias.isNotBlank()) {
+                "'sessionAlias' can't be blank"
+            }
+            require(direction != UNRECOGNIZED) {
+                "'direction' can't be $UNRECOGNIZED"
+            }
 
-        fun MessageSearcher.withBook(defaultBook: String) =
-            with(requestInterval, defaultBook, defaultSessionGroup, defaultSessionAlias)
-
-        fun MessageSearcher.withSessionGroup(defaultSessionGroup: String) =
-            with(requestInterval, defaultBook, defaultSessionGroup, defaultSessionAlias)
-
-        fun MessageSearcher.withSessionAlias(defaultSessionAlias: String) =
-            with(requestInterval, defaultBook, defaultSessionGroup, defaultSessionAlias)
+            return MessageStream.newBuilder()
+                .setName(sessionAlias)
+                .setDirection(direction)
+                .build()
+        }
 
         private fun <T> withCancellation(code: () -> T): T {
             return Context.current().withCancellation().use { context ->

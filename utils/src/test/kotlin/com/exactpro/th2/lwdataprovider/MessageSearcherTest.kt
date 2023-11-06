@@ -16,17 +16,13 @@
 
 package com.exactpro.th2.lwdataprovider
 
-import com.exactpro.th2.common.grpc.Direction
+import com.exactpro.th2.common.grpc.Direction.SECOND
 import com.exactpro.th2.common.util.toInstant
 import com.exactpro.th2.dataprovider.lw.grpc.DataProviderService
 import com.exactpro.th2.dataprovider.lw.grpc.MessageGroupsSearchRequest
 import com.exactpro.th2.dataprovider.lw.grpc.MessageSearchResponse
-import com.exactpro.th2.lwdataprovider.MessageSearcher.Companion.DEFAULT_REQUEST_INTERVAL
-import com.exactpro.th2.lwdataprovider.MessageSearcher.Companion.with
-import com.exactpro.th2.lwdataprovider.MessageSearcher.Companion.withBook
-import com.exactpro.th2.lwdataprovider.MessageSearcher.Companion.withRequestInterval
-import com.exactpro.th2.lwdataprovider.MessageSearcher.Companion.withSessionAlias
-import com.exactpro.th2.lwdataprovider.MessageSearcher.Companion.withSessionGroup
+import com.exactpro.th2.lwdataprovider.MessageSearcher.Companion.DEFAULT_SEARCH_STEP
+import com.exactpro.th2.lwdataprovider.MessageSearcher.Companion.create
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -39,7 +35,6 @@ import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.verifyNoMoreInteractions
 import org.mockito.kotlin.whenever
-import java.lang.IllegalArgumentException
 import java.time.Duration
 import java.time.Instant
 import java.util.function.Function
@@ -51,7 +46,7 @@ import kotlin.test.assertTrue
 
 class MessageSearcherTest {
     private val service: DataProviderService = mock { }
-    private val searcher = MessageSearcher(service, REQUEST_INTERVAL)
+    private val searcher = create(service, SEARCH_STEP)
 
     @AfterEach
     fun afterEach() {
@@ -76,12 +71,11 @@ class MessageSearcherTest {
             generator.take(responses).iterator()
         }
 
-        val result = searcher.searchLastOrNull(
+        val result = searcher.findLastOrNull(
             TEST_BOOK,
             TEST_SESSION_GROUP,
-            TEST_SESSION_ALIAS,
-            Direction.SECOND,
-            REQUEST_INTERVAL.multipliedBy(times.toLong() - 1),
+            TEST_MESSAGE_STREAMS,
+            SEARCH_STEP.multipliedBy(times.toLong() - 1),
             filter
         )
 
@@ -112,8 +106,8 @@ class MessageSearcherTest {
                 assertEquals(1, request.messageGroupCount)
                 assertEquals(TEST_SESSION_GROUP, request.getMessageGroup(0).name)
                 assertEquals(1, request.streamCount)
-                assertEquals(TEST_SESSION_ALIAS, request.getStream(0).name)
-                assertEquals(Direction.SECOND, request.getStream(0).direction)
+                assertEquals(TEST_MESSAGE_STREAMS, request.streamList.toSet())
+                assertEquals(SECOND, request.getStream(0).direction)
             }
         }
     }
@@ -121,35 +115,27 @@ class MessageSearcherTest {
     @Test
     fun `test default values`() {
         assertThrows<IllegalArgumentException> {
-            searcher.searchLastOrNull(
-                direction = Direction.SECOND,
-                interval = DEFAULT_REQUEST_INTERVAL,
-                filter = { true }
-            )
+            searcher.findLastOrNull(
+                searchInterval = DEFAULT_SEARCH_STEP
+            ) { true }
         }
         assertThrows<IllegalArgumentException> {
-            searcher.searchLastOrNull(
+            searcher.findLastOrNull(
                 book = TEST_BOOK,
-                direction = Direction.SECOND,
-                interval = DEFAULT_REQUEST_INTERVAL,
-                filter = { true }
-            )
+                searchInterval = DEFAULT_SEARCH_STEP
+            ) { true }
         }
         assertThrows<IllegalArgumentException> {
-            searcher.searchLastOrNull(
+            searcher.findLastOrNull(
                 sessionGroup = TEST_SESSION_GROUP,
-                direction = Direction.SECOND,
-                interval = DEFAULT_REQUEST_INTERVAL,
-                filter = { true }
-            )
+                searchInterval = DEFAULT_SEARCH_STEP
+            ) { true }
         }
         assertThrows<IllegalArgumentException> {
-            searcher.searchLastOrNull(
-                sessionAlias = TEST_SESSION_ALIAS,
-                direction = Direction.SECOND,
-                interval = DEFAULT_REQUEST_INTERVAL,
-                filter = { true }
-            )
+            searcher.findLastOrNull(
+                messageStreams = TEST_MESSAGE_STREAMS,
+                searchInterval = DEFAULT_SEARCH_STEP
+            ) { true }
         }
     }
 
@@ -170,10 +156,9 @@ class MessageSearcherTest {
             generator.take(responses).iterator()
         }
 
-        val result = searcher.with(REQUEST_INTERVAL, TEST_BOOK, TEST_SESSION_GROUP, TEST_SESSION_ALIAS)
-            .searchLastOrNull(
-                direction = Direction.SECOND,
-                interval = REQUEST_INTERVAL,
+        val result = searcher.with(SEARCH_STEP, TEST_BOOK, TEST_SESSION_GROUP, TEST_MESSAGE_STREAMS)
+            .findLastOrNull(
+                searchInterval = SEARCH_STEP,
                 filter = filter
             )
 
@@ -185,13 +170,13 @@ class MessageSearcherTest {
 
         with(captor.allValues) {
             forEach { request ->
-                assertEquals(REQUEST_INTERVAL, Duration.between(request.endTimestamp.toInstant(), request.startTimestamp.toInstant()))
+                assertEquals(SEARCH_STEP, Duration.between(request.endTimestamp.toInstant(), request.startTimestamp.toInstant()))
                 assertEquals(TEST_BOOK, request.bookId.name)
                 assertEquals(1, request.messageGroupCount)
                 assertEquals(TEST_SESSION_GROUP, request.getMessageGroup(0).name)
                 assertEquals(1, request.streamCount)
-                assertEquals(TEST_SESSION_ALIAS, request.getStream(0).name)
-                assertEquals(Direction.SECOND, request.getStream(0).direction)
+                assertEquals(TEST_MESSAGE_STREAMS, request.streamList.toSet())
+                assertEquals(SECOND, request.getStream(0).direction)
             }
         }
     }
@@ -213,13 +198,12 @@ class MessageSearcherTest {
             generator.take(responses).iterator()
         }
 
-        val result = searcher.withRequestInterval(REQUEST_INTERVAL)
+        val result = searcher.withRequestInterval(SEARCH_STEP)
             .withBook(TEST_BOOK)
             .withSessionGroup(TEST_SESSION_GROUP)
-            .withSessionAlias(TEST_SESSION_ALIAS)
-            .searchLastOrNull(
-                direction = Direction.SECOND,
-                interval = REQUEST_INTERVAL,
+            .withMessageStreams(TEST_MESSAGE_STREAMS)
+            .findLastOrNull(
+                searchInterval = SEARCH_STEP,
                 filter = filter
             )
 
@@ -231,13 +215,13 @@ class MessageSearcherTest {
 
         with(captor.allValues) {
             forEach { request ->
-                assertEquals(REQUEST_INTERVAL, Duration.between(request.endTimestamp.toInstant(), request.startTimestamp.toInstant()))
+                assertEquals(SEARCH_STEP, Duration.between(request.endTimestamp.toInstant(), request.startTimestamp.toInstant()))
                 assertEquals(TEST_BOOK, request.bookId.name)
                 assertEquals(1, request.messageGroupCount)
                 assertEquals(TEST_SESSION_GROUP, request.getMessageGroup(0).name)
                 assertEquals(1, request.streamCount)
-                assertEquals(TEST_SESSION_ALIAS, request.getStream(0).name)
-                assertEquals(Direction.SECOND, request.getStream(0).direction)
+                assertEquals(TEST_MESSAGE_STREAMS, request.streamList.toSet())
+                assertEquals(SECOND, request.getStream(0).direction)
             }
         }
     }
@@ -265,12 +249,11 @@ class MessageSearcherTest {
         whenever(service.searchMessageGroups(any())).thenAnswer {
             generator.take(responses).iterator()
         }
-        val result = searcher.searchLastOrNull(
+        val result = searcher.findLastOrNull(
             TEST_BOOK,
             TEST_SESSION_GROUP,
-            TEST_SESSION_ALIAS,
-            Direction.FIRST,
-            REQUEST_INTERVAL.multipliedBy(times.toLong())
+            TEST_MESSAGE_STREAMS,
+            SEARCH_STEP.multipliedBy(times.toLong())
         ) {
             it.message.getMessagePropertiesOrDefault(PROPERTY, "") == target.toString()
         }
@@ -284,8 +267,8 @@ class MessageSearcherTest {
         private const val PROPERTY = "test-property"
         private const val TEST_BOOK = "test-book"
         private const val TEST_SESSION_GROUP = "test-session-group"
-        private const val TEST_SESSION_ALIAS = "test-session-alias"
+        private val TEST_MESSAGE_STREAMS = setOf(create("test-session-alias", SECOND))
 
-        private val REQUEST_INTERVAL = DEFAULT_REQUEST_INTERVAL.dividedBy(2)
+        private val SEARCH_STEP = DEFAULT_SEARCH_STEP.dividedBy(2)
     }
 }

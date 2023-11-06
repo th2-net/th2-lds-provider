@@ -137,6 +137,28 @@ class MessageSearcherTest {
                 searchInterval = DEFAULT_SEARCH_STEP
             ) { true }
         }
+
+        assertThrows<IllegalArgumentException> {
+            searcher.findLastOrNull(
+                sessionGroup = TEST_SESSION_GROUP,
+                messageStreams = TEST_MESSAGE_STREAMS,
+                searchInterval = DEFAULT_SEARCH_STEP
+            ) { true }
+        }
+        assertThrows<IllegalArgumentException> {
+            searcher.findLastOrNull(
+                book = TEST_BOOK,
+                messageStreams = TEST_MESSAGE_STREAMS,
+                searchInterval = DEFAULT_SEARCH_STEP
+            ) { true }
+        }
+        assertThrows<IllegalArgumentException> {
+            searcher.findLastOrNull(
+                book = TEST_BOOK,
+                sessionGroup = TEST_SESSION_GROUP,
+                searchInterval = DEFAULT_SEARCH_STEP
+            ) { true }
+        }
     }
 
     @Test

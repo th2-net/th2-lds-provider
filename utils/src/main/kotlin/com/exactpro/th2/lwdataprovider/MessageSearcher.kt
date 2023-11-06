@@ -58,6 +58,9 @@ class MessageSearcher private constructor(
         require(book.isNotBlank()) {
             "'book' can't be blank"
         }
+        require(sessionGroup.isNotBlank()) {
+            "'sessionGroup' can't be blank"
+        }
         require(messageStreams.isNotEmpty()) {
             "'messageStreams' can't be empty"
         }

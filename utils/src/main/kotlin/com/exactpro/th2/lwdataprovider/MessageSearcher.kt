@@ -49,10 +49,10 @@ class MessageSearcher private constructor(
      */
     @JvmOverloads
     fun findLastOrNull(
+        searchInterval: Duration,
         book: String = defaultBook,
         sessionGroup: String = defaultSessionGroup,
         messageStreams: Set<MessageStream> = defaultMessageStreams,
-        searchInterval: Duration,
         filter: Function<MessageSearchResponse, Boolean>
     ): MessageSearchResponse? {
         require(book.isNotBlank()) {
@@ -91,12 +91,9 @@ class MessageSearcher private constructor(
 
         return withCancellation {
             generateSequence {
-                if (to.isBefore(end)) {
-                    return@generateSequence null
-                }
-
                 from = to
-                to = from.minus(searchStep)
+                to = from.minus(searchStep).run { if (this < end) end else this }
+                if (from == to) { return@generateSequence null }
 
                 service.searchMessageGroups(
                     requestBuilder.apply {
@@ -152,6 +149,7 @@ class MessageSearcher private constructor(
         val DEFAULT_SEARCH_STEP: Duration = Duration.ofDays(1)
 
         @JvmOverloads
+        @JvmStatic
         fun create(
             service: DataProviderService,
             searchStep: Duration = DEFAULT_SEARCH_STEP,
@@ -166,7 +164,8 @@ class MessageSearcher private constructor(
             defaultMessageStreams,
         )
 
-        fun create(
+        @JvmStatic
+        fun createMessageStream(
             sessionAlias: String,
             direction: Direction,
         ): MessageStream {

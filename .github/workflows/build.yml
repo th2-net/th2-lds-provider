@@ -30,6 +30,8 @@ jobs:
               - 'gradle.properties'
             grpc:
               - 'grpc/gradle.properties'
+            utils:
+              - 'utils/gradle.properties'
   build-and-publish-grpc-java:
     name: Build and publish Java gRPC distributions
     needs:
@@ -55,6 +57,23 @@ jobs:
       project-path: grpc
     secrets:
       pypi_password: ${{ secrets.PYPI_PASSWORD }}
+
+  build-and-publish-utils:
+    name: Build and publish utils library
+    needs:
+      - changes
+    if: ${{ needs.changes.outputs.utils == 'true' }}
+    uses: th2-net/.github/.github/workflows/compaund-java-multi-project-build.yml@main
+    with:
+      projectPath: utils
+      release: true
+      additionalTasks: '["publish"]'
+    secrets:
+      sonatypeUsername: ${{ secrets.SONATYPE_NEXUS_USERNAME }}
+      sonatypePassword: ${{ secrets.SONATYPE_NEXUS_PASSWORD }}
+      sonatypeSigningKey: ${{ secrets.SONATYPE_GPG_ARMORED_KEY }}
+      sonatypeSigningPassword: ${{ secrets.SONATYPE_SIGNING_PASSWORD }}
+
   owasp-scan:
     uses: th2-net/.github/.github/workflows/owasp-gradle-scan.yml@main
     with:

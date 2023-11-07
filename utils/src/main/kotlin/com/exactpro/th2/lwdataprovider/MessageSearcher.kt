@@ -77,8 +77,6 @@ class MessageSearcher private constructor(
 
         val now = Instant.now()
         val end = now.minus(searchInterval)
-        var from: Instant
-        var to = now
 
         val requestBuilder = createRequestBuilder(
             book = book,
@@ -89,24 +87,41 @@ class MessageSearcher private constructor(
         K_LOGGER.info { "Search the last or null, base request: ${requestBuilder.toJson()}, start time: $now, end time: $end" }
 
         return withCancellation {
-            generateSequence {
-                from = to
-                to = from.minus(searchStep).run { if (this < end) end else this }
-                if (from == to) { return@generateSequence null }
+            sequence<MessageSearchResponse> {
+                var from: Instant = now
+                var to: Instant = from.minus(searchStep).run { if (this < end) end else this }
 
-                service.searchMessageGroups(
-                    requestBuilder.apply {
-                        startTimestamp = from.toTimestamp()
-                        endTimestamp = to.toTimestamp()
-                    }.build().also {
-                        K_LOGGER.debug { "Request from: $from, to: $to" }
+                while (from != to) {
+                    service.searchMessageGroups(
+                        requestBuilder.apply {
+                            startTimestamp = from.toTimestamp()
+                            endTimestamp = to.toTimestamp()
+                        }.build().also {
+                            K_LOGGER.debug { "Request from: $from, to: $to" }
+                        }
+                    ).forEach {
+                        K_LOGGER.trace { "Received message: ${it.toJson()}" }
+                        yield(it)
                     }
-                )
-            }.flatMap(Iterator<MessageSearchResponse>::asSequence)
-                .onEach { K_LOGGER.trace { "Message: ${it.toJson()}" } }
-                .firstOrNull(filter::apply)
+
+                    from = to
+                    to = from.minus(searchStep).run { if (this < end) end else this }
+                }
+            }.firstOrNull(filter::apply)
         }
     }
+
+    /**
+     * Searches the first message in [BASE64_FORMAT] format matched by filter. Execute search from [Instant.now] to previous time
+     * @see [findLastOrNull]
+     */
+    fun findLastOrNull(
+        book: String,
+        sessionAlias: String,
+        direction: Direction,
+        searchInterval: Duration,
+        filter: Function<MessageSearchResponse, Boolean>
+    ): MessageSearchResponse? = findLastOrNull(book, sessionAlias, sessionAlias, direction, searchInterval, filter)
 
     fun withSearchStep(searchStep: Duration) = MessageSearcher(service, searchStep)
 

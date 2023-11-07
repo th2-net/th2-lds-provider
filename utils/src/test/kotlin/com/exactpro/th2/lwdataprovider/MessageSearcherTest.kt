@@ -158,6 +158,56 @@ class MessageSearcherTest {
         }
     }
 
+    @Test
+    fun `test findLastOrNull without session group`() {
+        var counter = 0
+        val generator = sequence {
+            while (true) {
+                yield(
+                    MessageSearchResponse.newBuilder().apply {
+                        messageBuilder.apply {
+                            putMessageProperties(PROPERTY, (--counter).toString())
+                        }
+                    }.build()
+                )
+            }
+        }
+
+        val responses = 10
+        whenever(service.searchMessageGroups(any())).thenAnswer {
+            generator.take(responses).iterator()
+        }
+
+        val target = -5
+        val result = searcher.withSearchStep(SEARCH_STEP)
+            .findLastOrNull(
+                TEST_BOOK,
+                TEST_SESSION_ALIAS,
+                TEST_DIRECTION,
+                SEARCH_STEP,
+            ) {
+                it.message.getMessagePropertiesOrDefault(PROPERTY, "") == target.toString()
+            }
+
+        assertNotNull(result)
+        assertEquals(target.toString(), result.message.getMessagePropertiesOrDefault(PROPERTY, ""))
+
+        val captor = argumentCaptor<MessageGroupsSearchRequest> { }
+        verify(service).searchMessageGroups(captor.capture())
+
+        with(captor.allValues) {
+            forEach { request ->
+                assertEquals(SEARCH_STEP, Duration.between(request.endTimestamp.toInstant(), request.startTimestamp.toInstant()))
+                assertEquals(TEST_BOOK, request.bookId.name)
+                assertEquals(1, request.messageGroupCount)
+                assertEquals(TEST_SESSION_ALIAS, request.getMessageGroup(0).name)
+                assertEquals(1, request.streamCount)
+                assertEquals(TEST_SESSION_ALIAS, request.streamList.single().name)
+                assertEquals(TEST_DIRECTION, request.streamList.single().direction)
+            }
+        }
+    }
+
     @ParameterizedTest
     @ValueSource(ints = [1, 9, 10, 11])
     fun `test result`(index: Int) {

@@ -152,13 +152,6 @@ class MessageSearcherTest {
                 searchInterval = DEFAULT_SEARCH_STEP
             ) { true }
         }
-        assertThrows<IllegalArgumentException> {
-            searcher.findLastOrNull(
-                book = TEST_BOOK,
-                sessionGroup = TEST_SESSION_GROUP,
-                searchInterval = DEFAULT_SEARCH_STEP
-            ) { true }
-        }
     }
 
     @Test

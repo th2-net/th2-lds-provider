@@ -61,9 +61,6 @@ class MessageSearcher private constructor(
         require(sessionGroup.isNotBlank()) {
             "'sessionGroup' can't be blank"
         }
-        require(messageStreams.isNotEmpty()) {
-            "'messageStreams' can't be empty"
-        }
         messageStreams.forEach {
             require(it.name.isNotBlank()) {
                 "'name' in ${it.toJson()} message stream can't be blank"

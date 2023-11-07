@@ -17,13 +17,11 @@
 package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.th2.common.grpc.Direction
-import com.exactpro.th2.common.grpc.Direction.UNRECOGNIZED
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.message.toTimestamp
 import com.exactpro.th2.dataprovider.lw.grpc.DataProviderService
 import com.exactpro.th2.dataprovider.lw.grpc.MessageGroupsSearchRequest
 import com.exactpro.th2.dataprovider.lw.grpc.MessageSearchResponse
-import com.exactpro.th2.dataprovider.lw.grpc.MessageStream
 import com.exactpro.th2.dataprovider.lw.grpc.TimeRelation
 import io.grpc.Context
 import mu.KotlinLogging
@@ -38,38 +36,38 @@ import java.util.function.Function
 class MessageSearcher private constructor(
     private val service: DataProviderService,
     private val searchStep: Duration = DEFAULT_SEARCH_STEP,
-    private val defaultBook: String,
-    private val defaultSessionGroup: String,
-    private val defaultMessageStreams: Set<MessageStream>,
 ) {
+    init {
+        require(!searchStep.isZero) {
+            "'searchStep' can't be zero"
+        }
+        require(!searchStep.isNegative) {
+            "'searchStep' can't be negative"
+        }
+    }
+
     /**
      * Searches the first message in [BASE64_FORMAT] format matched by filter. Execute search from [Instant.now] to previous time
-     * @param sessionGroup is parameter for request. Searcher uses [messageStreams] value when [sessionGroup] is null or blank
+     * @param sessionGroup is parameter for request. Searcher uses [sessionAlias] value when [sessionGroup] is null
      * @param searchInterval for searching. Searcher stops to send requests when the next `from` time is before than search start time minus [searchInterval]
      */
-    @JvmOverloads
     fun findLastOrNull(
+        book: String,
+        sessionGroup: String?,
+        sessionAlias: String,
+        direction: Direction,
         searchInterval: Duration,
-        book: String = defaultBook,
-        sessionGroup: String = defaultSessionGroup,
-        messageStreams: Set<MessageStream> = defaultMessageStreams,
         filter: Function<MessageSearchResponse, Boolean>
     ): MessageSearchResponse? {
         require(book.isNotBlank()) {
             "'book' can't be blank"
         }
-        require(sessionGroup.isNotBlank()) {
+        require(sessionGroup == null || sessionGroup.isNotBlank()) {
             "'sessionGroup' can't be blank"
         }
-        messageStreams.forEach {
-            require(it.name.isNotBlank()) {
-                "'name' in ${it.toJson()} message stream can't be blank"
-            }
-            require(it.direction != UNRECOGNIZED) {
-                "'direction' in ${it.toJson()} message stream can't be $UNRECOGNIZED"
-            }
+        require(sessionAlias.isNotBlank()) {
+            "'sessionAlias' can't be blank"
         }
-
         require(!searchInterval.isZero) {
             "'searchInterval' can't be zero"
         }
@@ -84,8 +82,9 @@ class MessageSearcher private constructor(
 
         val requestBuilder = createRequestBuilder(
             book = book,
-            sessionGroup = sessionGroup,
-            messageStreams = messageStreams
+            sessionGroup = sessionGroup ?: sessionAlias,
+            sessionAlias = sessionAlias,
+            direction = direction
         )
         K_LOGGER.info { "Search the last or null, base request: ${requestBuilder.toJson()}, start time: $now, end time: $end" }
 
@@ -109,34 +108,20 @@ class MessageSearcher private constructor(
         }
     }
 
-    @JvmOverloads
-    fun with(
-        requestInterval: Duration = DEFAULT_SEARCH_STEP,
-        defaultBook: String = "",
-        defaultSessionGroup: String = "",
-        defaultMessageStreams: Set<MessageStream> = emptySet(),
-    ) = MessageSearcher(service, requestInterval, defaultBook, defaultSessionGroup, defaultMessageStreams)
-
-    fun withRequestInterval(requestInterval: Duration) =
-        with(requestInterval, defaultBook, defaultSessionGroup, defaultMessageStreams)
-
-    fun withBook(defaultBook: String) =
-        with(searchStep, defaultBook, defaultSessionGroup, defaultMessageStreams)
-
-    fun withSessionGroup(defaultSessionGroup: String) =
-        with(searchStep, defaultBook, defaultSessionGroup, defaultMessageStreams)
-
-    fun withMessageStreams(defaultMessageStreams: Set<MessageStream>) =
-        with(searchStep, defaultBook, defaultSessionGroup, defaultMessageStreams)
+    fun withSearchStep(searchStep: Duration) = MessageSearcher(service, searchStep)
 
     private fun createRequestBuilder(
         book: String,
         sessionGroup: String,
-        messageStreams: Set<MessageStream>,
+        sessionAlias: String,
+        direction: Direction,
     ) = MessageGroupsSearchRequest.newBuilder().apply {
         bookIdBuilder.name = book
         addMessageGroup(MessageGroupsSearchRequest.Group.newBuilder().setName(sessionGroup))
-        addAllStream(messageStreams)
+        addStreamBuilder().apply {
+            this.name = sessionAlias
+            this.direction = direction
+        }
         addResponseFormats(BASE64_FORMAT)
         searchDirection = TimeRelation.PREVIOUS
     }
@@ -150,37 +135,8 @@ class MessageSearcher private constructor(
 
         @JvmOverloads
         @JvmStatic
-        fun create(
-            service: DataProviderService,
-            searchStep: Duration = DEFAULT_SEARCH_STEP,
-            defaultBook: String = "",
-            defaultSessionGroup: String = "",
-            defaultMessageStreams: Set<MessageStream> = emptySet(),
-        ) = MessageSearcher(
-            service,
-            searchStep,
-            defaultBook,
-            defaultSessionGroup,
-            defaultMessageStreams,
-        )
-
-        @JvmStatic
-        fun createMessageStream(
-            sessionAlias: String,
-            direction: Direction,
-        ): MessageStream {
-            require(sessionAlias.isNotBlank()) {
-                "'sessionAlias' can't be blank"
-            }
-            require(direction != UNRECOGNIZED) {
-                "'direction' can't be $UNRECOGNIZED"
-            }
-
-            return MessageStream.newBuilder()
-                .setName(sessionAlias)
-                .setDirection(direction)
-                .build()
-        }
+        fun create(service: DataProviderService, searchStep: Duration = DEFAULT_SEARCH_STEP) =
+            MessageSearcher(service, searchStep)
 
         private fun <T> withCancellation(code: () -> T): T {
             return Context.current().withCancellation().use { context ->

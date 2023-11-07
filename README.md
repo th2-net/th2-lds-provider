@@ -224,6 +224,12 @@ spec:
 
 # Release notes:
 
+## 2.4.1
+
+### Fixed:
+
++ custom JSON serialization did not do proper escaping for strings
+
 ## 2.4.0
 
 + Added `batchSizeBytes` parameter to limit batch size by size in bytes rather than count of messages.

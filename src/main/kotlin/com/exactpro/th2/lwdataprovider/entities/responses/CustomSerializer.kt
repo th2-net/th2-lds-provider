@@ -17,18 +17,16 @@
 package com.exactpro.th2.lwdataprovider.entities.responses
 
 import com.exactpro.cradle.messages.StoredMessageId
-import com.exactpro.cradle.utils.EscapeUtils.escape
 import com.exactpro.cradle.utils.TimeUtils
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.toByteArray
 import com.exactpro.th2.lwdataprovider.entities.responses.ser.numberOfDigits
+import io.javalin.http.util.JsonEscapeUtil
 import java.io.ByteArrayOutputStream
 import java.io.OutputStream
 import java.time.Instant
-import kotlin.math.ceil
-import kotlin.math.log10
-import kotlin.math.max
 import kotlin.text.Charsets.UTF_8
+import com.exactpro.cradle.utils.EscapeUtils.escape as cradleEscape
 
 private val COMMA = ",".toByteArray(UTF_8).first().toInt()
 private val COLON = ":".toByteArray(UTF_8).first().toInt()
@@ -54,6 +52,7 @@ private val MESSAGE_TYPE_FILED = """"messageType"""".toByteArray(UTF_8)
 private val PROPERTIES_FILED = """"properties"""".toByteArray(UTF_8)
 private val PROTOCOL_FILED = """"protocol"""".toByteArray(UTF_8)
 private val FIELDS_FILED = """"fields"""".toByteArray(UTF_8)
+private val ESCAPE_CHARACTERS = charArrayOf('\"', '\n', '\r', '\\', '\t', '\b')
 
 fun ProviderMessage53Transport.toJSONByteArray(): ByteArray =
     ByteArrayOutputStream(1_024 * 2).apply { // TODO: init size
@@ -80,14 +79,22 @@ fun ProviderMessage53Transport.toJSONByteArray(): ByteArray =
         write(CLOSING_CURLY_BRACE)
     }.toByteArray()
 
+private fun jsonEscape(value: String): String {
+    return if (ESCAPE_CHARACTERS.any(value::contains)) {
+        JsonEscapeUtil.escape(value)
+    } else {
+        value
+    }
+}
+
 private fun OutputStream.writeMessageId(messageId: StoredMessageId) {
     write(MESSAGE_ID_FILED)
     write(COLON)
     write(DOUBLE_QUOTE)
     with(messageId) {
-        write(escape(bookId.toString()).toByteArray(UTF_8))
+        write(jsonEscape(cradleEscape(bookId.toString())).toByteArray(UTF_8))
         write(COLON)
-        write(escape(sessionAlias).toByteArray(UTF_8))
+        write(jsonEscape(cradleEscape(sessionAlias)).toByteArray(UTF_8))
         write(COLON)
         write(direction.label.toByteArray(UTF_8))
         write(COLON)
@@ -166,7 +173,7 @@ private fun OutputStream.writeAttachedEventIds(attachedEventIds: Set<String>) {
             write(COMMA)
         }
         write(DOUBLE_QUOTE)
-        write(escape(eventId).toByteArray(UTF_8))
+        write(jsonEscape(eventId).toByteArray(UTF_8))
         write(DOUBLE_QUOTE)
     }
     write(CLOSING_SQUARE_BRACE)
@@ -208,7 +215,7 @@ private fun OutputStream.writeFieldWithoutEscaping(name: ByteArray, value: Strin
     write(DOUBLE_QUOTE)
 }
 
-private fun OutputStream.writeField(name: ByteArray, value: String) = writeFieldWithoutEscaping(name, escape(value))
+private fun OutputStream.writeField(name: ByteArray, value: String) = writeFieldWithoutEscaping(name, jsonEscape(value))
 private fun OutputStream.writeField(name: ByteArray, value: Number) {
     write(name)
     write(COLON)
@@ -217,11 +224,11 @@ private fun OutputStream.writeField(name: ByteArray, value: Number) {
 
 private fun OutputStream.writeField(name: String, value: String) {
     write(DOUBLE_QUOTE)
-    write(escape(name).toByteArray(UTF_8))
+    write(jsonEscape(name).toByteArray(UTF_8))
     write(DOUBLE_QUOTE)
     write(COLON)
     write(DOUBLE_QUOTE)
-    write(escape(value).toByteArray(UTF_8))
+    write(jsonEscape(value).toByteArray(UTF_8))
     write(DOUBLE_QUOTE)
 }
 

@@ -119,7 +119,7 @@ abstract class AbstractJsonFormatter : JsonFormatter {
     private fun isNeedToEscape(s: String): Boolean {
         // ascii 32 is space, all chars below should be escaped
         return s.chars()
-            .anyMatch { it < 32 || it == CustomProtoJsonFormatter.QUOTE_CHAR || it == CustomProtoJsonFormatter.BACK_SLASH }
+            .anyMatch { it < 32 || it == QUOTE_CHAR || it == BACK_SLASH }
     }
 
     protected fun convertStringToJson(s: String, builder: StringBuilder) {
@@ -232,5 +232,10 @@ abstract class AbstractJsonFormatter : JsonFormatter {
             sb.append("\"protocol\":\"").append(msg.protocol).append("\"")
         }
         sb.append("}")
+    }
+
+    companion object {
+        internal const val QUOTE_CHAR = '"'.code
+        internal const val BACK_SLASH = '\\'.code
     }
 }

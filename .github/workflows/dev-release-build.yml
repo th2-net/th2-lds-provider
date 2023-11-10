@@ -105,8 +105,11 @@ jobs:
     name: Build and publish utils library
     runs-on: 'ubuntu-20.04'
     needs:
+      - build-and-publish-grpc-java
       - changes
-    if: ${{ needs.changes.outputs.utils == 'true' }}
+    if: |
+      always() && 
+      (needs.changes.outputs.utils == 'true' || needs.changes.outputs.grpc == 'true')
     steps:
       - uses: actions/checkout@v3
       - name: Set up JDK 'zulu' '11'

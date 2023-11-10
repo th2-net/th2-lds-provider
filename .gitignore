@@ -35,6 +35,7 @@ derby.log
 *.iml
 *.iws
 .idea
+!.idea/copyright
 */build
 out
 

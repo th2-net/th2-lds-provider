@@ -17,8 +17,10 @@
 rootProject.name = 'lw-data-provider'
 
 include 'grpc'
+include 'utils'
 
 project(':grpc').name = 'grpc-lw-data-provider'
+project(':utils').name = 'lw-data-provider-utils'
 
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)

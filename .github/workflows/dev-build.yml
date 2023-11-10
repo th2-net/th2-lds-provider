@@ -31,6 +31,18 @@ jobs:
       sonatypePassword: ${{ secrets.SONATYPE_NEXUS_PASSWORD }}
       sonatypeSigningKey: ${{ secrets.SONATYPE_GPG_ARMORED_KEY }}
       sonatypeSigningPassword: ${{ secrets.SONATYPE_SIGNING_PASSWORD }}
+  build-and-publish-utils:
+    name: Build and publish lw-data-provider-utils
+    uses: th2-net/.github/.github/workflows/compaund-java-multi-project-build.yml@main
+    with:
+      projectPath: utils
+      additionalTasks: '["publish"]'
+      release: false
+    secrets:
+      sonatypeUsername: ${{ secrets.SONATYPE_NEXUS_USERNAME }}
+      sonatypePassword: ${{ secrets.SONATYPE_NEXUS_PASSWORD }}
+      sonatypeSigningKey: ${{ secrets.SONATYPE_GPG_ARMORED_KEY }}
+      sonatypeSigningPassword: ${{ secrets.SONATYPE_SIGNING_PASSWORD }}
   build-and-publish-grpc-python:
     name: Build and publish Python distributions to PyPI
     needs:

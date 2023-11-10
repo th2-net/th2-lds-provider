@@ -8,7 +8,7 @@ plugins {
 ext {
     grpcVersion = '1.56.0'
     protobufVersion = '3.23.2'
-    serviceGeneratorVersion = '3.4.0'
+    serviceGeneratorVersion = '3.5.1'
     genBaseDir = file("${buildDir}/generated/source/proto") // from protobuf plugin
 }
 

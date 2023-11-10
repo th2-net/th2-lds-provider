@@ -226,7 +226,9 @@ spec:
 
 ## 2.5.0
 
-+ Updated grpc-lw-data-provider: `2.3.0`
+### Updated:
++ common: `5.7.1-dev`
++ grpc-lw-data-provider: `2.3.0`
 
 ## 2.4.0
 

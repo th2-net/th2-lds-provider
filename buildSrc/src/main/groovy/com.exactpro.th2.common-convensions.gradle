@@ -6,7 +6,7 @@ group 'com.exactpro.th2'
 version release_version
 
 ext {
-    commonVersion = '5.4.0-dev'
+    commonVersion = '5.7.1-dev'
 }
 
 sourceCompatibility = 11

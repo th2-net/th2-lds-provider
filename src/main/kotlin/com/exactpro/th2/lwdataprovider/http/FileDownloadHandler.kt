@@ -29,7 +29,9 @@ import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.util.convertToMessageStreams
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
+import com.exactpro.th2.lwdataprovider.http.util.JSON_STREAM_CONTENT_TYPE
 import com.exactpro.th2.lwdataprovider.http.util.listQueryParameters
+import com.exactpro.th2.lwdataprovider.http.util.writeJsonStream
 import com.exactpro.th2.lwdataprovider.metrics.HttpWriteMetrics
 import com.exactpro.th2.lwdataprovider.metrics.ResponseQueue
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
@@ -188,76 +190,12 @@ class FileDownloadHandler(
         )
         keepAliveHandler.addKeepAliveData(handler).use {
             searchMessagesHandler.loadMessageGroups(request, handler, dataMeasurement)
-            processData(ctx, queue, handler)
+            writeJsonStream(ctx, queue, handler, dataMeasurement, LOGGER)
             LOGGER.info { "Processing search sse messages group request finished" }
         }
     }
 
-    private fun processData(
-        ctx: Context,
-        queue: ArrayBlockingQueue<Supplier<SseEvent>>,
-        handler: HttpMessagesRequestHandler
-    ) {
-        val matchedPath = ctx.matchedPath()
-        var dataSent = 0
-
-        var writeHeader = true
-        var status: HttpStatus = HttpStatus.OK
-
-        fun writeHeader() {
-            if (writeHeader) {
-                ctx.status(status)
-                    .contentType(JSON_STREAM_CONTENT_TYPE)
-                    .header(Header.TRANSFER_ENCODING, "chunked")
-                writeHeader = false
-            }
-        }
-
-        val output = ctx.res().outputStream.buffered()
-        try {
-            do {
-                dataMeasurement.start("process_sse_event").use {
-                    val nextEvent = queue.take()
-                    ResponseQueue.currentSize(matchedPath, queue.size)
-                    val sseEvent = dataMeasurement.start("await_convert_to_json").use { nextEvent.get() }
-                    if (writeHeader && sseEvent is SseEvent.ErrorData.SimpleError) {
-                        // something happened during request
-                        status = HttpStatus.INTERNAL_SERVER_ERROR
-                    }
-                    writeHeader()
-                    when (sseEvent.event) {
-                        EventType.KEEP_ALIVE -> output.flush()
-                        EventType.CLOSE -> {
-                            LOGGER.info { "Received close event" }
-                            return
-                        }
-
-                        else -> {
-                            LOGGER.debug {
-                                "Write event to output: ${
-                                    StringUtils.abbreviate(sseEvent.data.toString(DATA_CHARSET), 100)
-                                }"
-                            }
-                            output.write(sseEvent.data)
-                            output.write('\n'.code)
-                            dataSent++
-                        }
-                    }
-                }
-            } while (true)
-        } catch (ex: Exception) {
-            LOGGER.error(ex) { "cannot process next event" }
-            handler.cancel()
-            queue.clear()
-        } finally {
-            HttpWriteMetrics.messageSent(matchedPath, dataSent)
-            runCatching { output.flush() }
-                .onFailure { LOGGER.error(it) { "cannot flush the remaining data when processing is finished" } }
-        }
-    }
-
     companion object {
-        private const val JSON_STREAM_CONTENT_TYPE = "application/stream+json"
         private const val GROUP_PARAM = "group"
         private const val START_TIMESTAMP_PARAM = "startTimestamp"
         private const val END_TIMESTAMP_PARAM = "endTimestamp"

@@ -1,4 +1,4 @@
-# Lightweight data provider (2.5.2)
+# Lightweight data provider (2.6.0)
 
 # Overview
 This component serves as a data provider for [th2-data-services](https://github.com/th2-net/th2-data-services). It will connect to the cassandra database via [cradle api](https://github.com/th2-net/cradleapi) and expose the data stored in there as REST resources.
@@ -223,6 +223,15 @@ spec:
 ```
 
 # Release notes:
+
+## 2.6.0
+
++ Add download task endpoints:
+  + POST `/download` - register task
+  + GET `/download/{taskID}` - execute task
+  + GET `/download/{taskID}/status` - get task status
+  + DELETE `/download/{taskID}` - remove task
++ Add `EXTERNAL_CONTEXT_PATH` env variable to inform provider about external context that is used in requests
 
 ## 2.5.2
 

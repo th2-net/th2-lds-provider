@@ -28,9 +28,11 @@ import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
+import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import com.exactpro.th2.lwdataprovider.http.listener.ProgressListener
 import com.exactpro.th2.lwdataprovider.http.serializers.CustomMillisOrNanosInstantDeserializer
+import com.exactpro.th2.lwdataprovider.http.util.JSON_STREAM_CONTENT_TYPE
 import com.exactpro.th2.lwdataprovider.http.util.writeJsonStream
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import com.fasterxml.jackson.annotation.JsonCreator
@@ -41,6 +43,15 @@ import io.javalin.Javalin
 import io.javalin.http.Context
 import io.javalin.http.HttpStatus
 import io.javalin.http.bodyValidator
+import io.javalin.openapi.HttpMethod
+import io.javalin.openapi.Nullability
+import io.javalin.openapi.OpenApi
+import io.javalin.openapi.OpenApiContent
+import io.javalin.openapi.OpenApiExample
+import io.javalin.openapi.OpenApiParam
+import io.javalin.openapi.OpenApiPropertyType
+import io.javalin.openapi.OpenApiRequestBody
+import io.javalin.openapi.OpenApiResponse
 import mu.KotlinLogging
 import org.apache.commons.lang3.exception.ExceptionUtils
 import java.time.Instant
@@ -69,6 +80,28 @@ class TaskDownloadHandler(
         app.delete(TASK_ROUTE, this::deleteTask)
     }
 
+    @OpenApi(
+        path = TASK_ROUTE,
+        methods = [HttpMethod.DELETE],
+        pathParams = [
+            OpenApiParam(
+                name = TASK_ID,
+                description = "task ID",
+                required = true,
+            ),
+        ],
+        responses = [
+            OpenApiResponse(
+                status = "204",
+                description = "task successfully removed",
+            ),
+            OpenApiResponse(
+                status = "404",
+                content = [OpenApiContent(from = ErrorMessage::class)],
+                description = "task with specified ID is not found",
+            )
+        ]
+    )
     private fun deleteTask(context: Context) {
         val taskID = TaskID.create(context.pathParam(TASK_ID))
         LOGGER.info { "Removing task $taskID" }
@@ -84,6 +117,29 @@ class TaskDownloadHandler(
         }
     }
 
+    @OpenApi(
+        path = TASK_STATUS_ROUTE,
+        methods = [HttpMethod.GET],
+        pathParams = [
+            OpenApiParam(
+                name = TASK_ID,
+                description = "task ID",
+                required = true,
+            ),
+        ],
+        responses = [
+            OpenApiResponse(
+                status = "200",
+                content = [OpenApiContent(from = TaskStatusResponse::class)],
+                description = "task current status",
+            ),
+            OpenApiResponse(
+                status = "404",
+                content = [OpenApiContent(from = ErrorMessage::class)],
+                description = "task with specified ID is not found",
+            ),
+        ]
+    )
     private fun getTaskStatus(context: Context) {
         val taskID = TaskID.create(context.pathParam(TASK_ID))
         LOGGER.info { "Checking status for task $taskID" }
@@ -97,6 +153,38 @@ class TaskDownloadHandler(
             .json(taskInfo.toTaskStatusResponse())
     }
 
+    @OpenApi(
+        path = TASK_ROUTE,
+        methods = [HttpMethod.GET],
+        pathParams = [
+            OpenApiParam(
+                name = TASK_ID,
+                description = "task ID",
+                required = true,
+            ),
+        ],
+        responses = [
+            OpenApiResponse(
+                status = "200",
+                content = [
+                    OpenApiContent(
+                        from = ProviderMessage53::class,
+                        mimeType = JSON_STREAM_CONTENT_TYPE,
+                    ),
+                ],
+            ),
+            OpenApiResponse(
+                status = "404",
+                content = [OpenApiContent(from = ErrorMessage::class)],
+                description = "task with specified ID is not found",
+            ),
+            OpenApiResponse(
+                status = "409",
+                content = [OpenApiContent(from = ErrorMessage::class)],
+                description = "task already in progress",
+            )
+        ]
+    )
     private fun executeTask(context: Context) {
         val taskID = TaskID.create(context.pathParam(TASK_ID))
         LOGGER.info { "Executing task $taskID" }
@@ -140,18 +228,36 @@ class TaskDownloadHandler(
         }
     }
 
-    private sealed class TaskState {
-        object AlreadyInProgress : TaskState()
-        object NotFound : TaskState()
-        data class Ready(
-            val info: TaskInformation,
-            val handler: HttpMessagesRequestHandler,
-            val queue: ArrayBlockingQueue<Supplier<SseEvent>>,
-        ) : TaskState()
-    }
-
+    @OpenApi(
+        path = DOWNLOAD_ROUTE,
+        methods = [HttpMethod.POST],
+        requestBody = OpenApiRequestBody(
+            required = true,
+            content = [
+                OpenApiContent(from = CreateTaskRequest::class)
+            ]
+        ),
+        responses = [
+            OpenApiResponse(
+                status = "201",
+                content = [
+                    OpenApiContent(from = TaskIDResponse::class)
+                ],
+                description = "task successfully created",
+            ),
+            OpenApiResponse(
+                status = "404",
+                description = "invalid parameters",
+            )
+        ]
+    )
     private fun registerTask(context: Context) {
         val request = context.bodyValidator<CreateTaskRequest>()
+            .check(
+                CreateTaskRequest::bookID.name,
+                { it.bookID.name.isNotEmpty() },
+                "empty value",
+            )
             .check(
                 CreateTaskRequest::groups.name,
                 { it.groups.isNotEmpty() },
@@ -179,6 +285,16 @@ class TaskDownloadHandler(
             .json(TaskIDResponse(taskID))
     }
 
+    private sealed class TaskState {
+        object AlreadyInProgress : TaskState()
+        object NotFound : TaskState()
+        data class Ready(
+            val info: TaskInformation,
+            val handler: HttpMessagesRequestHandler,
+            val queue: ArrayBlockingQueue<Supplier<SseEvent>>,
+        ) : TaskState()
+    }
+
     private data class TaskID(
         @field:JsonValue
         val id: String,
@@ -191,13 +307,16 @@ class TaskDownloadHandler(
     }
 
     private class TaskIDResponse(
+        @get:OpenApiPropertyType(definedBy = String::class)
         val taskID: TaskID,
     )
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     private class TaskStatusResponse(
+        @get:OpenApiPropertyType(definedBy = String::class)
         val taskID: TaskID,
         val status: TaskStatus,
+        @get:OpenApiPropertyType(definedBy = Array<ErrorMessage>::class, nullability = Nullability.NULLABLE)
         val errors: List<ErrorMessage> = emptyList(),
     )
 
@@ -314,7 +433,7 @@ class TaskDownloadHandler(
             startTimestamp = startTimestamp,
             endTimestamp = endTimestamp,
             keepOpen = false,
-            bookId = bookId,
+            bookId = bookID,
             responseFormats = responseFormats.ifEmpty { configuration.responseFormats },
             includeStreams = streams.asSequence().flatMap { it.toProviderMessageStreams() }
                 .toSet(),
@@ -329,20 +448,29 @@ class TaskDownloadHandler(
 
     private class CreateTaskRequest(
         val resource: Resource,
-        val bookId: BookId,
+        @get:OpenApiPropertyType(definedBy = String::class)
+        val bookID: BookId,
+        @get:OpenApiPropertyType(definedBy = Long::class)
+        @get:OpenApiExample(HttpServer.TIME_EXAMPLE)
         @field:JsonDeserialize(using = CustomMillisOrNanosInstantDeserializer::class)
         val startTimestamp: Instant,
+        @get:OpenApiPropertyType(definedBy = Long::class)
+        @get:OpenApiExample(HttpServer.TIME_EXAMPLE)
         @field:JsonDeserialize(using = CustomMillisOrNanosInstantDeserializer::class)
         val endTimestamp: Instant,
         val groups: Set<String>,
+        @get:OpenApiPropertyType(definedBy = Array<ResponseFormat>::class, nullability = Nullability.NULLABLE)
         val responseFormats: Set<ResponseFormat> = emptySet(),
         val limit: Int? = null,
+        @get:OpenApiPropertyType(definedBy = Array<MessageStream>::class, nullability = Nullability.NULLABLE)
         val streams: List<MessageStream> = emptyList(),
+        @get:OpenApiPropertyType(definedBy = SearchDirection::class, nullability = Nullability.NULLABLE)
         val searchDirection: SearchDirection = SearchDirection.next,
     )
 
     private class MessageStream(
         val sessionAlias: String,
+        @get:OpenApiPropertyType(definedBy = Array<Direction>::class, nullability = Nullability.NULLABLE)
         val directions: Set<Direction> = setOf(Direction.SECOND, Direction.FIRST)
     )
 

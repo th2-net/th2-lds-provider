@@ -47,7 +47,7 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
                 path = "/download",
                 json = mapOf(
                     "resource" to "MESSAGES",
-                    "bookId" to "test-book",
+                    "bookID" to "test-book",
                     "startTimestamp" to Instant.now().toEpochMilli(),
                     "endTimestamp" to Instant.now().plusSeconds(10).toEpochMilli(),
                     "groups" to setOf("group1", "group2"),
@@ -75,13 +75,42 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
     }
 
     @Test
+    fun `reports incorrect params`() {
+        startTest { _, client ->
+            val response = client.post(
+                path = "/download",
+                json = mapOf(
+                    "resource" to "MESSAGES",
+                    "bookID" to "",
+                    "startTimestamp" to Instant.now().toEpochMilli(),
+                    "endTimestamp" to Instant.now().plusSeconds(10).toEpochMilli(),
+                    "groups" to emptySet<String>(),
+                    "limit" to -5,
+                    "searchDirection" to "previous",
+                    "responseFormats" to setOf("PROTO_PARSED", "JSON_PARSED"),
+                )
+            )
+
+            expectThat(response) {
+                get { code } isEqualTo HttpStatus.BAD_REQUEST.code
+                jsonBody()
+                    .isObject()
+                    .has("bookID")
+                    .has("groups")
+                    .has("limit")
+                    .has("responseFormats")
+            }
+        }
+    }
+
+    @Test
     fun `removes existing task`() {
         startTest { _, client ->
             val response = client.post(
                 path = "/download",
                 json = mapOf(
                     "resource" to "MESSAGES",
-                    "bookId" to "test-book",
+                    "bookID" to "test-book",
                     "startTimestamp" to Instant.now().toEpochMilli(),
                     "endTimestamp" to Instant.now().plusSeconds(10).toEpochMilli(),
                     "groups" to setOf("group1", "group2"),
@@ -105,7 +134,7 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
                 path = "/download",
                 json = mapOf(
                     "resource" to "MESSAGES",
-                    "bookId" to "test-book",
+                    "bookID" to "test-book",
                     "startTimestamp" to Instant.now().toEpochMilli(),
                     "endTimestamp" to Instant.now().plusSeconds(10).toEpochMilli(),
                     "groups" to setOf("group1", "group2"),
@@ -145,7 +174,7 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
                 path = "/download",
                 json = mapOf(
                     "resource" to "MESSAGES",
-                    "bookId" to "test-book",
+                    "bookID" to "test-book",
                     "startTimestamp" to start.toEpochMilli(),
                     "endTimestamp" to Instant.now().toEpochMilli(),
                     "groups" to setOf("test-group"),
@@ -191,7 +220,7 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
                 path = "/download",
                 json = mapOf(
                     "resource" to "MESSAGES",
-                    "bookId" to "test-book",
+                    "bookID" to "test-book",
                     "startTimestamp" to start.toEpochMilli(),
                     "endTimestamp" to Instant.now().toEpochMilli(),
                     "groups" to setOf("test-group"),
@@ -246,7 +275,7 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
                 path = "/download",
                 json = mapOf(
                     "resource" to "MESSAGES",
-                    "bookId" to "test-book",
+                    "bookID" to "test-book",
                     "startTimestamp" to start.toEpochMilli(),
                     "endTimestamp" to Instant.now().toEpochMilli(),
                     "groups" to setOf("test-group"),

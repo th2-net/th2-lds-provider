@@ -327,6 +327,7 @@ class TaskDownloadHandler(
         COMPLETED,
         COMPLETED_WITH_ERRORS,
         CANCELED,
+        CANCELED_WITH_ERRORS,
     }
 
     private class TaskInformation(
@@ -373,7 +374,11 @@ class TaskDownloadHandler(
                 TaskStatus.EXECUTING_WITH_ERRORS ->
                     TaskStatus.COMPLETED_WITH_ERRORS
 
-                else ->
+                TaskStatus.CREATED,
+                TaskStatus.EXECUTING,
+                TaskStatus.COMPLETED,
+                TaskStatus.COMPLETED_WITH_ERRORS,
+                TaskStatus.CANCELED_WITH_ERRORS ->
                     TaskStatus.COMPLETED
             }
         }
@@ -382,12 +387,16 @@ class TaskDownloadHandler(
             LOGGER.trace { "Task $taskID canceled" }
             _status = when (_status) {
                 TaskStatus.EXECUTING_WITH_ERRORS ->
-                    TaskStatus.EXECUTING_WITH_ERRORS
+                    TaskStatus.CANCELED_WITH_ERRORS
 
-                TaskStatus.COMPLETED_WITH_ERRORS, TaskStatus.COMPLETED ->
+                TaskStatus.COMPLETED_WITH_ERRORS,
+                TaskStatus.COMPLETED ->
                     _status
 
-                else ->
+                TaskStatus.CREATED,
+                TaskStatus.EXECUTING,
+                TaskStatus.CANCELED,
+                TaskStatus.CANCELED_WITH_ERRORS ->
                     TaskStatus.CANCELED
             }
             handler?.also {

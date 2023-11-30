@@ -136,9 +136,6 @@ class HttpServer(private val context: Context) {
         )
 
         app = Javalin.create {
-            System.getenv(CONTEXT_PATH_ENV)?.takeUnless(String::isBlank)?.also { path ->
-                it.routing.contextPath = path
-            }
             it.showJavalinBanner = false
             it.jsonMapper(JavalinJackson(
                 jacksonMapper.registerModule(
@@ -181,6 +178,9 @@ class HttpServer(private val context: Context) {
 
     private fun setupReDoc(it: JavalinConfig) {
         val reDocConfiguration = ReDocConfiguration()
+        System.getenv(CONTEXT_PATH_ENV)?.takeUnless(String::isBlank)?.also { path ->
+            reDocConfiguration.basePath = path
+        }
         it.plugins.register(ReDocPlugin(reDocConfiguration))
     }
 

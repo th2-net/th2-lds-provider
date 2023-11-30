@@ -136,6 +136,9 @@ class HttpServer(private val context: Context) {
         )
 
         app = Javalin.create {
+            System.getenv(CONTEXT_PATH_ENV)?.takeUnless(String::isBlank)?.also { path ->
+                it.routing.contextPath = path
+            }
             it.showJavalinBanner = false
             it.jsonMapper(JavalinJackson(
                 jacksonMapper.registerModule(
@@ -216,6 +219,8 @@ class HttpServer(private val context: Context) {
 
     companion object {
         private val logger = KotlinLogging.logger {}
+
+        private const val CONTEXT_PATH_ENV = "CONTEXT_PATH"
 
         const val TIME_EXAMPLE =
             "Every value that is greater than 1_000_000_000 ^ 2 will be interpreted as nanos. Otherwise, as millis.\n" +

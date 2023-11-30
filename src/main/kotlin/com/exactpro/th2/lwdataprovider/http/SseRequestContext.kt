@@ -32,6 +32,7 @@ import com.exactpro.th2.lwdataprovider.handlers.MessageResponseHandler
 import com.exactpro.th2.lwdataprovider.metrics.HttpWriteMetrics
 import com.exactpro.th2.lwdataprovider.producers.JsonFormatter
 import com.exactpro.th2.lwdataprovider.producers.ParsedFormats
+import mu.KotlinLogging
 import org.apache.commons.lang3.exception.ExceptionUtils
 import java.util.EnumSet
 import java.util.concurrent.BlockingQueue
@@ -47,6 +48,7 @@ class HttpMessagesRequestHandler(
     dataMeasurement: DataMeasurement,
     maxMessagesPerRequest: Int = 0,
     responseFormats: Set<ResponseFormat> = EnumSet.of(ResponseFormat.BASE_64, ResponseFormat.PROTO_PARSED),
+    private val failFast: Boolean = false,
 ) : MessageResponseHandler(dataMeasurement, maxMessagesPerRequest), KeepAliveListener {
     private val includeRaw: Boolean = responseFormats.isEmpty() || ResponseFormat.BASE_64 in responseFormats
     private val jsonFormatter: JsonFormatter? = (responseFormats - ResponseFormat.BASE_64).run {
@@ -69,7 +71,15 @@ class HttpMessagesRequestHandler(
         val future: CompletableFuture<SseEvent> = data.completed.thenApplyAsync({ requestedMessage: RequestedMessage ->
             dataMeasurement.start("convert_to_json").use {
                 if (jsonFormatter != null && requestedMessage.protoMessage == null && requestedMessage.transportMessage == null) {
-                    builder.codecTimeoutError(requestedMessage.storedMessage.id, counter)
+                    builder.codecTimeoutError(requestedMessage.storedMessage.id, counter).also {
+                        if (failFast) {
+                            LOGGER.info { "Codec timeout. Canceling processing due to fail-fast strategy" }
+                            // note that this might not stop the processing right away
+                            // this is called on a different thread
+                            // so some messages might be loaded before the processing is canceled
+                            fail()
+                        }
+                    }
                 } else {
                     builder.build(
                         requestedMessage, jsonFormatter, includeRaw,
@@ -101,6 +111,15 @@ class HttpMessagesRequestHandler(
         if (!isAlive) return
         val counter = indexer.nextIndex()
         buffer.put { builder.build(scannedObjectInfo, counter) }
+    }
+
+    private fun fail() {
+        cancel()
+        buffer.put { SseEvent.Closed }
+    }
+
+    companion object {
+        private val LOGGER = KotlinLogging.logger { }
     }
 }
 

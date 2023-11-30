@@ -35,7 +35,8 @@ data class MessagesGroupRequest(
     val responseFormats: Set<ResponseFormat>? = null,
     val includeStreams: Set<ProviderMessageStream> = emptySet(),
     val limit: Int? = null,
-    val searchDirection: SearchDirection = SearchDirection.next
+    val searchDirection: SearchDirection = SearchDirection.next,
+    val failFast: Boolean = false, // for backward compatibility
 ) {
     init {
         if (!responseFormats.isNullOrEmpty()) {

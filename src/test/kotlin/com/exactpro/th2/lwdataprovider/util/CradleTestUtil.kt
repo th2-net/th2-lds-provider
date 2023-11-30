@@ -27,6 +27,7 @@ import com.exactpro.cradle.resultset.CradleResultSet
 import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.cradle.testevents.StoredTestEventSingle
 import com.exactpro.cradle.testevents.TestEventSingleToStore
+import org.apache.logging.log4j.util.Supplier
 import java.time.Instant
 
 fun createCradleStoredMessage(
@@ -109,8 +110,23 @@ class ImmutableListCradleResult<T>(collection: Collection<T>) : CradleResultSet<
     override fun next(): T = iterator.next()
 }
 
+class SupplierCradleResult<T>(
+    suppliers: Collection<Supplier<T>>,
+) : CradleResultSet<T> {
+    private val iterator: Iterator<Supplier<T>> = suppliers.iterator()
+    override fun remove() = throw UnsupportedOperationException()
+
+    override fun hasNext(): Boolean = iterator.hasNext()
+
+    override fun next(): T = iterator.next().get()
+
+}
+
 @Suppress("TestFunctionName")
 fun <T> CradleResult(vararg data: T): CradleResultSet<T> = ImmutableListCradleResult(data.toList())
+
+@Suppress("TestFunctionName")
+fun <T> SupplierResult(vararg suppliers: Supplier<T>): CradleResultSet<T> = SupplierCradleResult(suppliers.toList())
 
 const val TEST_SESSION_GROUP = "test-group"
 const val TEST_SESSION_ALIAS = "test-alias"

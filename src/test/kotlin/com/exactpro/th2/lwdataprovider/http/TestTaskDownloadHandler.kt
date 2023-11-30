@@ -3,8 +3,10 @@ package com.exactpro.th2.lwdataprovider.http
 import com.exactpro.cradle.Direction
 import com.exactpro.cradle.messages.StoredGroupedMessageBatch
 import com.exactpro.cradle.messages.StoredMessageIdUtils
+import com.exactpro.cradle.utils.CradleStorageException
 import com.exactpro.th2.lwdataprovider.util.CradleResult
 import com.exactpro.th2.lwdataprovider.util.GroupBatch
+import com.exactpro.th2.lwdataprovider.util.SupplierResult
 import com.exactpro.th2.lwdataprovider.util.createCradleStoredMessage
 import io.javalin.http.HttpStatus
 import io.javalin.testtools.TestConfig
@@ -12,10 +14,12 @@ import okhttp3.OkHttpClient
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.argThat
 import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.whenever
 import strikt.api.expect
 import strikt.api.expectThat
 import strikt.assertions.allIndexed
+import strikt.assertions.elementAt
 import strikt.assertions.isEqualTo
 import strikt.assertions.isNotNull
 import strikt.jackson.has
@@ -260,6 +264,65 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
     }
 
     @Test
+    fun `report error during task execution`() {
+        val start = Instant.now()
+        doReturn(
+            SupplierResult(
+                { generateBatch(start, 1) },
+                { generateBatch(start, 2, index = 2) },
+                { throw IllegalStateException("ignore") },
+            )
+        ).whenever(storage).getGroupedMessageBatches(argThat {
+            groupName == "test-group" && bookId.name == "test-book"
+        })
+
+
+        startTest { _, client ->
+            val createResp = client.post(
+                path = "/download",
+                json = mapOf(
+                    "resource" to "MESSAGES",
+                    "bookID" to "test-book",
+                    "startTimestamp" to start.toEpochMilli(),
+                    "endTimestamp" to Instant.now().toEpochMilli(),
+                    "groups" to setOf("test-group"),
+                    "responseFormats" to setOf("BASE_64"),
+                )
+            )
+            val taskID = createResp.bodyAsJson()["taskID"].asText()
+
+            val expectedTimestamp = StoredMessageIdUtils.timestampToString(start)
+            val seconds = start.epochSecond
+            val nanos = start.nano
+            expect {
+                that(client.get("/download/$taskID")) {
+                    get { code } isEqualTo HttpStatus.OK.code
+                    get { body?.bytes()?.toString(Charsets.UTF_8) }
+                        .isNotNull()
+                        .isEqualTo(
+                            """{"timestamp":{"epochSecond":${seconds},"nano":${nanos}},"direction":"IN","sessionId":"test-0","messageType":"","attachedEventIds":[],"body":{},"bodyBase64":"aGVsbG8=","messageId":"test-book:test-0:1:${expectedTimestamp}:1"}
+                              |{"error":"ignore"}
+                              |""".trimMargin(marginPrefix = "|")
+                        )
+                }
+                that(client.get("/download/$taskID/status")) {
+                    get { code } isEqualTo HttpStatus.OK.code
+                    jsonBody()
+                        .isObject() and {
+                        path("status").textValue() isEqualTo "CANCELED_WITH_ERRORS"
+                        path("errors").isArray()
+                            .hasSize(1)
+                            .elementAt(0)
+                            .path("error")
+                            .textValue() isEqualTo
+                                "{\"error\":\"ignore\"}"
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
     fun `task cannot be started twice`() {
         val start = Instant.now()
         doReturn(
@@ -303,6 +366,36 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
                         .isObject()
                         .path("error")
                         .textValue() isEqualTo "task with id '$taskID' already in progress"
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `task cannot be started once removed`() {
+
+        startTest { _, client ->
+            val createResp = client.post(
+                path = "/download",
+                json = mapOf(
+                    "resource" to "MESSAGES",
+                    "bookID" to "test-book",
+                    "startTimestamp" to Instant.now().toEpochMilli(),
+                    "endTimestamp" to Instant.now().toEpochMilli(),
+                    "groups" to setOf("test-group"),
+                    "responseFormats" to setOf("BASE_64"),
+                )
+            )
+            val taskID = createResp.bodyAsJson()["taskID"].asText()
+            client.delete("/download/$taskID")
+
+            expect {
+                that(client.get("/download/$taskID")) {
+                    get { code } isEqualTo HttpStatus.NOT_FOUND.code
+                    jsonBody()
+                        .isObject()
+                        .path("error")
+                        .textValue() isEqualTo "task with id '$taskID' is not found"
                 }
             }
         }

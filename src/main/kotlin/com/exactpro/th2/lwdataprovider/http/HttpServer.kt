@@ -151,11 +151,13 @@ class HttpServer(private val context: Context) {
                 micrometer.tags = listOf(Tag.of("application", context.applicationName))
             })
 
-            setupOpenApi(it)
+            val externalContextPath = System.getenv(EXTERNAL_CONTEXT_PATH_ENV)?.takeUnless(String::isBlank)
+
+            setupOpenApi(it, externalContextPath)
 
 //            setupSwagger(it)
 
-            setupReDoc(it)
+            setupReDoc(it, externalContextPath)
         }.apply {
             setupConverters(this)
             val javalinContext = JavalinContext(configuration.flushSseAfter)
@@ -176,9 +178,9 @@ class HttpServer(private val context: Context) {
         logger.info { "http server stopped" }
     }
 
-    private fun setupReDoc(it: JavalinConfig) {
+    private fun setupReDoc(it: JavalinConfig, externalContextPath: String?) {
         val reDocConfiguration = ReDocConfiguration()
-        System.getenv(CONTEXT_PATH_ENV)?.takeUnless(String::isBlank)?.also { path ->
+        externalContextPath?.also { path ->
             reDocConfiguration.basePath = path
         }
         it.plugins.register(ReDocPlugin(reDocConfiguration))
@@ -189,7 +191,7 @@ class HttpServer(private val context: Context) {
 //        it.plugins.register(SwaggerPlugin(swaggerConfiguration))
 //    }
 
-    private fun setupOpenApi(it: JavalinConfig) {
+    private fun setupOpenApi(it: JavalinConfig, externalContextPath: String?) {
 
         val openApiConfiguration = OpenApiPluginConfiguration()
             .withDefinitionConfiguration { _, definition ->
@@ -220,7 +222,7 @@ class HttpServer(private val context: Context) {
     companion object {
         private val logger = KotlinLogging.logger {}
 
-        private const val CONTEXT_PATH_ENV = "CONTEXT_PATH"
+        private const val EXTERNAL_CONTEXT_PATH_ENV = "EXTERNAL_CONTEXT_PATH"
 
         const val TIME_EXAMPLE =
             "Every value that is greater than 1_000_000_000 ^ 2 will be interpreted as nanos. Otherwise, as millis.\n" +

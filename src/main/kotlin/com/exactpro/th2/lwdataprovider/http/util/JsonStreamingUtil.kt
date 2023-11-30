@@ -92,6 +92,10 @@ fun writeJsonStream(
                         dataSent++
                     }
                 }
+                if (queue.isEmpty() && !handler.isAlive) {
+                    logger.info { "Request canceled" }
+                    return
+                }
             }
         } while (true)
     } catch (ex: Exception) {

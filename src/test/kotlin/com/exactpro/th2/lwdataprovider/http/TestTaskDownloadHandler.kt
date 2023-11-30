@@ -4,6 +4,8 @@ import com.exactpro.cradle.Direction
 import com.exactpro.cradle.messages.StoredGroupedMessageBatch
 import com.exactpro.cradle.messages.StoredMessageIdUtils
 import com.exactpro.cradle.utils.CradleStorageException
+import com.exactpro.th2.lwdataprovider.configuration.Configuration
+import com.exactpro.th2.lwdataprovider.configuration.CustomConfigurationClass
 import com.exactpro.th2.lwdataprovider.util.CradleResult
 import com.exactpro.th2.lwdataprovider.util.GroupBatch
 import com.exactpro.th2.lwdataprovider.util.SupplierResult
@@ -44,6 +46,14 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
         )
     }
 
+    override val configuration: Configuration
+        get() = Configuration(
+            CustomConfigurationClass(
+                decodingTimeout = 400,
+                batchSizeBytes = 30,
+            )
+        )
+
     @Test
     fun `creates task`() {
         startTest { _, client ->
@@ -64,6 +74,7 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
                     ),
                     "searchDirection" to "previous",
                     "responseFormats" to setOf("BASE_64", "JSON_PARSED"),
+                    "failFast" to true,
                 )
             )
 
@@ -209,11 +220,24 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
     }
 
     @Test
-    fun `report decoding timeout during task execution`() {
+    fun `report decoding timeout during task execution with fail fast`() {
         val start = Instant.now()
         doReturn(
-            CradleResult(
-                generateBatch(start, 3)
+            // This a bit relies on internal implementation.
+            // We request first bath and the next right way.
+            // So, first two batches are extract almost at the same time.
+            // In order to emulate the delay we introduce a sleep in third batch
+            // And make the batch size small enough to fit only a single message
+            // In this case first two requests will be sent one by one
+            // And at the moment we process the last one the firs one is already failed
+            SupplierResult(
+                { generateBatch(start, 1) },
+                { generateBatch(start, 1, index = 2) },
+                {
+                    Thread.sleep(600) // let codec timeout expire
+                    generateBatch(start, 1, index = 3)
+                },
+
             )
         ).whenever(storage).getGroupedMessageBatches(argThat {
             groupName == "test-group" && bookId.name == "test-book"
@@ -241,6 +265,59 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
                         .isNotNull()
                         .isEqualTo(
                             """{"id":"test-book:test-0:1:$expectedTimestamp:1","error":"Codec response wasn\u0027t received during timeout"}
+                              |""".trimMargin(marginPrefix = "|")
+                        )
+                }
+                that(client.get("/download/$taskID/status")) {
+                    get { code } isEqualTo HttpStatus.OK.code
+                    jsonBody()
+                        .isObject() and {
+                            path("status").textValue() isEqualTo "CANCELED_WITH_ERRORS"
+                            path("errors").isArray()
+                                .hasSize(1)
+                                .elementAt(0)
+                                .path("error")
+                                .textValue() isEqualTo "{\"id\":\"test-book:test-0:1:$expectedTimestamp:1\",\"error\":\"Codec response wasn\\u0027t received during timeout\"}"
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `report decoding timeout during task execution without fail fast`() {
+        val start = Instant.now()
+        doReturn(
+            CradleResult(
+                generateBatch(start, 3)
+            )
+        ).whenever(storage).getGroupedMessageBatches(argThat {
+            groupName == "test-group" && bookId.name == "test-book"
+        })
+
+        startTest { _, client ->
+            val createResp = client.post(
+                path = "/download",
+                json = mapOf(
+                    "resource" to "MESSAGES",
+                    "bookID" to "test-book",
+                    "startTimestamp" to start.toEpochMilli(),
+                    "endTimestamp" to Instant.now().toEpochMilli(),
+                    "groups" to setOf("test-group"),
+                    "responseFormats" to setOf("JSON_PARSED"),
+                    "failFast" to false,
+                )
+            )
+            val taskID = createResp.bodyAsJson()["taskID"].asText()
+
+            val expectedTimestamp = StoredMessageIdUtils.timestampToString(start)
+            expect {
+                that(client.get("/download/$taskID")) {
+                    get { code } isEqualTo HttpStatus.OK.code
+                    get { body?.bytes()?.toString(Charsets.UTF_8) }
+                        .isNotNull()
+                        .isEqualTo(
+                            """{"id":"test-book:test-0:1:$expectedTimestamp:1","error":"Codec response wasn\u0027t received during timeout"}
                               |{"id":"test-book:test-1:1:$expectedTimestamp:2","error":"Codec response wasn\u0027t received during timeout"}
                               |{"id":"test-book:test-2:1:$expectedTimestamp:3","error":"Codec response wasn\u0027t received during timeout"}
                               |""".trimMargin(marginPrefix = "|")
@@ -250,14 +327,14 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
                     get { code } isEqualTo HttpStatus.OK.code
                     jsonBody()
                         .isObject() and {
-                            path("status").textValue() isEqualTo "COMPLETED_WITH_ERRORS"
-                            path("errors").isArray()
-                                .hasSize(3)
-                                .allIndexed {
-                                    path("error").textValue() isEqualTo
-                                            "{\"id\":\"test-book:test-$it:1:$expectedTimestamp:${it + 1}\",\"error\":\"Codec response wasn\\u0027t received during timeout\"}"
-                                }
-                        }
+                        path("status").textValue() isEqualTo "COMPLETED_WITH_ERRORS"
+                        path("errors").isArray()
+                            .hasSize(3)
+                            .allIndexed {
+                                path("error").textValue() isEqualTo
+                                        "{\"id\":\"test-book:test-$it:1:$expectedTimestamp:${it + 1}\",\"error\":\"Codec response wasn\\u0027t received during timeout\"}"
+                            }
+                    }
                 }
             }
         }

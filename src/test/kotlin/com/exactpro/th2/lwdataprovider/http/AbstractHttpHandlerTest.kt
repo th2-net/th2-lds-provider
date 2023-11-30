@@ -68,6 +68,11 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
             .setNameFormat("test-executor-%d")
             .build()
     )
+    private val converterExecutor = Executors.newSingleThreadExecutor(
+        ThreadFactoryBuilder()
+            .setNameFormat("test-conv-executor-%d")
+            .build()
+    )
     protected open val configuration = Configuration(
         CustomConfigurationClass(
             decodingTimeout = 400,
@@ -120,7 +125,7 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
             transportMessageRouter = transportMessageRouter,
             eventRouter = eventRouter,
             execExecutor = executor,
-            convExecutor = executor,
+            convExecutor = converterExecutor,
             applicationName = "test-lw-data-provider",
         )
     }
@@ -137,6 +142,8 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
     fun shutdown() {
         context.keepAliveHandler.stop()
         context.timeoutHandler.stop()
+        executor.shutdown()
+        converterExecutor.shutdown()
     }
 
     @BeforeEach

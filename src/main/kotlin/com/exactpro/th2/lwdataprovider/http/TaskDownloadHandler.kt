@@ -47,6 +47,7 @@ import io.javalin.openapi.HttpMethod
 import io.javalin.openapi.Nullability
 import io.javalin.openapi.OpenApi
 import io.javalin.openapi.OpenApiContent
+import io.javalin.openapi.OpenApiDescription
 import io.javalin.openapi.OpenApiExample
 import io.javalin.openapi.OpenApiParam
 import io.javalin.openapi.OpenApiPropertyType
@@ -198,6 +199,7 @@ class TaskDownloadHandler(
                 maxMessagesPerRequest = configuration.bufferPerQuery,
                 responseFormats = info.request.responseFormats
                     ?: configuration.responseFormats,
+                failFast = info.request.failFast,
             )
             if (!info.attachHandler(handler)) {
                 return@write TaskState.AlreadyInProgress
@@ -448,6 +450,7 @@ class TaskDownloadHandler(
                 .toSet(),
             searchDirection = searchDirection,
             limit = limit,
+            failFast = failFast,
         )
     }
 
@@ -475,6 +478,9 @@ class TaskDownloadHandler(
         val streams: List<MessageStream> = emptyList(),
         @get:OpenApiPropertyType(definedBy = SearchDirection::class, nullability = Nullability.NULLABLE)
         val searchDirection: SearchDirection = SearchDirection.next,
+        @get:OpenApiPropertyType(definedBy = Boolean::class, nullability = Nullability.NULLABLE)
+        @get:OpenApiDescription("the request will stop right after the first error reported. Enabled by default")
+        val failFast: Boolean = true,
     )
 
     private class MessageStream(

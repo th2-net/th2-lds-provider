@@ -33,5 +33,11 @@ enum class ResponseFormat {
                 error("only one parsed format can be specified in $formats")
             }
         }
+
+        @JvmStatic
+        fun isValidCombination(formats: Set<ResponseFormat>): Boolean {
+            if (formats.size <= 1) return true
+            return !(PROTO_PARSED in formats && JSON_PARSED in formats)
+        }
     }
 }

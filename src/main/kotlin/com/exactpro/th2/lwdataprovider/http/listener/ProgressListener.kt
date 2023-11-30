@@ -23,8 +23,11 @@ interface ProgressListener {
     fun onError(ex: Exception)
     fun onError(errorEvent: SseEvent.ErrorData)
     fun onCompleted()
+
+    fun onCanceled()
 }
 
+@JvmField
 val DEFAULT_PROCESS_LISTENER: ProgressListener = object : ProgressListener {
     override fun onStart() = Unit
 
@@ -33,4 +36,6 @@ val DEFAULT_PROCESS_LISTENER: ProgressListener = object : ProgressListener {
     override fun onError(errorEvent: SseEvent.ErrorData) = Unit
 
     override fun onCompleted() = Unit
+
+    override fun onCanceled() = Unit
 }

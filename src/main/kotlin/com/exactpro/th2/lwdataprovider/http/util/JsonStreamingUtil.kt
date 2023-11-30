@@ -100,7 +100,11 @@ fun writeJsonStream(
         handler.cancel()
         queue.clear()
     } finally {
-        progressListener.onCompleted()
+        if (handler.isAlive) {
+            progressListener.onCompleted()
+        } else {
+            progressListener.onCanceled()
+        }
         HttpWriteMetrics.messageSent(matchedPath, dataSent)
         runCatching { output.flush() }
             .onFailure { logger.error(it) { "cannot flush the remaining data when processing is finished" } }

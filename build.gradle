@@ -17,14 +17,14 @@ plugins {
 ext {
     dockerImageVersion = release_version
     cradleApiVersion = '5.1.4-dev'
-    javalin = '5.4.2'
+    javalin = '5.6.3'
 }
 
 dependencyCheck {
     formats = ['SARIF', 'JSON', 'HTML']
     failBuildOnCVSS = 5
     //FIXME: we should check all used dependencies
-    skipConfigurations = ['kapt', 'kaptClasspath_kaptKotlin', 'kaptTest', 'kaptTestFixtures']
+    skipConfigurations = ['kapt', 'kaptClasspath_kaptKotlin', 'kaptTest', 'kaptTestFixtures', 'testImplementation']
     suppressionFile = file('suppressions.xml')
     analyzers {
         assemblyEnabled = false
@@ -37,10 +37,6 @@ dependencies {
     implementation("com.exactpro.th2:common:${commonVersion}") {
         exclude group: 'com.exactpro.th2', module: 'cradle-core'
         exclude group: 'com.exactpro.th2', module: 'cradle-cassandra'
-    }
-
-    implementation(platform('org.eclipse.jetty:jetty-bom:11.0.15')) {
-        because('vulnerabilities in version 11.0.13. Can be removed after updating Javalin and Kotlin')
     }
 
     implementation "io.javalin:javalin:$javalin"

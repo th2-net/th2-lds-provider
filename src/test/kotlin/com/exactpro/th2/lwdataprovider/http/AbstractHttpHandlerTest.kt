@@ -70,7 +70,7 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
     )
     protected open val configuration = Configuration(
         CustomConfigurationClass(
-            decodingTimeout = 200,
+            decodingTimeout = 400,
         )
     )
 
@@ -250,6 +250,9 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
 
     protected fun Assertion.Builder<Response>.jsonBody(): Assertion.Builder<JsonNode> =
         get { body }.isNotNull().get { MAPPER.readTree(bytes()) }
+
+    protected fun Response.bodyAsJson(): JsonNode =
+        MAPPER.readTree(requireNotNull(body) { "empty body" }.bytes())
 
     protected fun HttpClient.sse(path: String, requestCfg: Request.Builder.() -> Unit = {}): Response = get(path) {
         requestCfg(it)

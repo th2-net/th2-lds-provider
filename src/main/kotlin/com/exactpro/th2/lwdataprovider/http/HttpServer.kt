@@ -23,9 +23,11 @@ import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
+import com.exactpro.th2.lwdataprovider.http.serializers.BookIdDeserializer
 import com.exactpro.th2.lwdataprovider.producers.MessageProducer
 import com.exactpro.th2.lwdataprovider.producers.MessageProducer53
 import com.exactpro.th2.lwdataprovider.producers.MessageProducer53Transport
+import com.fasterxml.jackson.databind.module.SimpleModule
 import io.javalin.Javalin
 import io.javalin.config.JavalinConfig
 import io.javalin.http.BadRequestResponse
@@ -135,7 +137,13 @@ class HttpServer(private val context: Context) {
 
         app = Javalin.create {
             it.showJavalinBanner = false
-            it.jsonMapper(JavalinJackson(jacksonMapper))
+            it.jsonMapper(JavalinJackson(
+                jacksonMapper.registerModule(
+                    SimpleModule("th2").apply {
+                        addDeserializer(BookId::class.java, BookIdDeserializer())
+                    }
+                )
+            ))
 //            it.plugins.enableDevLogging()
             it.plugins.register(MicrometerPlugin.create { micrometer ->
                 micrometer.registry =

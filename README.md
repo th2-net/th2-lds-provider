@@ -231,6 +231,7 @@ spec:
   + GET `/download/{taskID}` - execute task
   + GET `/download/{taskID}/status` - get task status
   + DELETE `/download/{taskID}` - remove task
++ Add parameter `downloadTaskTTL` to clean up the completed or not started task after the specified time in milliseconds. 1 hour by default.
 + Add `EXTERNAL_CONTEXT_PATH` env variable to inform provider about external context that is used in requests
 
 ## 2.5.2

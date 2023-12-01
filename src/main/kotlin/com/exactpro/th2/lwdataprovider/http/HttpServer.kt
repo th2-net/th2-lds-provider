@@ -133,6 +133,14 @@ class HttpServer(private val context: Context) {
                 context.searchMessagesHandler,
                 context.requestsDataMeasurement,
             ),
+            TaskDownloadHandler(
+                configuration,
+                context.convExecutor,
+                sseResponseBuilder,
+                context.keepAliveHandler,
+                context.searchMessagesHandler,
+                context.requestsDataMeasurement,
+            ),
         )
 
         app = Javalin.create {

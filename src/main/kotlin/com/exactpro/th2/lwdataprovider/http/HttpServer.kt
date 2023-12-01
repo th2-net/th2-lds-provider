@@ -154,7 +154,13 @@ class HttpServer(private val context: Context) {
                     }
                 )
             ))
-//            it.plugins.enableDevLogging()
+            if (logger.isTraceEnabled) {
+                it.plugins.enableDevLogging()
+            } else {
+                it.requestLogger.http { ctx, time ->
+                    logger.info { "Request ${ctx.path()} executed with status ${ctx.status()}: ${time}.ms" }
+                }
+            }
             it.plugins.register(MicrometerPlugin.create { micrometer ->
                 micrometer.registry =
                     PrometheusMeterRegistry(PrometheusConfig.DEFAULT, CollectorRegistry.defaultRegistry, Clock.SYSTEM)

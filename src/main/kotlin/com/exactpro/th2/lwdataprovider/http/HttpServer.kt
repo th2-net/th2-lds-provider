@@ -27,6 +27,7 @@ import com.exactpro.th2.lwdataprovider.http.serializers.BookIdDeserializer
 import com.exactpro.th2.lwdataprovider.producers.MessageProducer
 import com.exactpro.th2.lwdataprovider.producers.MessageProducer53
 import com.exactpro.th2.lwdataprovider.producers.MessageProducer53Transport
+import com.exactpro.th2.lwdataprovider.workers.TaskManager
 import com.fasterxml.jackson.databind.module.SimpleModule
 import io.javalin.Javalin
 import io.javalin.config.JavalinConfig
@@ -140,6 +141,7 @@ class HttpServer(private val context: Context) {
                 context.keepAliveHandler,
                 context.searchMessagesHandler,
                 context.requestsDataMeasurement,
+                context.taskManager,
             ),
         )
 

@@ -87,11 +87,9 @@ class Main {
     private fun startServer() {
         setupMetrics(context)
         
-        context.keepAliveHandler.start()
-        context.timeoutHandler.start()
+        context.start()
 
-        resources += AutoCloseable {  context.keepAliveHandler.stop() }
-        resources += AutoCloseable {  context.timeoutHandler.stop() }
+        resources += AutoCloseable {  context.stop() }
 
         @Suppress("LiftReturnOrAssignment")
         when (context.configuration.mode) {

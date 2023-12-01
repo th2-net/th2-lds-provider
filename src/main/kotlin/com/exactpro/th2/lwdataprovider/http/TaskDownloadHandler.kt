@@ -19,7 +19,6 @@ package com.exactpro.th2.lwdataprovider.http
 import com.exactpro.cradle.BookId
 import com.exactpro.cradle.Direction
 import com.exactpro.th2.common.event.EventUtils
-import com.exactpro.th2.lwdataprovider.CancelableResponseHandler
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
@@ -30,15 +29,19 @@ import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
-import com.exactpro.th2.lwdataprovider.http.listener.ProgressListener
 import com.exactpro.th2.lwdataprovider.http.serializers.CustomMillisOrNanosInstantDeserializer
 import com.exactpro.th2.lwdataprovider.http.util.JSON_STREAM_CONTENT_TYPE
 import com.exactpro.th2.lwdataprovider.http.util.writeJsonStream
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
-import com.fasterxml.jackson.annotation.JsonCreator
+import com.exactpro.th2.lwdataprovider.workers.TaskID
+import com.exactpro.th2.lwdataprovider.workers.TaskInformation
+import com.exactpro.th2.lwdataprovider.workers.TaskManager
+import com.exactpro.th2.lwdataprovider.workers.TaskStatus
+import com.fasterxml.jackson.annotation.JsonFormat
 import com.fasterxml.jackson.annotation.JsonInclude
-import com.fasterxml.jackson.annotation.JsonValue
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
+import com.fasterxml.jackson.databind.annotation.JsonSerialize
+import com.fasterxml.jackson.datatype.jsr310.ser.InstantSerializer
 import io.javalin.Javalin
 import io.javalin.http.Context
 import io.javalin.http.HttpStatus
@@ -54,14 +57,10 @@ import io.javalin.openapi.OpenApiPropertyType
 import io.javalin.openapi.OpenApiRequestBody
 import io.javalin.openapi.OpenApiResponse
 import mu.KotlinLogging
-import org.apache.commons.lang3.exception.ExceptionUtils
 import java.time.Instant
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.Executor
-import java.util.concurrent.locks.ReentrantReadWriteLock
 import java.util.function.Supplier
-import kotlin.concurrent.read
-import kotlin.concurrent.write
 
 class TaskDownloadHandler(
     private val configuration: Configuration,
@@ -70,9 +69,8 @@ class TaskDownloadHandler(
     private val keepAliveHandler: KeepAliveHandler,
     private val searchMessagesHandler: SearchMessagesHandler,
     private val dataMeasurement: DataMeasurement,
+    private val taskManager: TaskManager,
 ) : JavalinHandler {
-    private val tasksLock = ReentrantReadWriteLock()
-    private val tasks: MutableMap<TaskID, TaskInformation> = HashMap()
 
     override fun setup(app: Javalin, context: JavalinContext) {
         app.post(DOWNLOAD_ROUTE, this::registerTask)
@@ -106,14 +104,13 @@ class TaskDownloadHandler(
     private fun deleteTask(context: Context) {
         val taskID = TaskID.create(context.pathParam(TASK_ID))
         LOGGER.info { "Removing task $taskID" }
-        val removed = tasksLock.write { tasks.remove(taskID) }
+        val removed = taskManager.remove(taskID)
         if (removed == null) {
             LOGGER.error { "Task $taskID not found" }
             context.status(HttpStatus.NOT_FOUND)
                 .json(ErrorMessage("task with id '${taskID.id}' is not found"))
         } else {
             LOGGER.info { "Task $taskID removed" }
-            removed.onCanceled()
             context.status(HttpStatus.NO_CONTENT)
         }
     }
@@ -144,7 +141,7 @@ class TaskDownloadHandler(
     private fun getTaskStatus(context: Context) {
         val taskID = TaskID.create(context.pathParam(TASK_ID))
         LOGGER.info { "Checking status for task $taskID" }
-        val taskInfo = tasksLock.read { tasks[taskID] } ?: run {
+        val taskInfo = taskManager[taskID] ?: run {
             LOGGER.error { "Task $taskID not found" }
             context.status(HttpStatus.NOT_FOUND)
                 .json(ErrorMessage("task with id '${taskID.id}' is not found"))
@@ -189,22 +186,22 @@ class TaskDownloadHandler(
     private fun executeTask(context: Context) {
         val taskID = TaskID.create(context.pathParam(TASK_ID))
         LOGGER.info { "Executing task $taskID" }
-        val taskState: TaskState = tasksLock.write {
-            val info = tasks[taskID] ?: run {
-                return@write TaskState.NotFound
+        val taskState: TaskState = taskManager.execute(taskID) {
+            if (it == null) {
+                return@execute TaskState.NotFound
             }
             val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
             val handler = HttpMessagesRequestHandler(
                 queue, sseResponseBuilder, convExecutor, dataMeasurement,
                 maxMessagesPerRequest = configuration.bufferPerQuery,
-                responseFormats = info.request.responseFormats
+                responseFormats = it.request.responseFormats
                     ?: configuration.responseFormats,
-                failFast = info.request.failFast,
+                failFast = it.request.failFast,
             )
-            if (!info.attachHandler(handler)) {
-                return@write TaskState.AlreadyInProgress
+            if (!it.attachHandler(handler)) {
+                return@execute TaskState.AlreadyInProgress
             }
-            TaskState.Ready(info, handler, queue)
+            TaskState.Ready(it, handler, queue)
         }
         when (taskState) {
             TaskState.AlreadyInProgress -> {
@@ -280,7 +277,7 @@ class TaskDownloadHandler(
         val taskID = TaskID(EventUtils.generateUUID())
 
         LOGGER.info { "Registering task $taskID" }
-        tasksLock.write { tasks[taskID] = TaskInformation(taskID, request.toGroupRequest()) }
+        taskManager[taskID] = TaskInformation(taskID, request.toGroupRequest())
         LOGGER.info { "Task $taskID registered" }
 
         context.status(HttpStatus.CREATED)
@@ -297,17 +294,6 @@ class TaskDownloadHandler(
         ) : TaskState()
     }
 
-    private data class TaskID(
-        @field:JsonValue
-        val id: String,
-    ) {
-        companion object {
-            @JsonCreator
-            @JvmStatic
-            fun create(id: String): TaskID = TaskID(id)
-        }
-    }
-
     private class TaskIDResponse(
         @get:OpenApiPropertyType(definedBy = String::class)
         val taskID: TaskID,
@@ -317,119 +303,24 @@ class TaskDownloadHandler(
     private class TaskStatusResponse(
         @get:OpenApiPropertyType(definedBy = String::class)
         val taskID: TaskID,
+        @get:OpenApiPropertyType(definedBy = String::class)
+        @field:JsonSerialize(using = InstantSerializer::class)
+        @field:JsonFormat(shape = JsonFormat.Shape.STRING)
+        val createdAt: Instant,
+        @get:OpenApiPropertyType(definedBy = String::class, nullability = Nullability.NULLABLE)
+        @field:JsonSerialize(using = InstantSerializer::class)
+        @field:JsonFormat(shape = JsonFormat.Shape.STRING)
+        val completedAt: Instant? = null,
         val status: TaskStatus,
         @get:OpenApiPropertyType(definedBy = Array<ErrorMessage>::class, nullability = Nullability.NULLABLE)
         val errors: List<ErrorMessage> = emptyList(),
     )
 
-    enum class TaskStatus {
-        CREATED,
-        EXECUTING,
-        EXECUTING_WITH_ERRORS,
-        COMPLETED,
-        COMPLETED_WITH_ERRORS,
-        CANCELED,
-        CANCELED_WITH_ERRORS,
-    }
-
-    private class TaskInformation(
-        val taskID: TaskID,
-        val request: MessagesGroupRequest,
-    ) : ProgressListener {
-        private var _status: TaskStatus = TaskStatus.CREATED
-        private val _errors: MutableList<ErrorHolder> = ArrayList()
-        private var handler: CancelableResponseHandler? = null
-
-        val status: TaskStatus
-            get() = _status
-        val errors: List<ErrorHolder>
-            get() = _errors
-
-        override fun onStart() {
-            LOGGER.trace { "Task $taskID started" }
-            _status = TaskStatus.EXECUTING
-        }
-
-        override fun onError(ex: Exception) {
-            LOGGER.trace(ex) { "Task $taskID received an error" }
-            _status = TaskStatus.EXECUTING_WITH_ERRORS
-            _errors += ErrorHolder(
-                ExceptionUtils.getMessage(ex),
-                ExceptionUtils.getRootCauseMessage(ex),
-            )
-        }
-
-        override fun onError(errorEvent: SseEvent.ErrorData) {
-            LOGGER.trace { "Task $taskID received error event" }
-            _status = TaskStatus.EXECUTING_WITH_ERRORS
-            _errors += ErrorHolder(
-                errorEvent.data.toString(Charsets.UTF_8)
-            )
-        }
-
-        override fun onCompleted() {
-            LOGGER.trace { "Task $taskID completed" }
-            _status = when (_status) {
-                TaskStatus.CANCELED ->
-                    TaskStatus.CANCELED
-
-                TaskStatus.EXECUTING_WITH_ERRORS ->
-                    TaskStatus.COMPLETED_WITH_ERRORS
-
-                TaskStatus.CREATED,
-                TaskStatus.EXECUTING,
-                TaskStatus.COMPLETED,
-                TaskStatus.COMPLETED_WITH_ERRORS,
-                TaskStatus.CANCELED_WITH_ERRORS ->
-                    TaskStatus.COMPLETED
-            }
-        }
-
-        override fun onCanceled() {
-            LOGGER.trace { "Task $taskID canceled" }
-            _status = when (_status) {
-                TaskStatus.EXECUTING_WITH_ERRORS ->
-                    TaskStatus.CANCELED_WITH_ERRORS
-
-                TaskStatus.COMPLETED_WITH_ERRORS,
-                TaskStatus.COMPLETED ->
-                    _status
-
-                TaskStatus.CREATED,
-                TaskStatus.EXECUTING,
-                TaskStatus.CANCELED,
-                TaskStatus.CANCELED_WITH_ERRORS ->
-                    TaskStatus.CANCELED
-            }
-            handler?.also {
-                if (it.isAlive) {
-                    it.cancel()
-                }
-            }
-        }
-
-        fun attachHandler(handler: CancelableResponseHandler): Boolean {
-            LOGGER.trace { "Attaching handler to task $taskID" }
-            if (this.handler != null) {
-                return false
-            }
-            this.handler = handler
-            return true
-        }
-
-        companion object {
-            private val LOGGER = KotlinLogging.logger(TaskInformation::class.qualifiedName!!)
-        }
-    }
-
-    private class ErrorHolder(
-        val message: String,
-        val cause: String? = null,
-    )
-
     private fun TaskInformation.toTaskStatusResponse(): TaskStatusResponse =
         TaskStatusResponse(
             taskID = taskID,
+            createdAt = creationTime,
+            completedAt = completionTime,
             status = status,
             errors = errors.map { holder ->
                 ErrorMessage(

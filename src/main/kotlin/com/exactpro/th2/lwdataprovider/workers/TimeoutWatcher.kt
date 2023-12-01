@@ -16,19 +16,22 @@
 
 package com.exactpro.th2.lwdataprovider.workers
 
-import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import mu.KotlinLogging
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
 class TimerWatcher(
     private val decodeBuffer: TimeoutChecker,
-    configuration: Configuration
+    private val timeout: Long,
+    private val name: String,
 ) {
-    
-    private val timeout: Long = configuration.decodingTimeout
     private val running = AtomicBoolean()
     private var thread: Thread? = null
+
+    init {
+        require(timeout > 0) { "negative timeout: $timeout" }
+        require(name.isNotBlank()) { "blank name" }
+    }
 
     companion object {
         private val logger = KotlinLogging.logger { }
@@ -38,26 +41,26 @@ class TimerWatcher(
     fun start() {
         running.set(true)
         thread?.interrupt()
-        thread = thread(name="timeout-watcher", start = true, priority = 2) { run() }
+        thread = thread(name="timeout-watcher-$name", start = true, priority = 2) { run() }
     }
 
     fun stop() {
         if (running.compareAndSet(true, false)) {
             thread?.interrupt()
         } else {
-            logger.warn { "Timeout  watcher already stopped" }
+            logger.warn { "Timeout watcher $name already stopped" }
         }
     }
     
     private fun run() {
 
-        logger.info { "Timeout watcher started" }
+        logger.info { "Timeout watcher $name started" }
         try {
             while (running.get()) {
                 val minTime: Long = try {
                     decodeBuffer.removeOlderThen(timeout)
                 } catch (ex: Exception) {
-                    logger.error(ex) { "cannot remove old elements from buffer" }
+                    logger.error(ex) { "cannot remove old elements in time watcher $name" }
                     System.currentTimeMillis()
                 }
 
@@ -67,14 +70,14 @@ class TimerWatcher(
                         Thread.sleep(sleepTime)
                     } catch (e: InterruptedException) {
                         if (running.compareAndSet(true, false)) {
-                            logger.warn(e) { "Someone stopped timeout watcher" }
+                            logger.warn(e) { "Someone stopped timeout watcher $name" }
                             break
                         }
                     }
                 }
             }
         } finally {
-            logger.info { "Timeout watcher finished" }
+            logger.info { "Timeout watcher $name finished" }
         }
     }
 }

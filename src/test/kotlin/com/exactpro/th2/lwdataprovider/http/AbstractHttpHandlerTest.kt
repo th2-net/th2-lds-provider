@@ -51,6 +51,8 @@ import org.junit.jupiter.api.*
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.kotlin.*
 import strikt.api.Assertion
+import strikt.api.ExpectationBuilder
+import strikt.api.expectCatching
 import strikt.assertions.isNotNull
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
@@ -134,14 +136,12 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
 
     @BeforeAll
     fun setup() {
-        context.keepAliveHandler.start()
-        context.timeoutHandler.start()
+        context.start()
     }
 
     @AfterAll
     fun shutdown() {
-        context.keepAliveHandler.stop()
-        context.timeoutHandler.stop()
+        context.stop()
         executor.shutdown()
         converterExecutor.shutdown()
     }
@@ -276,5 +276,46 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
         const val SESSION_GROUP = "test-session-group"
         const val SESSION_ALIAS = "test-session-alias"
         const val MESSAGE_TYPE = "test-message-type"
+
+        @JvmStatic
+        fun expectEventually(
+            timeout: Long,
+            delay: Long = 100,
+            description: String = "expected condition was not mat withing $timeout mls",
+            action: suspend () -> Boolean,
+        ): Assertion.Builder<Result<Unit>> {
+            require(timeout > 0) { "invalid timeout value $timeout" }
+            require(delay > 0) { "invalid delay value $delay" }
+            return expectCatching {
+                val deadline = System.currentTimeMillis() + timeout
+                while (System.currentTimeMillis() < deadline) {
+                    if (action()) {
+                        return@expectCatching
+                    }
+                    Thread.sleep(delay)
+                }
+                throw IllegalStateException("condition was not mat")
+            }.describedAs(description)
+        }
+
+        @JvmStatic
+        fun expectNever(
+            timeout: Long,
+            delay: Long = 100,
+            description: String = "unexpected condition happened within $timeout mls",
+            action: suspend () -> Boolean,
+        ): Assertion.Builder<Result<Unit>> {
+            require(timeout > 0) { "invalid timeout value $timeout" }
+            require(delay > 0) { "invalid delay value $delay" }
+            return expectCatching {
+                val deadline = System.currentTimeMillis() + timeout
+                while (System.currentTimeMillis() < deadline) {
+                    if (action()) {
+                        throw IllegalStateException("condition is mat")
+                    }
+                    Thread.sleep(delay)
+                }
+            }.describedAs(description)
+        }
     }
 }

@@ -19,7 +19,6 @@ package com.exactpro.th2.lwdataprovider.http
 import com.exactpro.cradle.Direction
 import com.exactpro.cradle.messages.StoredGroupedMessageBatch
 import com.exactpro.cradle.messages.StoredMessageIdUtils
-import com.exactpro.cradle.utils.CradleStorageException
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.configuration.CustomConfigurationClass
 import com.exactpro.th2.lwdataprovider.util.CradleResult
@@ -27,12 +26,10 @@ import com.exactpro.th2.lwdataprovider.util.GroupBatch
 import com.exactpro.th2.lwdataprovider.util.SupplierResult
 import com.exactpro.th2.lwdataprovider.util.createCradleStoredMessage
 import io.javalin.http.HttpStatus
-import io.javalin.testtools.TestConfig
-import okhttp3.OkHttpClient
+import okhttp3.internal.closeQuietly
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.argThat
 import org.mockito.kotlin.doReturn
-import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.whenever
 import strikt.api.expect
 import strikt.api.expectThat
@@ -47,8 +44,11 @@ import strikt.jackson.isObject
 import strikt.jackson.isTextual
 import strikt.jackson.path
 import strikt.jackson.textValue
-import java.time.Duration
 import java.time.Instant
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
     override fun createHandler(): TaskDownloadHandler {
@@ -59,6 +59,7 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
             keepAliveHandler = context.keepAliveHandler,
             searchMessagesHandler = context.searchMessagesHandler,
             context.requestsDataMeasurement,
+            context.taskManager,
         )
     }
 
@@ -67,6 +68,7 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
             CustomConfigurationClass(
                 decodingTimeout = 400,
                 batchSizeBytes = 30,
+                downloadTaskTTL = 500,
             )
         )
 
@@ -154,6 +156,132 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
 
             expectThat(deleteResp) {
                 get { code } isEqualTo HttpStatus.NO_CONTENT.code
+            }
+        }
+    }
+
+    @Test
+    fun `created task is removed automatically after TTL expires`() {
+        startTest { _, client ->
+            val createResp = client.post(
+                path = "/download",
+                json = mapOf(
+                    "resource" to "MESSAGES",
+                    "bookID" to "test-book",
+                    "startTimestamp" to Instant.now().toEpochMilli(),
+                    "endTimestamp" to Instant.now().toEpochMilli(),
+                    "groups" to setOf("test-group"),
+                    "responseFormats" to setOf("BASE_64"),
+                )
+            )
+            val taskID = createResp.use { it.bodyAsJson()["taskID"].asText() }
+
+            val downloadTaskTTL = configuration.downloadTaskTTL
+            expectEventually(
+                timeout = downloadTaskTTL + 500L,
+                delay = 300L,
+                description = "task with id $taskID is not removed due cleanup timeout",
+            ) {
+                client.get("/download/$taskID/status").use { it.code == HttpStatus.NOT_FOUND.code }
+            }
+        }
+    }
+
+    @Test
+    fun `executing task is not removed automatically after TTL expires`() {
+        val start = Instant.now()
+        val lock = ReentrantLock()
+        val condition = lock.newCondition()
+        doReturn(
+            SupplierResult(
+                {
+                    lock.withLock {
+                        condition.await()
+                    }
+                    generateBatch(start, 1)
+                },
+            )
+        ).whenever(storage).getGroupedMessageBatches(argThat {
+            groupName == "test-group" && bookId.name == "test-book"
+        })
+
+        startTest { _, client ->
+            val createResp = client.post(
+                path = "/download",
+                json = mapOf(
+                    "resource" to "MESSAGES",
+                    "bookID" to "test-book",
+                    "startTimestamp" to Instant.now().toEpochMilli(),
+                    "endTimestamp" to Instant.now().toEpochMilli(),
+                    "groups" to setOf("test-group"),
+                    "responseFormats" to setOf("BASE_64"),
+                )
+            )
+            val taskID = createResp.use { it.bodyAsJson()["taskID"].asText() }
+            val downloadInProgress = CompletableFuture.supplyAsync {
+                client.get("/download/$taskID")
+            }
+
+            fun freeRequest() {
+                lock.withLock {
+                    condition.signalAll()
+                }
+            }
+
+            try {
+                val downloadTaskTTL = configuration.downloadTaskTTL
+                expectNever(
+                    timeout = downloadTaskTTL + 500L,
+                    delay = 300L,
+                    description = "executing task with id $taskID was removed due cleanup timeout",
+                ) {
+                    client.get("/download/$taskID/status").use {
+                        it.code == HttpStatus.NOT_FOUND.code
+                    }
+                }
+                freeRequest()
+                downloadInProgress.get(100, TimeUnit.MILLISECONDS).closeQuietly()
+            } finally {
+                freeRequest()
+            }
+        }
+    }
+
+    @Test
+    fun `completed task is removed automatically after TTL expires`() {
+        val start = Instant.now()
+        doReturn(
+            SupplierResult(
+                { generateBatch(start, 1) },
+            )
+        ).whenever(storage).getGroupedMessageBatches(argThat {
+            groupName == "test-group" && bookId.name == "test-book"
+        })
+
+        startTest { _, client ->
+            val createResp = client.post(
+                path = "/download",
+                json = mapOf(
+                    "resource" to "MESSAGES",
+                    "bookID" to "test-book",
+                    "startTimestamp" to Instant.now().toEpochMilli(),
+                    "endTimestamp" to Instant.now().toEpochMilli(),
+                    "groups" to setOf("test-group"),
+                    "responseFormats" to setOf("BASE_64"),
+                )
+            )
+            val taskID = createResp.use { it.bodyAsJson()["taskID"].asText() }
+            client.get("/download/$taskID").closeQuietly()
+
+            val downloadTaskTTL = configuration.downloadTaskTTL
+            expectEventually(
+                timeout = downloadTaskTTL + 500L,
+                delay = 300L,
+                description = "executing task with id $taskID was removed due cleanup timeout",
+            ) {
+                client.get("/download/$taskID/status").use {
+                    it.code == HttpStatus.NOT_FOUND.code
+                }
             }
         }
     }
@@ -254,7 +382,7 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
                     generateBatch(start, 1, index = 3)
                 },
 
-            )
+                )
         ).whenever(storage).getGroupedMessageBatches(argThat {
             groupName == "test-group" && bookId.name == "test-book"
         })
@@ -288,12 +416,12 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
                     get { code } isEqualTo HttpStatus.OK.code
                     jsonBody()
                         .isObject() and {
-                            path("status").textValue() isEqualTo "CANCELED_WITH_ERRORS"
-                            path("errors").isArray()
-                                .hasSize(1)
-                                .elementAt(0)
-                                .path("error")
-                                .textValue() isEqualTo "{\"id\":\"test-book:test-0:1:$expectedTimestamp:1\",\"error\":\"Codec response wasn\\u0027t received during timeout\"}"
+                        path("status").textValue() isEqualTo "CANCELED_WITH_ERRORS"
+                        path("errors").isArray()
+                            .hasSize(1)
+                            .elementAt(0)
+                            .path("error")
+                            .textValue() isEqualTo "{\"id\":\"test-book:test-0:1:$expectedTimestamp:1\",\"error\":\"Codec response wasn\\u0027t received during timeout\"}"
                     }
                 }
             }

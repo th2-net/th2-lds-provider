@@ -281,7 +281,7 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
         fun expectEventually(
             timeout: Long,
             delay: Long = 100,
-            description: String = "expected condition was not mat withing $timeout mls",
+            description: String = "expected condition was not met withing $timeout mls",
             action: suspend () -> Boolean,
         ): Assertion.Builder<Result<Unit>> {
             require(timeout > 0) { "invalid timeout value $timeout" }
@@ -294,7 +294,7 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
                     }
                     Thread.sleep(delay)
                 }
-                throw IllegalStateException("condition was not mat")
+                throw IllegalStateException("condition was not met")
             }.describedAs(description)
         }
 
@@ -311,7 +311,7 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
                 val deadline = System.currentTimeMillis() + timeout
                 while (System.currentTimeMillis() < deadline) {
                     if (action()) {
-                        throw IllegalStateException("condition is mat")
+                        throw IllegalStateException("condition is met")
                     }
                     Thread.sleep(delay)
                 }

@@ -277,7 +277,7 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
             expectEventually(
                 timeout = downloadTaskTTL + 500L,
                 delay = 300L,
-                description = "executing task with id $taskID was removed due cleanup timeout",
+                description = "completed task with id $taskID was not removed due cleanup timeout",
             ) {
                 client.get("/download/$taskID/status").use {
                     it.code == HttpStatus.NOT_FOUND.code

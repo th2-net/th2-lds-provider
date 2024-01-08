@@ -19,6 +19,7 @@ package com.exactpro.th2.lwdataprovider.workers
 import com.exactpro.th2.lwdataprovider.KeepAliveListener
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import mu.KotlinLogging
+import java.time.Duration
 import java.util.ArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantLock
@@ -64,13 +65,15 @@ class KeepAliveHandler(configuration: Configuration) {
         running.set(true)
         logger.info { "Keep alive handler started" }
 
+        val updateTimeout = Duration.ofMillis(200)
+
         try {
             while (running.get()) {
 
                 lock.withLock {
                     data.forEach {
                         if (System.currentTimeMillis() - it.lastTimestampMillis >= timeout)
-                            it.update()
+                            it.update(updateTimeout)
                     }
                 }
 

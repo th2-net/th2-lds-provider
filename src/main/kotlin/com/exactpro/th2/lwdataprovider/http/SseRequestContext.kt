@@ -33,10 +33,12 @@ import com.exactpro.th2.lwdataprovider.metrics.HttpWriteMetrics
 import com.exactpro.th2.lwdataprovider.producers.JsonFormatter
 import com.exactpro.th2.lwdataprovider.producers.ParsedFormats
 import org.apache.commons.lang3.exception.ExceptionUtils
+import java.time.Duration
 import java.util.EnumSet
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executor
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 import java.util.function.Supplier
 
@@ -97,10 +99,11 @@ class HttpMessagesRequestHandler(
         writeErrorMessage(ExceptionUtils.getMessage(error), id, batchId)
     }
 
-    override fun update() {
-        if (!isAlive) return
+    override fun update(duration: Duration): Boolean {
+        if (!isAlive) return false
+        if (buffer.isNotEmpty()) return false
         val counter = indexer.nextIndex()
-        buffer.put { builder.build(scannedObjectInfo, counter) }
+        return buffer.offer({ builder.build(scannedObjectInfo, counter) }, duration.toMillis(), TimeUnit.MILLISECONDS)
     }
 }
 
@@ -143,10 +146,11 @@ class HttpGenericResponseHandler<T>(
         scannedObjectInfo.update(getId(data).toString(), index)
     }
 
-    override fun update() {
-        if (!isAlive) return
+    override fun update(duration: Duration): Boolean {
+        if (!isAlive) return false
+        if (buffer.isNotEmpty()) return false
         val counter = indexer.nextIndex()
         // FIXME: use snapshot of the current state
-        buffer.put { builder.build(scannedObjectInfo, counter) }
+        return buffer.offer({ builder.build(scannedObjectInfo, counter) }, duration.toMillis(), TimeUnit.MILLISECONDS)
     }
 }

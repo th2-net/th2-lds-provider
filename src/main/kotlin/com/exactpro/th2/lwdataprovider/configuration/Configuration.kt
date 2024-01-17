@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import mu.KotlinLogging
 import java.util.*
 import kotlin.math.max
+import kotlin.math.min
 
 private val LOGGER = KotlinLogging.logger { }
 
@@ -81,7 +82,8 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
         }
         val batchBoundary = bufferPerQuery.takeIf { it > 0 } ?: maxBufferDecodeQueue
         // Max batch size in order to meet the queue limits
-        batchSize = batchBoundary
+        // We also should meet response queue limits - the batch size cannot be greater than the response queue size
+        batchSize = min(batchBoundary, responseQueueSize)
         if (mode != Mode.GRPC && grpcBackPressure) {
             LOGGER.warn { "gRPC backpressure works only with ${Mode.GRPC} mode but current mode is $mode" }
         }
@@ -94,6 +96,32 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
         require(gzipCompressionLevel <= 9 && gzipCompressionLevel >= -1) {
             "gzipCompressionLevel must be integer in the [-1, 9] range"
         }
+    }
+
+    override fun toString(): String {
+        return "Configuration(" +
+                "hostname='$hostname', " +
+                "port=$port, " +
+                "keepAliveTimeout=$keepAliveTimeout, " +
+                "maxBufferDecodeQueue=$maxBufferDecodeQueue, " +
+                "decodingTimeout=$decodingTimeout, " +
+                "responseQueueSize=$responseQueueSize, " +
+                "execThreadPoolSize=$execThreadPoolSize, " +
+                "convThreadPoolSize=$convThreadPoolSize, " +
+                "batchSize=$batchSize, " +
+                "mode=$mode, " +
+                "grpcBackPressure=$grpcBackPressure, " +
+                "bufferPerQuery=$bufferPerQuery, " +
+                "responseFormats=$responseFormats, " +
+                "grpcBackPressureReadinessTimeoutMls=$grpcBackPressureReadinessTimeoutMls, " +
+                "codecUsePinAttributes=$codecUsePinAttributes, " +
+                "listOfMessageAsSingleMessage=$listOfMessageAsSingleMessage, " +
+                "useTransportMode=$useTransportMode, " +
+                "validateCradleData=$validateCradleData, " +
+                "flushSseAfter=$flushSseAfter, " +
+                "gzipCompressionLevel=$gzipCompressionLevel, " +
+                "batchSizeBytes=$batchSizeBytes" +
+                ")"
     }
 }
 

@@ -20,6 +20,7 @@ import com.exactpro.th2.dataprovider.lw.grpc.EventResponse
 import com.exactpro.th2.dataprovider.lw.grpc.MessageSearchResponse
 import com.exactpro.th2.dataprovider.lw.grpc.PageInfoResponse
 import org.apache.commons.lang3.exception.ExceptionUtils
+import java.time.Duration
 import java.util.function.Supplier
 
 interface ResponseHandler<T> : BasicResponseHandler {
@@ -39,7 +40,7 @@ interface CancelableResponseHandler : BasicResponseHandler {
 }
 
 interface KeepAliveListener {
-    fun update()
+    fun update(duration: Duration): Boolean
     val lastTimestampMillis: Long
 }
 

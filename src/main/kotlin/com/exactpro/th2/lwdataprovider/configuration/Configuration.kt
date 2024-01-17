@@ -97,6 +97,32 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
             "gzipCompressionLevel must be integer in the [-1, 9] range"
         }
     }
+
+    override fun toString(): String {
+        return "Configuration(" +
+                "hostname='$hostname', " +
+                "port=$port, " +
+                "keepAliveTimeout=$keepAliveTimeout, " +
+                "maxBufferDecodeQueue=$maxBufferDecodeQueue, " +
+                "decodingTimeout=$decodingTimeout, " +
+                "responseQueueSize=$responseQueueSize, " +
+                "execThreadPoolSize=$execThreadPoolSize, " +
+                "convThreadPoolSize=$convThreadPoolSize, " +
+                "batchSize=$batchSize, " +
+                "mode=$mode, " +
+                "grpcBackPressure=$grpcBackPressure, " +
+                "bufferPerQuery=$bufferPerQuery, " +
+                "responseFormats=$responseFormats, " +
+                "grpcBackPressureReadinessTimeoutMls=$grpcBackPressureReadinessTimeoutMls, " +
+                "codecUsePinAttributes=$codecUsePinAttributes, " +
+                "listOfMessageAsSingleMessage=$listOfMessageAsSingleMessage, " +
+                "useTransportMode=$useTransportMode, " +
+                "validateCradleData=$validateCradleData, " +
+                "flushSseAfter=$flushSseAfter, " +
+                "gzipCompressionLevel=$gzipCompressionLevel, " +
+                "batchSizeBytes=$batchSizeBytes" +
+                ")"
+    }
 }
 
 enum class Mode {

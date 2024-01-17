@@ -56,6 +56,8 @@ class Main {
         val configuration =
             Configuration(configurationFactory.getCustomConfiguration(CustomConfigurationClass::class.java))
 
+        logger.info { "Final configuration: $configuration" }
+
         context = Context(
             configuration,
 

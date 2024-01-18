@@ -158,7 +158,7 @@ class HttpServer(private val context: Context) {
                 it.plugins.enableDevLogging()
             } else {
                 it.requestLogger.http { ctx, time ->
-                    logger.info { "Request ${ctx.path()} executed with status ${ctx.status()}: ${time}.ms" }
+                    logger.info { "Request ${ctx.method().name} '${ctx.path()}' executed with status ${ctx.status()}: ${time}.ms" }
                 }
             }
             it.plugins.register(MicrometerPlugin.create { micrometer ->

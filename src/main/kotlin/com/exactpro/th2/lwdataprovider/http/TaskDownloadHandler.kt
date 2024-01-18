@@ -74,9 +74,26 @@ class TaskDownloadHandler(
 
     override fun setup(app: Javalin, context: JavalinContext) {
         app.post(DOWNLOAD_ROUTE, this::registerTask)
+        app.get(TASK_STATUSES_ROUTE, this::listOfStatuses)
         app.get(TASK_STATUS_ROUTE, this::getTaskStatus)
         app.get(TASK_ROUTE, this::executeTask)
         app.delete(TASK_ROUTE, this::deleteTask)
+    }
+
+    @OpenApi(
+        path = TASK_STATUSES_ROUTE,
+        methods = [HttpMethod.GET],
+        responses = [
+            OpenApiResponse(
+                status = "200",
+                content = [OpenApiContent(from = Array<StatusInfoResponse>::class)]
+            )
+        ]
+    )
+    private fun listOfStatuses(context: Context) {
+        LOGGER.info { "Getting possible task statuses" }
+        context.status(HttpStatus.OK)
+            .json(TaskStatus.values().map { it.toInfo() })
     }
 
     @OpenApi(
@@ -316,6 +333,13 @@ class TaskDownloadHandler(
         val errors: List<ErrorMessage> = emptyList(),
     )
 
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private class StatusInfoResponse(
+        val status: TaskStatus,
+        val terminal: Boolean,
+        val description: String? = null,
+    )
+
     private fun TaskInformation.toTaskStatusResponse(): TaskStatusResponse =
         TaskStatusResponse(
             taskID = taskID,
@@ -388,10 +412,27 @@ class TaskDownloadHandler(
         val error: String,
     )
 
+    private fun TaskStatus.toInfo(): StatusInfoResponse {
+        return StatusInfoResponse(
+            status = this,
+            terminal = this.ordinal > TaskStatus.EXECUTING_WITH_ERRORS.ordinal,
+            description = when (this) {
+                TaskStatus.CREATED -> "task is created and ready for execution"
+                TaskStatus.EXECUTING -> "task is executing"
+                TaskStatus.EXECUTING_WITH_ERRORS -> "task is executing but have some errors during execution"
+                TaskStatus.COMPLETED -> "task completed"
+                TaskStatus.COMPLETED_WITH_ERRORS -> "task completed with errors"
+                TaskStatus.CANCELED -> "task was canceled"
+                TaskStatus.CANCELED_WITH_ERRORS -> "task was canceled and have some errors"
+            },
+        )
+    }
+
     companion object {
         private val LOGGER = KotlinLogging.logger { }
         private const val TASK_ID = "taskID"
         private const val DOWNLOAD_ROUTE = "/download"
+        private const val TASK_STATUSES_ROUTE = "/download/status"
         private const val TASK_ROUTE = "$DOWNLOAD_ROUTE/{$TASK_ID}"
         private const val TASK_STATUS_ROUTE = "$DOWNLOAD_ROUTE/{$TASK_ID}/status"
     }

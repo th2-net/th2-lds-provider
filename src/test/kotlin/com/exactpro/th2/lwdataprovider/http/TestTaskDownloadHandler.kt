@@ -25,6 +25,7 @@ import com.exactpro.th2.lwdataprovider.util.CradleResult
 import com.exactpro.th2.lwdataprovider.util.GroupBatch
 import com.exactpro.th2.lwdataprovider.util.SupplierResult
 import com.exactpro.th2.lwdataprovider.util.createCradleStoredMessage
+import com.exactpro.th2.lwdataprovider.workers.TaskStatus
 import io.javalin.http.HttpStatus
 import okhttp3.internal.closeQuietly
 import org.junit.jupiter.api.Test
@@ -36,14 +37,18 @@ import strikt.api.expectThat
 import strikt.assertions.allIndexed
 import strikt.assertions.elementAt
 import strikt.assertions.isEqualTo
+import strikt.assertions.isNotBlank
 import strikt.assertions.isNotNull
+import strikt.jackson.booleanValue
 import strikt.jackson.has
 import strikt.jackson.hasSize
 import strikt.jackson.isArray
+import strikt.jackson.isBoolean
 import strikt.jackson.isObject
 import strikt.jackson.isTextual
 import strikt.jackson.path
 import strikt.jackson.textValue
+import strikt.jackson.textValues
 import java.time.Instant
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
@@ -71,6 +76,36 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
                 downloadTaskTTL = 500,
             )
         )
+
+    @Test
+    fun `get possible statuses`() {
+        startTest { _, client ->
+            val response = client.get("/download/status")
+            val statuses = TaskStatus.values()
+            val firstTerminalIndex = TaskStatus.COMPLETED.ordinal
+            expectThat(response)
+                .jsonBody()
+                .isArray()
+                .hasSize(statuses.size)
+                .allIndexed { index ->
+                    isObject() and {
+                        path("status")
+                            .isTextual()
+                            .textValue()
+                            .isEqualTo(statuses[index].name)
+                        path("terminal")
+                            .isBoolean()
+                            .booleanValue()
+                            .isEqualTo(index >= firstTerminalIndex)
+                        path("description")
+                            .isTextual()
+                            .textValue()
+                            .isNotNull()
+                            .isNotBlank()
+                    }
+                }
+        }
+    }
 
     @Test
     fun `creates task`() {

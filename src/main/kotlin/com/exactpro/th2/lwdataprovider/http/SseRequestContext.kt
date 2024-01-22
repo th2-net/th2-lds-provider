@@ -75,7 +75,7 @@ class HttpMessagesRequestHandler(
                 if (jsonFormatter != null && requestedMessage.protoMessage == null && requestedMessage.transportMessage == null) {
                     builder.codecTimeoutError(requestedMessage.storedMessage.id, counter).also {
                         if (failFast) {
-                            LOGGER.info { "Codec timeout. Canceling processing due to fail-fast strategy" }
+                            LOGGER.warn { "Codec timeout. Canceling processing due to fail-fast strategy" }
                             // note that this might not stop the processing right away
                             // this is called on a different thread
                             // so some messages might be loaded before the processing is canceled

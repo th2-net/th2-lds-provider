@@ -20,6 +20,7 @@ import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import mu.KotlinLogging
 import java.util.*
+import java.util.concurrent.TimeUnit
 import kotlin.math.max
 import kotlin.math.min
 
@@ -47,6 +48,7 @@ class CustomConfigurationClass(
     val gzipCompressionLevel: Int? = null,
     @JsonDeserialize(using = ByteSizeDeserializer::class)
     val batchSizeBytes: Int? = null,
+    val downloadTaskTTL: Long? = null,
 )
 
 class Configuration(customConfiguration: CustomConfigurationClass) {
@@ -76,6 +78,7 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     val flushSseAfter: Int = VariableBuilder.getVariable(customConfiguration::flushSseAfter, 0)
     val gzipCompressionLevel: Int = VariableBuilder.getVariable(customConfiguration::gzipCompressionLevel, -1)
     val batchSizeBytes: Int = VariableBuilder.getVariable(customConfiguration::batchSizeBytes, 256 * 1024)
+    val downloadTaskTTL: Long = VariableBuilder.getVariable(customConfiguration::downloadTaskTTL, TimeUnit.HOURS.toMillis(1))
     init {
         require(bufferPerQuery <= maxBufferDecodeQueue) {
             "buffer per queue ($bufferPerQuery) must be less or equal to the total buffer size ($maxBufferDecodeQueue)"
@@ -96,6 +99,7 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
         require(gzipCompressionLevel <= 9 && gzipCompressionLevel >= -1) {
             "gzipCompressionLevel must be integer in the [-1, 9] range"
         }
+        require(downloadTaskTTL > 0) { "negative download task TTL: $downloadTaskTTL" }
     }
 
     override fun toString(): String {

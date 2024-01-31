@@ -23,9 +23,12 @@ import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
+import com.exactpro.th2.lwdataprovider.http.serializers.BookIdDeserializer
 import com.exactpro.th2.lwdataprovider.producers.MessageProducer
 import com.exactpro.th2.lwdataprovider.producers.MessageProducer53
 import com.exactpro.th2.lwdataprovider.producers.MessageProducer53Transport
+import com.exactpro.th2.lwdataprovider.workers.TaskManager
+import com.fasterxml.jackson.databind.module.SimpleModule
 import io.javalin.Javalin
 import io.javalin.config.JavalinConfig
 import io.javalin.http.BadRequestResponse
@@ -131,23 +134,46 @@ class HttpServer(private val context: Context) {
                 context.searchMessagesHandler,
                 context.requestsDataMeasurement,
             ),
+            TaskDownloadHandler(
+                configuration,
+                context.convExecutor,
+                sseResponseBuilder,
+                context.keepAliveHandler,
+                context.searchMessagesHandler,
+                context.requestsDataMeasurement,
+                context.taskManager,
+            ),
         )
 
         app = Javalin.create {
             it.showJavalinBanner = false
-            it.jsonMapper(JavalinJackson(jacksonMapper))
-//            it.plugins.enableDevLogging()
+            it.jsonMapper(JavalinJackson(
+                jacksonMapper.registerModule(
+                    SimpleModule("th2").apply {
+                        addDeserializer(BookId::class.java, BookIdDeserializer())
+                    }
+                )
+            ))
+            if (logger.isTraceEnabled) {
+                it.plugins.enableDevLogging()
+            } else {
+                it.requestLogger.http { ctx, time ->
+                    logger.info { "Request ${ctx.method().name} '${ctx.path()}' executed with status ${ctx.status()}: ${time}.ms" }
+                }
+            }
             it.plugins.register(MicrometerPlugin.create { micrometer ->
                 micrometer.registry =
                     PrometheusMeterRegistry(PrometheusConfig.DEFAULT, CollectorRegistry.defaultRegistry, Clock.SYSTEM)
                 micrometer.tags = listOf(Tag.of("application", context.applicationName))
             })
 
-            setupOpenApi(it)
+            val externalContextPath = System.getenv(EXTERNAL_CONTEXT_PATH_ENV)?.takeUnless(String::isBlank)
+
+            setupOpenApi(it, externalContextPath)
 
 //            setupSwagger(it)
 
-            setupReDoc(it)
+            setupReDoc(it, externalContextPath)
         }.apply {
             setupConverters(this)
             val javalinContext = JavalinContext(configuration.flushSseAfter)
@@ -168,8 +194,11 @@ class HttpServer(private val context: Context) {
         logger.info { "http server stopped" }
     }
 
-    private fun setupReDoc(it: JavalinConfig) {
+    private fun setupReDoc(it: JavalinConfig, externalContextPath: String?) {
         val reDocConfiguration = ReDocConfiguration()
+        externalContextPath?.also { path ->
+            reDocConfiguration.basePath = path
+        }
         it.plugins.register(ReDocPlugin(reDocConfiguration))
     }
 
@@ -178,7 +207,7 @@ class HttpServer(private val context: Context) {
 //        it.plugins.register(SwaggerPlugin(swaggerConfiguration))
 //    }
 
-    private fun setupOpenApi(it: JavalinConfig) {
+    private fun setupOpenApi(it: JavalinConfig, externalContextPath: String?) {
 
         val openApiConfiguration = OpenApiPluginConfiguration()
             .withDefinitionConfiguration { _, definition ->
@@ -197,7 +226,7 @@ class HttpServer(private val context: Context) {
                         "Light Weight Data Provider provides you with fast access to data in Cradle"
                     openApiInfo.contact = openApiContact
                     openApiInfo.license = openApiLicense
-                    openApiInfo.version = "2.2.0"
+                    openApiInfo.version = "2.6.0"
                 }.withServer { openApiServer ->
                     openApiServer.url = "http://localhost:{port}"
                     openApiServer.addVariable("port", "8080", arrayOf("8080"), "Port of the server")
@@ -208,6 +237,8 @@ class HttpServer(private val context: Context) {
 
     companion object {
         private val logger = KotlinLogging.logger {}
+
+        private const val EXTERNAL_CONTEXT_PATH_ENV = "EXTERNAL_CONTEXT_PATH"
 
         const val TIME_EXAMPLE =
             "Every value that is greater than 1_000_000_000 ^ 2 will be interpreted as nanos. Otherwise, as millis.\n" +

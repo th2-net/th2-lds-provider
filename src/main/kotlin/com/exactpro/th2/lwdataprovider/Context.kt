@@ -34,6 +34,7 @@ import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import com.exactpro.th2.lwdataprovider.metrics.DataMeasurementHistogram
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
+import com.exactpro.th2.lwdataprovider.workers.TaskManager
 import com.exactpro.th2.lwdataprovider.workers.TimerWatcher
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -67,7 +68,7 @@ class Context(
         configuration.codecUsePinAttributes
     ),
 
-    val timeoutHandler: TimerWatcher = TimerWatcher(mqDecoder, configuration),
+    val timeoutHandler: TimerWatcher = TimerWatcher(mqDecoder, configuration.decodingTimeout, "decoding"),
     val cradleEventExtractor: CradleEventExtractor = CradleEventExtractor(
         cradleManager,
         DataMeasurementHistogram.create(registry, "cradle event")
@@ -108,8 +109,22 @@ class Context(
         execExecutor,
     ),
     val generalCradleHandler: GeneralCradleHandler = GeneralCradleHandler(generalCradleExtractor, execExecutor),
-    val applicationName: String
+    val applicationName: String,
+    val taskManager: TaskManager = TaskManager(),
+    val taskWatcher: TimerWatcher = TimerWatcher(taskManager, configuration.downloadTaskTTL, "tasks"),
 ) {
+
+    fun start() {
+        timeoutHandler.start()
+        keepAliveHandler.start()
+        taskWatcher.start()
+    }
+
+    fun stop() {
+        taskWatcher.stop()
+        keepAliveHandler.stop()
+        timeoutHandler.stop()
+    }
     companion object {
         @JvmStatic
         fun createObjectMapper(): ObjectMapper = jacksonObjectMapper()

@@ -87,7 +87,7 @@ internal class TestGetMessageGroupsServletTransportMode : AbstractHttpHandlerTes
                     timestamp = messageTimestamp,
                 )
             ),
-            PageId(BookId(BOOK_NAME), PAGE_NAME),
+            PageId(BookId(BOOK_NAME), PAGE_TIMESTAMP, PAGE_NAME),
             Instant.now(),
         )
 
@@ -176,7 +176,7 @@ internal class TestGetMessageGroupsServletTransportMode : AbstractHttpHandlerTes
                     timestamp = messageTimestamp,
                 )
             ),
-            PageId(BookId(BOOK_NAME), PAGE_NAME),
+            PageId(BookId(BOOK_NAME), PAGE_TIMESTAMP, PAGE_NAME),
             Instant.now(),
         )
 
@@ -241,7 +241,7 @@ internal class TestGetMessageGroupsServletTransportMode : AbstractHttpHandlerTes
                     timestamp = messageTimestamp,
                 )
             ),
-            PageId(BookId(BOOK_NAME), PAGE_NAME),
+            PageId(BookId(BOOK_NAME), PAGE_TIMESTAMP, PAGE_NAME),
             Instant.now(),
         )
         doReturn(ImmutableListCradleResult(emptyList<StoredMessage>())).whenever(storage)

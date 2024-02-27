@@ -51,9 +51,9 @@ import org.junit.jupiter.api.*
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.kotlin.*
 import strikt.api.Assertion
-import strikt.api.ExpectationBuilder
 import strikt.api.expectCatching
 import strikt.assertions.isNotNull
+import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.Semaphore
@@ -273,6 +273,7 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
         const val BOOK_NAME =
             "test" //TODO: Move to the CradleTestUtil and use in CradleTestUtil.createCradleStoredMessage and all cases where the method used
         const val PAGE_NAME = "test-page"
+        val PAGE_TIMESTAMP = Instant.now()
         const val SESSION_GROUP = "test-session-group"
         const val SESSION_ALIAS = "test-session-alias"
         const val MESSAGE_TYPE = "test-message-type"

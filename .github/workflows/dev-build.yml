@@ -1,14 +1,6 @@
 name: Build and publish dev Docker distributions to Github Container Registry ghcr.io
 
-on:
-  push:
-    branches-ignore:
-      - master
-      - version-*
-    paths-ignore:
-      - README.md
-      - LICENSE
-      - .gitignore
+on: workflow_dispatch
 
 jobs:
   grpc-version:

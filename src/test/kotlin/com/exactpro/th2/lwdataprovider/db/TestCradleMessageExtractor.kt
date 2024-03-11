@@ -326,7 +326,7 @@ internal class TestCradleMessageExtractor {
             StoredGroupedMessageBatch(
                 TEST_SESSION_GROUP,
                 incorrectMessages,
-                PageId(BookId("test-book"), "test-page"),
+                PageId(BookId("test-book"), Instant.now(), "test-page"),
                 Instant.now(),
             )
         )
@@ -383,7 +383,7 @@ internal class TestCradleMessageExtractor {
             StoredGroupedMessageBatch(
                 TEST_SESSION_GROUP,
                 incorrectMessages,
-                PageId(BookId("test-book"), "test-page"),
+                PageId(BookId("test-book"), Instant.now(), "test-page"),
                 now,
             )
         )

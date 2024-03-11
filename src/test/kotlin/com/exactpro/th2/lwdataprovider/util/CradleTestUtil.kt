@@ -57,8 +57,7 @@ fun createPageInfo(
     updated: Boolean = false,
     removed: Boolean = false,
 ): PageInfo = PageInfo(
-    PageId(BookId("test"), pageName),
-    started,
+    PageId(BookId("test"), started, pageName),
     ended,
     "test comment for $pageName",
     if (updated) started else null,
@@ -145,7 +144,7 @@ fun createBatches(
                 StoredGroupedMessageBatch(
                     group,
                     messageGenerator.take(messagesPerBatch).toList(),
-                    PageId(BookId("test-book"), "test-page"),
+                    PageId(BookId("test-book"), Instant.now(), "test-page"),
                     timestamp ?: Instant.now(),
                 )
             )
@@ -199,7 +198,7 @@ fun createBatches(
                         incSeconds = increase,
                         end,
                     ),
-                    PageId(BookId("test-book"), "test-page"),
+                    PageId(BookId("test-book"), Instant.now(), "test-page"),
                     Instant.now(),
                 )
             )
@@ -218,7 +217,7 @@ fun GroupBatch(group: String, book: String? = "test", messages: Collection<Store
     StoredGroupedMessageBatch(
         group,
         messages,
-        PageId(BookId(book), "test-page-${System.currentTimeMillis()}"),
+        PageId(BookId(book), Instant.now(), "test-page-${System.currentTimeMillis()}"),
         Instant.now(),
     )
 

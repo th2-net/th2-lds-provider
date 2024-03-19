@@ -16,10 +16,14 @@
 
 package com.exactpro.th2.lwdataprovider.entities.requests
 
+import com.exactpro.cradle.BookId
+import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
+import com.exactpro.th2.lwdataprovider.grpc.toInstant
 
 
+// FIXME: this request should be reworked to get rid of string representation for event ID
 data class GetEventRequest(
     val batchId: String?,
     val eventId: String
@@ -27,14 +31,12 @@ data class GetEventRequest(
 
     companion object {
 
-        fun fromEventID(eventID: EventID) : GetEventRequest {
-            val id = eventID.id
-            return if (id.contains('>')) { // FIXME: temporal solution as it done in main provider
-                val spl = id.split(':')
-                GetEventRequest(spl[0], spl[1])
-            } else {
-                GetEventRequest(null, id)
-            }
+        fun fromEventID(eventID: EventID): GetEventRequest {
+            return GetEventRequest(
+                // No batch ID in grpc
+                null,
+                StoredTestEventId(BookId(eventID.bookName), eventID.scope, eventID.startTimestamp.toInstant(), eventID.id).toString(),
+            )
         }
 
         fun fromString(evId: String): GetEventRequest {

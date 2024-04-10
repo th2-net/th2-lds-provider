@@ -1,4 +1,4 @@
-# Lightweight data provider (2.7.0)
+# Lightweight data provider (2.8.0)
 
 # Overview
 This component serves as a data provider for [th2-data-services](https://github.com/th2-net/th2-data-services). It will connect to the cassandra database via [cradle api](https://github.com/th2-net/cradleapi) and expose the data stored in there as REST resources.
@@ -292,6 +292,11 @@ spec:
 ### Fixed:
 
 + error reporting when executing group search (if error occurs during a call to the Cradle API stream were closed before the error was reported)
+
+## 2.8.0
+
++ Updated bom: `4.6.0-dev`
++ Updated common: `5.10.0-dev` (recover subscription of channels on failure)
 
 ## 2.1.0
 

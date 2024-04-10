@@ -82,14 +82,14 @@ dependencies {
     implementation 'com.fasterxml.jackson.module:jackson-module-kotlin'
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
 
-    implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.5.0'
+    implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.5.1'
 
     implementation 'io.netty:netty-buffer'
 
     testImplementation "io.javalin:javalin-testtools:$javalin"
 
     testImplementation(testFixtures("com.exactpro.th2:common:${commonVersion}"))
-    testImplementation platform('org.testcontainers:testcontainers-bom:1.18.0')
+    testImplementation platform('org.testcontainers:testcontainers-bom:1.19.7')
     testImplementation 'org.testcontainers:junit-jupiter'
     testImplementation "org.testcontainers:cassandra"
 

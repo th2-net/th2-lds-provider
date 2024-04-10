@@ -6,7 +6,7 @@ group 'com.exactpro.th2'
 version release_version
 
 ext {
-    commonVersion = '5.8.0-dev'
+    commonVersion = '5.10.0-dev'
 }
 
 sourceCompatibility = 11
@@ -31,7 +31,7 @@ if (!suffix.isEmpty()) {
 }
 
 dependencies {
-    implementation platform('com.exactpro.th2:bom:4.5.0')
+    implementation platform('com.exactpro.th2:bom:4.6.0')
     implementation 'org.slf4j:slf4j-api'
     implementation 'io.github.microutils:kotlin-logging:3.0.5'
 
@@ -41,8 +41,8 @@ dependencies {
     testImplementation('org.apache.logging.log4j:log4j-core') {
         because('logging in testing')
     }
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.9.3'
-    testImplementation 'org.mockito.kotlin:mockito-kotlin:4.0.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testImplementation 'org.mockito.kotlin:mockito-kotlin:5.2.1'
     testImplementation 'io.strikt:strikt-core:0.34.1'
     testImplementation 'io.strikt:strikt-jackson:0.34.1'
 }

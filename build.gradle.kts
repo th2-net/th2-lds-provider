@@ -35,19 +35,6 @@ subprojects {
         jvmToolchain(11)
     }
 
-    repositories {
-        mavenCentral()
-        maven {
-            name = "Sonatype_snapshots"
-            url = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
-        }
-
-        maven {
-            name = "Sonatype_releases"
-            url = uri("https://s01.oss.sonatype.org/content/repositories/releases/")
-        }
-    }
-
     configurations.all {
         resolutionStrategy.cacheChangingModulesFor(0, "seconds")
         resolutionStrategy.cacheDynamicVersionsFor(0, "seconds")

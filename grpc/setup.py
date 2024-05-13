@@ -37,7 +37,7 @@ class ProtoGenerator(Command):
         pass
 
     def run(self):
-        proto_path = os.path.abspath('proto')
+        proto_path = os.path.abspath('src/main/proto')
         gen_path = os.path.abspath('build/generated/source/proto/main/services/python')
 
         if not os.path.exists(gen_path):
@@ -70,7 +70,7 @@ class ProtoGenerator(Command):
 class CustomDist(sdist):
 
     def run(self):
-        copy_tree(f'proto/{package_name}', package_name)
+        copy_tree(f'src/main/proto/{package_name}', package_name)
 
         copy_tree(f'build/generated/source/proto/main/services/python/{package_name}', package_name)
         Path(f'{package_name}/__init__.py').touch()
@@ -120,7 +120,7 @@ setup(
     license='Apache License 2.0',
     python_requires='>=3.7',
     install_requires=[
-        'th2-grpc-common==4.3.0.dev0',
+        'th2-grpc-common==4.5.0.dev0',
         'mypy-protobuf==3.4'
     ],
     packages=packages,

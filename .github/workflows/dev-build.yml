@@ -19,6 +19,8 @@ jobs:
   app-version:
     name: Collect app version
     uses: th2-net/.github/.github/workflows/compound-prebuild-java-dev-workflow.yml@main
+    with:
+      project-path: app
   build-and-publish-grpc-java:
     name: Build and publish Java gRPC distributions
     uses: th2-net/.github/.github/workflows/compaund-java-multi-project-build.yml@main
@@ -66,7 +68,7 @@ jobs:
       docker-username: ${{ github.actor }}
       version: ${{ needs.app-version.outputs.version }}
       versionNumber: ${{ needs.app-version.outputs.versionNumber }}
-      dockerContext: '.'
+      dockerContext: 'app'
       gradleParameters: ${{ format('["clean", "build", "dockerPrepare", "-Pversion_suffix={0}"]', needs.app-version.outputs.versionSuffix) }}
     secrets:
       docker-password: ${{ secrets.GITHUB_TOKEN }}

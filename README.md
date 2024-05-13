@@ -224,6 +224,13 @@ spec:
 
 # Release notes:
 
+## 2.8.0
++ Migrated to th2 gradle plugin `0.0.6`
++ Updated bom: `4.6.1-dev`
++ Updated cradle api: `5.3.0-dev`
++ Updated common: `5.11.0-dev`
++ Updated micrometer-bom: `1.12.5`
+
 ## 2.7.0
 
 + Updated cradle api: `5.2.0-dev`

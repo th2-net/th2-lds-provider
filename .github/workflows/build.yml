@@ -20,7 +20,7 @@ jobs:
       app: ${{ steps.filter.outputs.app }}
       grpc: ${{ steps.filter.outputs.grpc }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v2
         id: filter
         with:
@@ -93,7 +93,6 @@ jobs:
       docker-username: ${{ github.actor }}
       version: ${{ needs.versions.outputs.version }}
       versionNumber: ${{ needs.versions.outputs.version }}
-      dockerContext: 'app'
       gradleParameters: '["clean", "build", "dockerPrepare"]'
     secrets:
       docker-password: ${{ secrets.GITHUB_TOKEN }}

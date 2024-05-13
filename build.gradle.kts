@@ -16,7 +16,7 @@ val commonVersion by extra("5.11.0-dev")
 
 dependencyCheck {
     skipConfigurations = listOf("kapt", "kaptClasspath_kaptKotlin", "kaptTest", "kaptTestFixtures")
-    suppressionFile = "supressions.xml"
+    suppressionFile = "suppressions.xml"
 }
 
 allprojects {

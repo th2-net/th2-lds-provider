@@ -27,7 +27,7 @@ jobs:
           base: ${{ github.ref }}
           filters: |
             app:
-              - 'gradle.properties'
+              - 'app/gradle.properties'
             grpc:
               - 'grpc/gradle.properties'
             utils:
@@ -78,6 +78,7 @@ jobs:
     uses: th2-net/.github/.github/workflows/owasp-gradle-scan.yml@main
     with:
       multiproject: true
+      nvd-api-key: ${{ secrets.NVD_APIKEY }}
   publish-docker:
     name: Build and publish docker image
     if: |
@@ -92,7 +93,7 @@ jobs:
       docker-username: ${{ github.actor }}
       version: ${{ needs.versions.outputs.version }}
       versionNumber: ${{ needs.versions.outputs.version }}
-      dockerContext: '.'
+      dockerContext: 'app'
       gradleParameters: '["clean", "build", "dockerPrepare"]'
     secrets:
       docker-password: ${{ secrets.GITHUB_TOKEN }}

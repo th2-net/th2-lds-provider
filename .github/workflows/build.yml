@@ -13,6 +13,8 @@ jobs:
   versions:
     name: Extract app version
     uses: th2-net/.github/.github/workflows/compound-prebuild-java-workflow.yml@main
+    with:
+      project-path: app
   changes:
     name: Collect changed files
     runs-on: ubuntu-20.04

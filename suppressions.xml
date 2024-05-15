@@ -6,4 +6,10 @@
         <packageUrl regex="true">^pkg:maven/com\.exactpro\.th2/task-utils@.*$</packageUrl>
         <cpe>cpe:/a:utils_project:utils</cpe>
     </suppress>
+    <suppress base="true">
+        <notes><![CDATA[FP per issue https://github.com/jeremylong/DependencyCheck/issues/2995]]>
+        </notes>
+        <packageUrl regex="true">^pkg:maven/com\.exactpro\.th2/grpc-.*@.*$</packageUrl>
+        <cpe>cpe:/a:grpc:grpc</cpe>
+    </suppress>
 </suppressions>

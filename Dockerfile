@@ -1,4 +1,4 @@
 FROM adoptopenjdk/openjdk11:alpine
 WORKDIR /home
-COPY ./build/docker .
+COPY ./app/build/docker .
 ENTRYPOINT ["/home/service/bin/service"]

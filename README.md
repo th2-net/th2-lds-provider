@@ -224,6 +224,18 @@ spec:
 
 # Release notes:
 
+## 2.9.0
++ Migrated to th2 gradle plugin `0.0.6`
++ Added swagger library
++ Updated:
+  + bom: `4.6.1-dev`
+  + cradle api: `5.3.0-dev`
+  + common: `5.11.0-dev`
+  + micrometer-bom: `1.12.5`
+  + jetty-bom: `11.0.20`
+  + javalin: `5.6.5`
+  + javalin-openapi: `5.6.4`
+
 ## 2.7.0
 
 + Updated cradle api: `5.2.0-dev`

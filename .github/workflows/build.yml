@@ -13,6 +13,8 @@ jobs:
   versions:
     name: Extract app version
     uses: th2-net/.github/.github/workflows/compound-prebuild-java-workflow.yml@main
+    with:
+      project-path: app
   changes:
     name: Collect changed files
     runs-on: ubuntu-20.04
@@ -20,14 +22,14 @@ jobs:
       app: ${{ steps.filter.outputs.app }}
       grpc: ${{ steps.filter.outputs.grpc }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v2
         id: filter
         with:
           base: ${{ github.ref }}
           filters: |
             app:
-              - 'gradle.properties'
+              - 'app/gradle.properties'
             grpc:
               - 'grpc/gradle.properties'
             utils:
@@ -78,6 +80,8 @@ jobs:
     uses: th2-net/.github/.github/workflows/owasp-gradle-scan.yml@main
     with:
       multiproject: true
+    secrets:
+      nvd-api-key: ${{ secrets.NVD_APIKEY }}
   publish-docker:
     name: Build and publish docker image
     if: |

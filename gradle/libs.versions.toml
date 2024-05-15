@@ -1,0 +1,41 @@
+[versions]
+kotlin = "1.8.22"
+th2-plugin = "0.0.6"
+strikt = "0.34.1"
+javalin = "5.6.5"
+openapi = "5.6.4"
+
+[libraries]
+th2-common = { group = "com.exactpro.th2", name = "common", version = "5.11.0-dev" }
+th2-grpc-common = { group = "com.exactpro.th2", name = "grpc-common", version = "4.5.0-dev" }
+cradle-cassandra = { group = "com.exactpro.th2", name = "cradle-cassandra", version = "5.3.0-dev" }
+lz4 = { group = "net.jpountz.lz4", name = "lz4", version = "1.3.0" }
+
+kotlin-logging = { group = "io.github.microutils", name = "kotlin-logging", version = "3.0.5" }
+kotlinx-serialization-json-jvm = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json-jvm", version = "1.5.1" }
+
+testcontainers-bom = { group = "org.testcontainers", name = "testcontainers-bom", version = "1.19.8" }
+junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version = "5.10.2" }
+mockito-kotlin = { group = "org.mockito.kotlin", name = "mockito-kotlin", version = "5.3.1" }
+strikt-core = { group = "io.strikt", name = "strikt-core", version.ref = "strikt" }
+strikt-jackson = { group = "io.strikt", name = "strikt-jackson", version.ref = "strikt" }
+
+openapi-annotation-processor = { group = "io.javalin.community.openapi", name = "openapi-annotation-processor", version.ref = "openapi" }
+javalin-openapi-plugin = { group = "io.javalin.community.openapi", name = "javalin-openapi-plugin", version.ref = "openapi" }
+javalin-redoc-plugin = { group = "io.javalin.community.openapi", name = "javalin-redoc-plugin", version.ref = "openapi" }
+javalin-swagger-plugin = { group = "io.javalin.community.openapi", name = "javalin-swagger-plugin", version.ref = "openapi" }
+javalin-testtools = { group = "io.javalin", name = "javalin-testtools", version.ref = "javalin" }
+javalin = { group = "io.javalin", name = "javalin", version.ref = "javalin" }
+javalin-micrometer = { group = "io.javalin", name = "javalin-micrometer", version.ref = "javalin" }
+
+micrometer-bom = { group = "io.micrometer", name = "micrometer-bom", version = "1.12.5" }
+
+[plugins]
+kotlin = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
+serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+
+th2-base = { id = "com.exactpro.th2.gradle.base", version.ref = "th2-plugin" }
+th2-publish = { id = "com.exactpro.th2.gradle.publish", version.ref = "th2-plugin" }
+th2-grpc = { id = "com.exactpro.th2.gradle.grpc", version.ref = "th2-plugin" }
+th2-component = { id = "com.exactpro.th2.gradle.component", version.ref = "th2-plugin" }

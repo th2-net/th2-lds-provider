@@ -10,12 +10,12 @@ jobs:
     name: Extract app version
     uses: th2-net/.github/.github/workflows/compound-prebuild-java-workflow.yml@main
     with:
-      project-path: .
+      project-path: app
   get-previous-tag:
     name: Get previous tag
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: ${{ github.ref }}
           fetch-depth: 100
@@ -36,14 +36,14 @@ jobs:
       app: ${{ steps.filter.outputs.app }}
       grpc: ${{ steps.filter.outputs.grpc }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v2
         id: filter
         with:
           base: ${{ needs.get-previous-tag.outputs.tag }}
           filters: |
             app:
-              - 'gradle.properties'
+              - 'app/gradle.properties'
             grpc:
               - 'grpc/gradle.properties'
             utils:
@@ -71,7 +71,7 @@ jobs:
       - changes
     if: ${{ needs.changes.outputs.grpc == 'true' }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up JDK 'zulu' '11'
         uses: actions/setup-java@v3
         with:
@@ -111,7 +111,7 @@ jobs:
       always() && 
       (needs.changes.outputs.utils == 'true' || needs.changes.outputs.grpc == 'true')
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up JDK 'zulu' '11'
         uses: actions/setup-java@v3
         with:
@@ -131,6 +131,8 @@ jobs:
     uses: th2-net/.github/.github/workflows/owasp-gradle-scan.yml@main
     with:
       multiproject: true
+    secrets:
+      nvd-api-key: ${{ secrets.NVD_APIKEY }}
 
   publish-docker:
     name: Build and publish docker image

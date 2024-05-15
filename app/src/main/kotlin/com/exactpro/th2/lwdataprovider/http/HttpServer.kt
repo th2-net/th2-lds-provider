@@ -42,8 +42,8 @@ import io.javalin.openapi.plugin.OpenApiPlugin
 import io.javalin.openapi.plugin.OpenApiPluginConfiguration
 import io.javalin.openapi.plugin.redoc.ReDocConfiguration
 import io.javalin.openapi.plugin.redoc.ReDocPlugin
-//import io.javalin.openapi.plugin.swagger.SwaggerConfiguration
-//import io.javalin.openapi.plugin.swagger.SwaggerPlugin
+import io.javalin.openapi.plugin.swagger.SwaggerConfiguration
+import io.javalin.openapi.plugin.swagger.SwaggerPlugin
 import io.javalin.validation.JavalinValidation
 import io.micrometer.core.instrument.Clock
 import io.micrometer.core.instrument.Tag
@@ -171,7 +171,7 @@ class HttpServer(private val context: Context) {
 
             setupOpenApi(it, externalContextPath)
 
-//            setupSwagger(it)
+            setupSwagger(it)
 
             setupReDoc(it, externalContextPath)
         }.apply {
@@ -202,10 +202,10 @@ class HttpServer(private val context: Context) {
         it.plugins.register(ReDocPlugin(reDocConfiguration))
     }
 
-//    private fun setupSwagger(it: JavalinConfig) {
-//        val swaggerConfiguration = SwaggerConfiguration()
-//        it.plugins.register(SwaggerPlugin(swaggerConfiguration))
-//    }
+    private fun setupSwagger(it: JavalinConfig) {
+        val swaggerConfiguration = SwaggerConfiguration()
+        it.plugins.register(SwaggerPlugin(swaggerConfiguration))
+    }
 
     private fun setupOpenApi(it: JavalinConfig, externalContextPath: String?) {
 

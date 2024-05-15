@@ -2,7 +2,8 @@
 kotlin = "1.8.22"
 th2-plugin = "0.0.6"
 strikt = "0.34.1"
-javalin = "5.4.2"
+javalin = "5.6.5"
+openapi = "5.6.4"
 
 [libraries]
 th2-common = { group = "com.exactpro.th2", name = "common", version = "5.11.0-dev" }
@@ -19,14 +20,14 @@ mockito-kotlin = { group = "org.mockito.kotlin", name = "mockito-kotlin", versio
 strikt-core = { group = "io.strikt", name = "strikt-core", version.ref = "strikt" }
 strikt-jackson = { group = "io.strikt", name = "strikt-jackson", version.ref = "strikt" }
 
-openapi-annotation-processor = { group = "io.javalin.community.openapi", name = "openapi-annotation-processor", version.ref = "javalin" }
-javalin-openapi-plugin = { group = "io.javalin.community.openapi", name = "javalin-openapi-plugin", version.ref = "javalin" }
-javalin-redoc-plugin = { group = "io.javalin.community.openapi", name = "javalin-redoc-plugin", version.ref = "javalin" }
+openapi-annotation-processor = { group = "io.javalin.community.openapi", name = "openapi-annotation-processor", version.ref = "openapi" }
+javalin-openapi-plugin = { group = "io.javalin.community.openapi", name = "javalin-openapi-plugin", version.ref = "openapi" }
+javalin-redoc-plugin = { group = "io.javalin.community.openapi", name = "javalin-redoc-plugin", version.ref = "openapi" }
 javalin-testtools = { group = "io.javalin", name = "javalin-testtools", version.ref = "javalin" }
 javalin = { group = "io.javalin", name = "javalin", version.ref = "javalin" }
 javalin-micrometer = { group = "io.javalin", name = "javalin-micrometer", version.ref = "javalin" }
 
-# vulnerabilities in version 11.0.13. Can be removed after updating Javalin and Kotlin
+# vulnerabilities in version 11.0.20. Can be removed after updating Javalin and Kotlin
 jetty-bom = { group = "org.eclipse.jetty", name = "jetty-bom", version = "11.0.20" }
 micrometer-bom = { group = "io.micrometer", name = "micrometer-bom", version = "1.12.5" }
 

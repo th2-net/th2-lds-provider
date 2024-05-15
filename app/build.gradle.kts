@@ -17,7 +17,7 @@ dependencies {
         exclude(group = "com.exactpro.th2", module = "cradle-cassandra")
     }
 
-    implementation(platform("org.eclipse.jetty:jetty-bom:11.0.15")) {
+    implementation(platform("org.eclipse.jetty:jetty-bom:11.0.20")) {
         because("vulnerabilities in version 11.0.13. Can be removed after updating Javalin and Kotlin")
     }
 
@@ -75,6 +75,5 @@ dependencies {
 }
 
 application {
-    applicationName = "service"
     mainClass.set("com.exactpro.th2.lwdataprovider.MainKt")
 }

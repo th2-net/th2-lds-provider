@@ -230,6 +230,7 @@ spec:
 + Updated cradle api: `5.3.0-dev`
 + Updated common: `5.11.0-dev`
 + Updated micrometer-bom: `1.12.5`
++ Updated jetty-bom: `11.0.20`
 
 ## 2.7.0
 

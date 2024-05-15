@@ -69,6 +69,7 @@ jobs:
       docker-username: ${{ github.actor }}
       version: ${{ needs.app-version.outputs.version }}
       versionNumber: ${{ needs.app-version.outputs.versionNumber }}
+      dockerContext: '.'
       gradleParameters: ${{ format('["clean", "build", "dockerPrepare", "-Pversion_suffix={0}"]', needs.app-version.outputs.versionSuffix) }}
     secrets:
       docker-password: ${{ secrets.GITHUB_TOKEN }}

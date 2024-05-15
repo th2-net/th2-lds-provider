@@ -147,6 +147,7 @@ jobs:
       docker-username: ${{ github.actor }}
       version: ${{ needs.app-version.outputs.version }}-dev
       versionNumber: ${{ needs.app-version.outputs.version }}
+      dockerContext: '.'
       gradleParameters: '["clean", "build", "dockerPrepare"]'
     secrets:
       docker-password: ${{ secrets.GITHUB_TOKEN }}

@@ -13,9 +13,7 @@ dependencies {
         exclude(group = "com.exactpro.th2", module = "cradle-cassandra")
     }
 
-    implementation(platform(libs.jetty.bom)) {
-        because("vulnerabilities in version 11.0.13. Can be removed after updating Javalin and Kotlin")
-    }
+    implementation(platform(libs.jetty.bom))
 
     implementation(libs.javalin)
     implementation(libs.javalin.micrometer)

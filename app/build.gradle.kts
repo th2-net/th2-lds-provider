@@ -13,8 +13,6 @@ dependencies {
         exclude(group = "com.exactpro.th2", module = "cradle-cassandra")
     }
 
-    implementation(platform(libs.jetty.bom))
-
     implementation(libs.javalin)
     implementation(libs.javalin.micrometer)
 

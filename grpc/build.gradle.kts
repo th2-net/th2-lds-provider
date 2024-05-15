@@ -2,11 +2,11 @@ plugins {
     `java-library`
     `maven-publish`
 
-    id("com.exactpro.th2.gradle.grpc")
+    alias(libs.plugins.th2.grpc)
 }
 
 dependencies {
-    api("com.exactpro.th2:grpc-common:4.5.0-dev")
+    api(libs.th2.grpc.common)
 }
 
 th2Grpc {

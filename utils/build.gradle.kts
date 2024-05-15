@@ -3,17 +3,15 @@ plugins {
     `maven-publish`
 }
 
-val commonVersion: String by rootProject.extra
-
 dependencies {
     api(project(":grpc-lw-data-provider"))
-    implementation("com.exactpro.th2:common:${commonVersion}") {
+    implementation(libs.th2.common) {
         exclude(group = "com.exactpro.th2", module = "cradle-core")
         exclude(group = "com.exactpro.th2", module = "cradle-cassandra")
     }
 
-    implementation("io.github.microutils:kotlin-logging:3.0.5")
+    implementation(libs.kotlin.logging)
 
-    testImplementation("org.mockito.kotlin:mockito-kotlin:5.3.1")
+    testImplementation(libs.mockito.kotlin)
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
 }

@@ -30,10 +30,9 @@ dependencies {
     implementation(libs.javalin.openapi.plugin) {
         because("for /openapi route with JSON scheme")
     }
-// swagger-ui-3.52.5.jar (pkg:maven/org.webjars/swagger-ui@3.52.5) : CVE-2018-25031
-//    implementation("io.javalin.community.openapi:javalin-swagger-plugin:$javalin") {
-//        because("for Swagger UI")
-//    }
+    implementation(libs.javalin.swagger.plugin) {
+        because("for Swagger UI")
+    }
     implementation(libs.javalin.redoc.plugin) {
         because("for Re Doc UI")
     }

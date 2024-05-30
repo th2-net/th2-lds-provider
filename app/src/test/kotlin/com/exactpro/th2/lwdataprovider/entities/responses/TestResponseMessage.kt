@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package com.exactpro.th2.lwdataprovider.entities.responses
 import com.exactpro.cradle.BookId
 import com.exactpro.cradle.Direction.FIRST
 import com.exactpro.cradle.messages.StoredMessageId
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.DecodeContext
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.EventId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageId
@@ -86,7 +87,7 @@ class TestResponseMessage {
                 }.build().run {
                     val buf = Unpooled.buffer()
                     ParsedMessageCodec.encode(this, buf)
-                    ParsedMessageCodec.decode(buf)
+                    ParsedMessageCodec.decode(DecodeContext.create(), buf)
                 }
             )
         ),

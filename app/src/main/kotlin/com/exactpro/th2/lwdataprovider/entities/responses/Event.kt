@@ -60,12 +60,12 @@ data class Event(
             .setStartTimestamp(startTimestamp.toTimestamp())
             .setStatus(if (successful) SUCCESS else FAILED)
             .addAllAttachedMessageId(convertMessageIdToProto(attachedMessageIds))
-            .setBody(UnsafeByteOperations.unsafeWrap(body))
             .also { builder ->
                 batchId?.let { builder.setBatchId(EventID.newBuilder().setId(it)) }
                 eventType?.let { builder.setEventType(it) }
                 endTimestamp?.let { builder.setEndTimestamp(it.toTimestamp()) }
                 parentEventId?.let { builder.parentEventId = convertToEventIdProto(it) }
+                body?.let { builder.body = UnsafeByteOperations.unsafeWrap(body) }
             }.build()
     }
 

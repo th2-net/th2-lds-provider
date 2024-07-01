@@ -24,9 +24,10 @@ import strikt.assertions.isNotNull
 internal class TestGetOneEvent : AbstractHttpHandlerTest<GetOneEvent>() {
     override fun createHandler(): GetOneEvent {
         return GetOneEvent(
-            configuration,
             sseResponseBuilder,
             context.searchEventsHandler,
+            context.convExecutor,
+            context.requestsDataMeasurement,
         )
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,6 @@ import com.exactpro.th2.lwdataprovider.http.serializers.BookIdDeserializer
 import com.exactpro.th2.lwdataprovider.producers.MessageProducer
 import com.exactpro.th2.lwdataprovider.producers.MessageProducer53
 import com.exactpro.th2.lwdataprovider.producers.MessageProducer53Transport
-import com.exactpro.th2.lwdataprovider.workers.TaskManager
 import com.fasterxml.jackson.databind.module.SimpleModule
 import io.javalin.Javalin
 import io.javalin.config.JavalinConfig
@@ -102,10 +101,16 @@ class HttpServer(private val context: Context) {
                 configuration, context.convExecutor,
                 sseResponseBuilder, searchMessagesHandler, context.requestsDataMeasurement
             ),
-            GetOneEvent(configuration, sseResponseBuilder, this.context.searchEventsHandler),
+            GetOneEvent(
+                sseResponseBuilder,
+                this.context.searchEventsHandler,
+                context.convExecutor,
+                context.requestsDataMeasurement,
+            ),
             GetEventsServlet(
                 configuration, sseResponseBuilder, keepAliveHandler,
-                this.context.searchEventsHandler
+                this.context.searchEventsHandler,
+                context.convExecutor, context.requestsDataMeasurement,
             ),
             GetBookIDs(context.generalCradleHandler),
             GetSessionAliases(context.searchMessagesHandler),
@@ -113,11 +118,13 @@ class HttpServer(private val context: Context) {
             GetMessageGroups(context.searchMessagesHandler),
             GetPageInfosServlet(
                 configuration, sseResponseBuilder,
-                keepAliveHandler, context.generalCradleHandler
+                keepAliveHandler, context.generalCradleHandler,
+                context.convExecutor, context.requestsDataMeasurement,
             ),
             GetAllPageInfosServlet(
                 configuration, sseResponseBuilder,
-                keepAliveHandler, context.generalCradleHandler
+                keepAliveHandler, context.generalCradleHandler,
+                context.convExecutor, context.requestsDataMeasurement,
             ),
             GetSingleMessageByGroupAndId(
                 searchMessagesHandler,
@@ -169,7 +176,7 @@ class HttpServer(private val context: Context) {
 
             val externalContextPath = System.getenv(EXTERNAL_CONTEXT_PATH_ENV)?.takeUnless(String::isBlank)
 
-            setupOpenApi(it, externalContextPath)
+            setupOpenApi(it)
 
             setupSwagger(it)
 
@@ -207,7 +214,7 @@ class HttpServer(private val context: Context) {
         it.plugins.register(SwaggerPlugin(swaggerConfiguration))
     }
 
-    private fun setupOpenApi(it: JavalinConfig, externalContextPath: String?) {
+    private fun setupOpenApi(it: JavalinConfig) {
 
         val openApiConfiguration = OpenApiPluginConfiguration()
             .withDefinitionConfiguration { _, definition ->

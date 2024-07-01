@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,8 @@ import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.BaseEventEntity
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.filter.DataFilter
-import com.exactpro.th2.lwdataprovider.producers.EventProducer
+import com.exactpro.th2.lwdataprovider.producers.fromBatchEvent
+import com.exactpro.th2.lwdataprovider.producers.fromSingleEvent
 import mu.KotlinLogging
 import java.time.Duration
 import java.time.Instant
@@ -122,7 +123,7 @@ class CradleEventExtractor(
                 sink.onError("Event with id: '$eventId' is not found in batch '$batchId'", filter.eventId, batchId)
                 return
             }
-            val batchEventBody = EventProducer.fromBatchEvent(testEvent, batch)
+            val batchEventBody = fromBatchEvent(testEvent, batch)
 
             sink.onNext(batchEventBody.convertToEvent())
         } else {
@@ -240,7 +241,7 @@ class CradleEventExtractor(
     ) {
         if (testEvent.isSingle) {
             val singleEv = testEvent.asSingle()
-            val event = EventProducer.fromSingleEvent(singleEv)
+            val event = fromSingleEvent(singleEv)
             count.total++
             if (!filter.match(event)) {
                 return
@@ -254,7 +255,7 @@ class CradleEventExtractor(
             val batch = testEvent.asBatch()
             val eventsList = batch.testEvents
             for (batchEvent in eventsList) {
-                val batchEventBody = EventProducer.fromBatchEvent(batchEvent, batch)
+                val batchEventBody = fromBatchEvent(batchEvent, batch)
                 count.total++
                 if (!filter.match(batchEventBody)) {
                     continue

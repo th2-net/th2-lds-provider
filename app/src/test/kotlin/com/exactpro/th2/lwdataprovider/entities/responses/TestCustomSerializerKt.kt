@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,12 @@ package com.exactpro.th2.lwdataprovider.entities.responses
 
 import com.exactpro.cradle.BookId
 import com.exactpro.cradle.messages.StoredMessageId
+import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.EventId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 import com.exactpro.th2.lwdataprovider.entities.internal.Direction
+import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.fasterxml.jackson.databind.json.JsonMapper
 import io.netty.buffer.Unpooled
 import org.junit.jupiter.api.assertDoesNotThrow
@@ -34,7 +36,7 @@ internal class TestCustomSerializerKt {
     private val mapper = JsonMapper()
     @ParameterizedTest(name = "char `{0}` does not cause problems")
     @ValueSource(chars = ['\"', '\n', '\r', '\\', '\t', '\b', ':'])
-    fun `writes valid json`(escapeCharacter: Char) {
+    fun `writes ProviderMessage53Transport as valid json`(escapeCharacter: Char) {
         val timestamp = Instant.now()
         val message = ProviderMessage53Transport(
             timestamp = timestamp,
@@ -82,6 +84,47 @@ internal class TestCustomSerializerKt {
 
         val jsonBytes = message.toJSONByteArray()
 
+        assertDoesNotThrow { mapper.readTree(jsonBytes) }
+    }
+
+    @ParameterizedTest(name = "char `{0}` does not cause problems")
+    @ValueSource(chars = ['\"', '\n', '\r', '\\', '\t', '\b', ':'])
+    fun `writes Event as valid json`(escapeCharacter: Char) {
+        val timestamp = Instant.now()
+        val event = Event(
+            eventId = "event${escapeCharacter}Id",
+            batchId = "batch${escapeCharacter}Id",
+            shortEventId = "shortEvent${escapeCharacter}Id",
+            isBatched = true,
+            eventName = "event${escapeCharacter}Name",
+            eventType = "event${escapeCharacter}Type",
+            endTimestamp = timestamp,
+            startTimestamp = timestamp,
+            parentEventId = ProviderEventId(
+                batchId = StoredTestEventId(
+                    BookId("book${escapeCharacter}Id"),
+                    "scope${escapeCharacter}",
+                    timestamp,
+                    "id${escapeCharacter}"
+                ),
+                eventId = StoredTestEventId(
+                    BookId("book${escapeCharacter}Id"),
+                    "scope${escapeCharacter}",
+                    timestamp,
+                    "id${escapeCharacter}"
+                ),
+            ),
+            successful = true,
+            bookId = "book${escapeCharacter}Id",
+            scope = "scope${escapeCharacter}",
+            attachedMessageIds = setOf(
+                "attachedMessage${escapeCharacter}Id",
+            ),
+            body = """[{"body":"test-body"}]""".toByteArray(Charsets.UTF_8)
+        )
+
+        val jsonBytes = event.toJSONByteArray()
+        println(String(jsonBytes))
         assertDoesNotThrow { mapper.readTree(jsonBytes) }
     }
 }

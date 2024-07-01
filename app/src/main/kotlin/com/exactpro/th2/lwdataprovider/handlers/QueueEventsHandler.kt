@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -135,7 +135,7 @@ private fun Event.toGrpc(): CommonGrpcEvent {
         .setName(eventName)
         .setType(eventType)
         .setStatus(if (successful) EventStatus.SUCCESS else EventStatus.FAILED)
-        .setBody(UnsafeByteOperations.unsafeWrap(body.toByteArray(Charsets.UTF_8)))
+        .setBody(UnsafeByteOperations.unsafeWrap(body))
         .also { event ->
             endTimestamp?.also { event.endTimestamp = it.toTimestamp() }
             parentEventId?.also { event.parentId = Event.convertToEventIdProto(it) }

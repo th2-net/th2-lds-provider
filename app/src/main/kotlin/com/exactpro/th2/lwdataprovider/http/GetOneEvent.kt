@@ -33,13 +33,11 @@ import io.javalin.openapi.OpenApiParam
 import io.javalin.openapi.OpenApiResponse
 import mu.KotlinLogging
 import java.util.concurrent.ArrayBlockingQueue
-import java.util.concurrent.Executor
 import java.util.function.Supplier
 
 class GetOneEvent(
     private val sseResponseBuilder: SseResponseBuilder,
     private val searchEventsHandler: SearchEventsHandler,
-    private val convExecutor: Executor,
     private val dataMeasurement: DataMeasurement,
 ) : AbstractRequestHandler() {
 
@@ -89,7 +87,7 @@ class GetOneEvent(
         val reqContext = HttpGenericResponseHandler(
             queue,
             sseResponseBuilder,
-            convExecutor,
+            Runnable::run,
             dataMeasurement,
             Event::eventId,
             SseResponseBuilder::build

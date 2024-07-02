@@ -124,7 +124,7 @@ internal class TestCustomSerializerKt {
         )
 
         val jsonBytes = event.toJSONByteArray()
-        println(String(jsonBytes))
+
         assertDoesNotThrow { mapper.readTree(jsonBytes) }
     }
 }

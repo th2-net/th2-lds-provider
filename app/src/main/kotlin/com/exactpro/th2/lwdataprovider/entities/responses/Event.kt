@@ -111,16 +111,12 @@ data class Event(
 
     companion object {
         @JvmStatic
-        fun convertToEventIdProto(id: ProviderEventId): EventID {
-            return with(id.eventId) {
-                EventUtils.toEventID(startTimestamp, bookId.name, scope, this.id)
-            }
+        fun convertToEventIdProto(providerEventId: ProviderEventId): EventID = providerEventId.eventId.run {
+            EventUtils.toEventID(startTimestamp, bookId.name, scope, id)
         }
         @JvmStatic
-        fun convertMessageIdToProto(attachedMessageIds: Set<String>): List<MessageID> {
-            return attachedMessageIds.map { id ->
-                StoredMessageId.fromString(id).toGrpcMessageId()
-            }
+        fun convertMessageIdToProto(attachedMessageIds: Set<String>): List<MessageID> = attachedMessageIds.map { id ->
+            StoredMessageId.fromString(id).toGrpcMessageId()
         }
     }
 }

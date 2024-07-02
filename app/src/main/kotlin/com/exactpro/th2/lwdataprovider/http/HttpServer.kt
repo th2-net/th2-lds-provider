@@ -104,7 +104,6 @@ class HttpServer(private val context: Context) {
             GetOneEvent(
                 sseResponseBuilder,
                 this.context.searchEventsHandler,
-                context.convExecutor,
                 context.requestsDataMeasurement,
             ),
             GetEventsServlet(

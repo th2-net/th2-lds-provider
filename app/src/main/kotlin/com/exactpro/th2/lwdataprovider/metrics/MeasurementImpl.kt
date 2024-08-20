@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 package com.exactpro.th2.lwdataprovider.metrics
 
 import com.exactpro.th2.lwdataprovider.db.Measurement
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 
 internal class MeasurementImpl(
     private val name: String,

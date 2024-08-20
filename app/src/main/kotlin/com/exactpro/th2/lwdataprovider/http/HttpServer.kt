@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,8 +27,8 @@ import com.exactpro.th2.lwdataprovider.http.serializers.BookIdDeserializer
 import com.exactpro.th2.lwdataprovider.producers.MessageProducer
 import com.exactpro.th2.lwdataprovider.producers.MessageProducer53
 import com.exactpro.th2.lwdataprovider.producers.MessageProducer53Transport
-import com.exactpro.th2.lwdataprovider.workers.TaskManager
 import com.fasterxml.jackson.databind.module.SimpleModule
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.javalin.Javalin
 import io.javalin.config.JavalinConfig
 import io.javalin.http.BadRequestResponse
@@ -47,10 +47,9 @@ import io.javalin.openapi.plugin.swagger.SwaggerPlugin
 import io.javalin.validation.JavalinValidation
 import io.micrometer.core.instrument.Clock
 import io.micrometer.core.instrument.Tag
-import io.micrometer.prometheus.PrometheusConfig
-import io.micrometer.prometheus.PrometheusMeterRegistry
-import io.prometheus.client.CollectorRegistry
-import mu.KotlinLogging
+import io.micrometer.prometheusmetrics.PrometheusConfig
+import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
+import io.prometheus.metrics.model.registry.PrometheusRegistry
 import org.apache.commons.lang3.exception.ExceptionUtils
 import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.server.handler.gzip.GzipHandler
@@ -154,7 +153,7 @@ class HttpServer(private val context: Context) {
                     }
                 )
             ))
-            if (logger.isTraceEnabled) {
+            if (logger.isTraceEnabled()) {
                 it.plugins.enableDevLogging()
             } else {
                 it.requestLogger.http { ctx, time ->
@@ -163,7 +162,7 @@ class HttpServer(private val context: Context) {
             }
             it.plugins.register(MicrometerPlugin.create { micrometer ->
                 micrometer.registry =
-                    PrometheusMeterRegistry(PrometheusConfig.DEFAULT, CollectorRegistry.defaultRegistry, Clock.SYSTEM)
+                    PrometheusMeterRegistry(PrometheusConfig.DEFAULT, PrometheusRegistry.defaultRegistry, Clock.SYSTEM)
                 micrometer.tags = listOf(Tag.of("application", context.applicationName))
             })
 

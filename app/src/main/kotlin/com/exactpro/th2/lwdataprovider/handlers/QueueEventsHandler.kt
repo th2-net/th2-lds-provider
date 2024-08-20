@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ import com.exactpro.th2.lwdataprovider.entities.requests.QueueEventsScopeRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.handlers.util.BookScope
 import com.google.protobuf.UnsafeByteOperations
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.apache.commons.lang3.StringUtils.isBlank
 import java.util.concurrent.Executor
 import com.exactpro.th2.common.grpc.Event as CommonGrpcEvent

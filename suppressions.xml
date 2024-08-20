@@ -12,4 +12,9 @@
         <packageUrl regex="true">^pkg:maven/com\.exactpro\.th2/grpc-.*@.*$</packageUrl>
         <cpe>cpe:/a:grpc:grpc</cpe>
     </suppress>
+    <suppress base="true">
+        <notes><![CDATA[FP per issue https://github.com/jeremylong/DependencyCheck/issues/6686]]></notes>
+        <packageUrl regex="true">^pkg:maven/io\.prometheus/prometheus-metrics-.*@.*$</packageUrl>
+        <cpe>cpe:/a:prometheus:prometheus</cpe>
+    </suppress>
 </suppressions>

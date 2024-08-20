@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ import com.exactpro.th2.lwdataprovider.handlers.QueueMessagesHandler
 import io.grpc.Context
 import io.grpc.Status
 import io.grpc.stub.StreamObserver
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 
 class QueueGrpcProvider(
     private val messagesHandler: QueueMessagesHandler,

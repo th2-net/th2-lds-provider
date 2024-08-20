@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.http.listener.ProgressListener
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonValue
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.apache.commons.lang3.exception.ExceptionUtils
 import java.time.Duration
 import java.time.Instant
@@ -30,7 +30,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock
 import javax.annotation.concurrent.NotThreadSafe
 import kotlin.concurrent.read
 import kotlin.concurrent.write
-import kotlin.math.min
 
 class TaskManager : AutoCloseable, TimeoutChecker {
     private val tasksLock = ReentrantReadWriteLock()

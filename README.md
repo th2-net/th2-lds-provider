@@ -1,4 +1,4 @@
-# Lightweight data provider (2.10.0)
+# Lightweight data provider (2.11.0)
 
 # Overview
 This component serves as a data provider for [th2-data-services](https://github.com/th2-net/th2-data-services). It will connect to the cassandra database via [cradle api](https://github.com/th2-net/cradleapi) and expose the data stored in there as REST resources.
@@ -223,6 +223,15 @@ spec:
 ```
 
 # Release notes:
+
+## 2.11.0
+
++ Updated:
+  + th2 gradle plugin `0.1.1`
+  + common: `5.14.0-dev`
+  + cradle api: `5.4.2-dev`
+  + kotlin-logging: `5.1.4`
+  + micrometer-bom: `1.13.3`
 
 ## 2.10.0
 

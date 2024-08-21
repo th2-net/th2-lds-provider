@@ -167,10 +167,11 @@ class HttpServer(private val context: Context) {
             })
 
             val externalContextPath = System.getenv(EXTERNAL_CONTEXT_PATH_ENV)?.takeUnless(String::isBlank)
+            val externalAddress = System.getenv(EXTERNAL_ADDRESS)?.takeUnless(String::isBlank)
 
-            setupOpenApi(it, externalContextPath)
+            setupOpenApi(it, externalAddress, externalContextPath)
 
-            setupSwagger(it)
+            setupSwagger(it, externalContextPath)
 
             setupReDoc(it, externalContextPath)
         }.apply {
@@ -201,12 +202,14 @@ class HttpServer(private val context: Context) {
         it.plugins.register(ReDocPlugin(reDocConfiguration))
     }
 
-    private fun setupSwagger(it: JavalinConfig) {
-        val swaggerConfiguration = SwaggerConfiguration()
+    private fun setupSwagger(it: JavalinConfig, externalContextPath: String?) {
+        val swaggerConfiguration = SwaggerConfiguration().apply {
+            basePath = externalContextPath
+        }
         it.plugins.register(SwaggerPlugin(swaggerConfiguration))
     }
 
-    private fun setupOpenApi(it: JavalinConfig, externalContextPath: String?) {
+    private fun setupOpenApi(it: JavalinConfig, externalAddress: String?, externalContextPath: String?) {
 
         val openApiConfiguration = OpenApiPluginConfiguration()
             .withDefinitionConfiguration { _, definition ->
@@ -225,10 +228,15 @@ class HttpServer(private val context: Context) {
                         "Light Weight Data Provider provides you with fast access to data in Cradle"
                     openApiInfo.contact = openApiContact
                     openApiInfo.license = openApiLicense
-                    openApiInfo.version = "2.6.0"
+                    openApiInfo.version = "2.11.0"
                 }.withServer { openApiServer ->
                     openApiServer.url = "http://localhost:{port}"
                     openApiServer.addVariable("port", "8080", arrayOf("8080"), "Port of the server")
+                }
+                if (externalAddress != null) {
+                    definition.withServer { server ->
+                        server.url = externalContextPath?.let { "$externalAddress/$it" }
+                    }
                 }
             }
         it.plugins.register(OpenApiPlugin(openApiConfiguration))
@@ -238,6 +246,7 @@ class HttpServer(private val context: Context) {
         private val logger = KotlinLogging.logger {}
 
         private const val EXTERNAL_CONTEXT_PATH_ENV = "EXTERNAL_CONTEXT_PATH"
+        private const val EXTERNAL_ADDRESS = "EXTERNAL_ADDRESS"
 
         const val TIME_EXAMPLE =
             "Every value that is greater than 1_000_000_000 ^ 2 will be interpreted as nanos. Otherwise, as millis.\n" +

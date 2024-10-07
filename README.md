@@ -227,6 +227,7 @@ spec:
 ## 2.11.1
 
 + Support `keepOpen` option for `searchMessageGroups` gRPC request 
++ th2 gradle plugin `0.1.3`
 
 ## 2.11.0
 

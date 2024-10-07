@@ -1,8 +1,11 @@
-# utils for lw-data-provider (0.0.3)
+# utils for lw-data-provider (0.0.4)
 
 # Release notes:
 
 ## 0.0.3
+
+### Updates:
++ th2 gradle plugin `0.1.3`
 
 ### Updates:
 + th2 gradle plugin `0.0.8`

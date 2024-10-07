@@ -10,6 +10,9 @@
 ## 0.0.3
 
 ### Updates:
++ th2 gradle plugin `0.1.3`
+
+### Updates:
 + th2 gradle plugin `0.0.8`
 + common: `5.12.0-dev`
 

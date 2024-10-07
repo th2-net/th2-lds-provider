@@ -19,8 +19,11 @@ package com.exactpro.th2.lwdataprovider.grpc
 import com.exactpro.th2.dataprovider.lw.grpc.DataProviderGrpc
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
+import java.util.concurrent.Executors
 
-class GrpcDataProviderImplTest : GRPCBaseTests() {
+class GrpcDataProviderBackPressureTest : GRPCBaseTests() {
+
+    val backPressureExecutor = Executors.newSingleThreadScheduledExecutor()
 
     @ParameterizedTest
     @ValueSource(booleans = [true, false])
@@ -28,11 +31,12 @@ class GrpcDataProviderImplTest : GRPCBaseTests() {
         this.stopsPullingDataWhenOutOfRangeExists(offsetNewData)
     }
 
-    override fun createGrpcDataProvider(): DataProviderGrpc.DataProviderImplBase = GrpcDataProviderImpl(
+    override fun createGrpcDataProvider(): DataProviderGrpc.DataProviderImplBase = GrpcDataProviderBackPressure(
         configuration,
         searchHandler,
         searchEventsHandler,
         generalCradleHandler,
-        measurement
+        measurement,
+        backPressureExecutor
     )
 }

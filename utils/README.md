@@ -2,10 +2,12 @@
 
 # Release notes:
 
-## 0.0.3
+## 0.0.4
 
 ### Updates:
 + th2 gradle plugin `0.1.3`
+
+## 0.0.3
 
 ### Updates:
 + th2 gradle plugin `0.0.8`

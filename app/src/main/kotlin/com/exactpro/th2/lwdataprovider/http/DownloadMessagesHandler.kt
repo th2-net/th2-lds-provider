@@ -45,7 +45,7 @@ import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.Executor
 import java.util.function.Supplier
 
-class FileDownloadHandler(
+class DownloadMessagesHandler(
     private val configuration: Configuration,
     private val convExecutor: Executor,
     private val sseResponseBuilder: SseResponseBuilder,

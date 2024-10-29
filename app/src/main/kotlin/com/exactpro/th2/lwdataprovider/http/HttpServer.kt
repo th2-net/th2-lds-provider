@@ -132,12 +132,20 @@ class HttpServer(private val context: Context) {
                 context.convExecutor,
                 context.requestsDataMeasurement,
             ),
-            FileDownloadHandler(
+            DownloadMessagesHandler(
                 configuration,
                 context.convExecutor,
                 sseResponseBuilder,
                 context.keepAliveHandler,
                 context.searchMessagesHandler,
+                context.requestsDataMeasurement,
+            ),
+            DownloadEventsHandler(
+                configuration,
+                context.convExecutor,
+                sseResponseBuilder,
+                context.keepAliveHandler,
+                context.searchEventsHandler,
                 context.requestsDataMeasurement,
             ),
             TaskDownloadHandler(

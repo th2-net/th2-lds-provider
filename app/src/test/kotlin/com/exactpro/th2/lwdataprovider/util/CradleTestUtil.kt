@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,8 +27,8 @@ import com.exactpro.cradle.resultset.CradleResultSet
 import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.cradle.testevents.StoredTestEventSingle
 import com.exactpro.cradle.testevents.TestEventSingleToStore
-import org.apache.logging.log4j.util.Supplier
 import java.time.Instant
+import java.util.function.Supplier
 
 fun createCradleStoredMessage(
     streamName: String,
@@ -68,15 +68,17 @@ fun createEventStoredEvent(
     eventId: String,
     start: Instant,
     end: Instant,
-    parentEventId: StoredTestEventId? = null
+    parentEventId: StoredTestEventId? = null,
+    scope: String = "test-scope",
+    book: String = "test"
 ): TestEventSingleToStore = TestEventSingleToStore.builder(1)
-    .id(BookId("test"), "test-scope", start.plusSeconds(1), eventId)
+    .id(BookId(book), scope, start, eventId)
     .name("test_event")
     .type("test")
     .parentId(parentEventId)
     .content(ByteArray(0))
     .success(true)
-    .endTimestamp(end.minusSeconds(1))
+    .endTimestamp(end)
     .build()
 
 fun TestEventSingleToStore.toStoredEvent(pageID: PageId? = null): StoredTestEventSingle =

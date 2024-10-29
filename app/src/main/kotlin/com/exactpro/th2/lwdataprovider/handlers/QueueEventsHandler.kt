@@ -30,7 +30,7 @@ import com.exactpro.th2.lwdataprovider.entities.requests.QueueEventsScopeRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.handlers.util.BookScope
 import com.google.protobuf.UnsafeByteOperations
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.apache.commons.lang3.StringUtils.isBlank
 import java.util.concurrent.Executor
 import com.exactpro.th2.common.grpc.Event as CommonGrpcEvent

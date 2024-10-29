@@ -36,7 +36,7 @@ import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.filter.DataFilter
 import com.exactpro.th2.lwdataprovider.producers.fromBatchEvent
 import com.exactpro.th2.lwdataprovider.producers.fromSingleEvent
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import java.time.Duration
 import java.time.Instant
 import java.util.Collections

@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import com.exactpro.th2.lwdataprovider.toCradle
 import io.grpc.Status
 import io.grpc.stub.StreamObserver
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.apache.commons.lang3.exception.ExceptionUtils
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.BlockingQueue
@@ -127,7 +127,7 @@ open class GrpcDataProviderImpl(
             sender.invoke(value)
             responseObserver.onCompleted()
         }
-        handler.cancel();
+        handler.cancel()
     }
 
     override fun searchEvents(request: EventSearchRequest, responseObserver: StreamObserver<EventSearchResponse>) {

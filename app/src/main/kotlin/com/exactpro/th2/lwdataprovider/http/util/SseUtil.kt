@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import io.javalin.http.Context
 import io.javalin.http.Header
 import io.javalin.http.NotFoundResponse
 import io.javalin.http.sse.SseHandler
-import mu.KLogger
+import io.github.oshai.kotlinlogging.KLogger
 
 const val EVENT_STREAM_CONTENT_TYPE = "text/event-stream"
 

@@ -184,7 +184,7 @@ class DownloadMessagesHandler(
         keepAliveHandler.addKeepAliveData(handler).use {
             searchMessagesHandler.loadMessageGroups(request, handler, dataMeasurement)
             writeJsonStream(ctx, queue, handler, dataMeasurement, LOGGER)
-            LOGGER.info { "Processing search sse messages group request finished" }
+            LOGGER.info { "Processing download messages request finished" }
         }
     }
 

@@ -54,13 +54,12 @@ class DownloadEventsHandler(
     private val dataMeasurement: DataMeasurement,
 ) : JavalinHandler {
     override fun setup(app: Javalin, context: JavalinContext) {
-        app.get(ROUTE_DOWNLOAD_EVENTS, this::handleMessage)
+        app.get(ROUTE_DOWNLOAD_EVENTS, this::handleEvent)
     }
 
     @OpenApi(
         path = ROUTE_DOWNLOAD_EVENTS,
-        description = "returns list of messages for specified groups. Each group will be requested one after another " +
-                "(there is no order guaranties between groups). Messages for a group are not sorted by default. ",
+        description = "returns list of events that matches the specified parameters",
         queryParams = [
             OpenApiParam(START_TIMESTAMP_PARAM, type = Long::class, required = true, example = HttpServer.TIME_EXAMPLE,
                 description = "start timestamp for search. Epoch time in milliseconds"),
@@ -68,10 +67,8 @@ class DownloadEventsHandler(
                 description = "end timestamp for search. Epoch time in milliseconds"),
             OpenApiParam(PARENT_EVENT_PARAM, type = String::class,
                 description = "parent event id for search", example = "testEventId123"),
-            OpenApiParam(KEEP_OPEN_PARAMETER, type = Boolean::class,
-                description = "enables pulling for updates until have not found a message outside the requested interval"),
             OpenApiParam(BOOK_ID_PARAM, required = true, example = "bookId123",
-                description = "book ID for requested groups"),
+                description = "book ID for requested scope"),
             OpenApiParam(SCOPE_PARAM, type = String::class, required = true,
                 description = "scope for events", example = "scope123"),
             OpenApiParam(LIMIT, type = Int::class,
@@ -123,7 +120,7 @@ class DownloadEventsHandler(
         filter = EventsFilterFactory.create(HttpFilterConverter.convert(ctx.queryParamMap())),
     )
 
-    private fun handleMessage(ctx: Context) {
+    private fun handleEvent(ctx: Context) {
         val request = createRequest(ctx)
 
         val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
@@ -135,7 +132,7 @@ class DownloadEventsHandler(
         keepAliveHandler.addKeepAliveData(handler).use {
             searchEventsHandler.loadEvents(request, handler)
             writeJsonStream(ctx, queue, handler, dataMeasurement, LOGGER)
-            LOGGER.info { "Processing search sse messages group request finished" }
+            LOGGER.info { "Processing download events request finished" }
         }
     }
 
@@ -143,7 +140,6 @@ class DownloadEventsHandler(
         private const val START_TIMESTAMP_PARAM = "startTimestamp"
         private const val END_TIMESTAMP_PARAM = "endTimestamp"
         private const val PARENT_EVENT_PARAM = "parentEvent"
-        private const val KEEP_OPEN_PARAMETER = "keepOpen"
         private const val BOOK_ID_PARAM = "bookId"
         private const val SCOPE_PARAM = "scope"
         private const val LIMIT = "limit"

@@ -108,7 +108,7 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
     }
 
     @Test
-    fun `creates task`() {
+    fun `creates messages task`() {
         startTest { _, client ->
             val response = client.post(
                 path = "/download",
@@ -143,7 +143,44 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
     }
 
     @Test
-    fun `reports incorrect params`() {
+    fun `creates events task`() {
+        startTest { _, client ->
+            val response = client.post(
+                path = "/download",
+                json = mapOf(
+                    "resource" to "EVENTS",
+                    "bookID" to "test-book",
+                    "startTimestamp" to Instant.now().plusSeconds(10).toEpochMilli(),
+                    "endTimestamp" to Instant.now().toEpochMilli(),
+                    "scope" to "test-scope",
+                    "limit" to 42,
+                    "searchDirection" to "previous",
+                    "parentEvent" to "test-book:test-scope:20241101103050123456789:test-event-id",
+                    "filter" to mapOf(
+                        "filters" to setOf("type", "name"),
+                        "type-values" to setOf("type-a", "type-b"),
+                        "name-values" to setOf("name-a", "name-b"),
+                        "type-conjunct" to "true",
+                        "name-conjunct" to "false",
+                        "type-negative" to "false",
+                        "name-negative" to "true",
+                    ),
+                )
+            )
+
+            expectThat(response) {
+                get { code } isEqualTo HttpStatus.CREATED.code
+                jsonBody()
+                    .isObject()
+                    .has("taskID")
+                    .path("taskID")
+                    .isTextual()
+            }
+        }
+    }
+
+    @Test
+    fun `reports incorrect params for messages task`() {
         startTest { _, client ->
             val response = client.post(
                 path = "/download",
@@ -167,6 +204,43 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
                     .has("groups")
                     .has("limit")
                     .has("responseFormats")
+            }
+        }
+    }
+
+    @Test
+    fun `reports incorrect params for events task`() {
+        startTest { _, client ->
+            val response = client.post(
+                path = "/download",
+                json = mapOf(
+                    "resource" to "EVENTS",
+                    "bookID" to "",
+                    "startTimestamp" to Instant.now().plusSeconds(10).toEpochMilli(),
+                    "endTimestamp" to Instant.now().toEpochMilli(),
+                    "scope" to "",
+                    "limit" to -42,
+                    "searchDirection" to "previous",
+                    "parentEvent" to "test-book:test-scope:20241101103050123456789:test-event-id",
+                    "filter" to mapOf(
+                        "filters" to setOf("type", "name"),
+                        "type-values" to setOf("type-a", "type-b"),
+                        "name-values" to setOf("name-a", "name-b"),
+                        "type-conjunct" to "true",
+                        "name-conjunct" to "false",
+                        "type-negative" to "false",
+                        "name-negative" to "true",
+                    ),
+                )
+            )
+
+            expectThat(response) {
+                get { code } isEqualTo HttpStatus.BAD_REQUEST.code
+                jsonBody()
+                    .isObject()
+                    .has("bookID")
+                    .has("scope")
+                    .has("limit")
             }
         }
     }

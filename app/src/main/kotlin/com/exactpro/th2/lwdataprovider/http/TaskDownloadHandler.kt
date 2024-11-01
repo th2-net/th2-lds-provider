@@ -29,13 +29,14 @@ import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
-import com.exactpro.th2.lwdataprovider.entities.responses.BaseEventEntity
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
-import com.exactpro.th2.lwdataprovider.filter.DataFilter
+import com.exactpro.th2.lwdataprovider.filter.FilterRequest
+import com.exactpro.th2.lwdataprovider.filter.events.EventsFilterFactory
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import com.exactpro.th2.lwdataprovider.http.serializers.CustomMillisOrNanosInstantDeserializer
+import com.exactpro.th2.lwdataprovider.http.serializers.FiltersDeserializer
 import com.exactpro.th2.lwdataprovider.http.util.JSON_STREAM_CONTENT_TYPE
 import com.exactpro.th2.lwdataprovider.http.util.writeJsonStream
 import com.exactpro.th2.lwdataprovider.workers.EventTaskInfo
@@ -425,7 +426,7 @@ class TaskDownloadHandler(
             scope = scope,
             searchDirection = searchDirection,
             resultCountLimit = limit,
-            filter = filter,
+            filter = EventsFilterFactory.create(filter),
         )
     }
 
@@ -485,7 +486,8 @@ class TaskDownloadHandler(
         limit: Int? = null,
         searchDirection: SearchDirection = SearchDirection.next,
         val parentEvent: String? = null,
-        val filter: DataFilter<BaseEventEntity>
+        @field:JsonDeserialize(using = FiltersDeserializer::class)
+        val filter: Collection<FilterRequest> = emptyList()
     ): CreateTaskRequest(
         Resource.EVENTS, bookID, startTimestamp, endTimestamp, limit, searchDirection
     )

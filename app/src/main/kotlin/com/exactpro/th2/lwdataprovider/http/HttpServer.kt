@@ -154,6 +154,7 @@ class HttpServer(private val context: Context) {
                 sseResponseBuilder,
                 context.keepAliveHandler,
                 context.searchMessagesHandler,
+                context.searchEventsHandler,
                 context.requestsDataMeasurement,
                 context.taskManager,
             ),

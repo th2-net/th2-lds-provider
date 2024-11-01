@@ -19,6 +19,7 @@ package com.exactpro.th2.lwdataprovider.workers
 import com.exactpro.th2.lwdataprovider.CancelableResponseHandler
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
+import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.http.listener.ProgressListener
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonValue
@@ -122,9 +123,8 @@ enum class TaskStatus {
 }
 
 @NotThreadSafe
-class TaskInformation(
+sealed class TaskInformation(
     val taskID: TaskID,
-    val request: MessagesGroupRequest,
 ) : ProgressListener {
     val creationTime: Instant = Instant.now()
     @Volatile
@@ -219,6 +219,18 @@ class TaskInformation(
         private val LOGGER = KotlinLogging.logger(TaskInformation::class.qualifiedName!!)
     }
 }
+
+@NotThreadSafe
+class MessageTaskInfo(
+    taskID: TaskID,
+    val request: MessagesGroupRequest,
+) : TaskInformation(taskID)
+
+@NotThreadSafe
+class EventTaskInfo(
+    taskID: TaskID,
+    val request: SseEventSearchRequest,
+) : TaskInformation(taskID)
 
 class ErrorHolder(
     val message: String,

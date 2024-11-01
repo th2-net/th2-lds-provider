@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,7 +48,6 @@ import strikt.jackson.isObject
 import strikt.jackson.isTextual
 import strikt.jackson.path
 import strikt.jackson.textValue
-import strikt.jackson.textValues
 import java.time.Instant
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
@@ -63,6 +62,7 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
             sseResponseBuilder,
             keepAliveHandler = context.keepAliveHandler,
             searchMessagesHandler = context.searchMessagesHandler,
+            searchEventsHandler = context.searchEventsHandler,
             context.requestsDataMeasurement,
             context.taskManager,
         )

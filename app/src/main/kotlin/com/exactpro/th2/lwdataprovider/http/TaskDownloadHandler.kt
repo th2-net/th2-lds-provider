@@ -23,22 +23,32 @@ import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
+import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
+import com.exactpro.th2.lwdataprovider.entities.responses.BaseEventEntity
+import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
+import com.exactpro.th2.lwdataprovider.filter.DataFilter
+import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import com.exactpro.th2.lwdataprovider.http.serializers.CustomMillisOrNanosInstantDeserializer
 import com.exactpro.th2.lwdataprovider.http.util.JSON_STREAM_CONTENT_TYPE
 import com.exactpro.th2.lwdataprovider.http.util.writeJsonStream
+import com.exactpro.th2.lwdataprovider.workers.EventTaskInfo
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
+import com.exactpro.th2.lwdataprovider.workers.MessageTaskInfo
 import com.exactpro.th2.lwdataprovider.workers.TaskID
 import com.exactpro.th2.lwdataprovider.workers.TaskInformation
 import com.exactpro.th2.lwdataprovider.workers.TaskManager
 import com.exactpro.th2.lwdataprovider.workers.TaskStatus
 import com.fasterxml.jackson.annotation.JsonFormat
 import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.annotation.JsonSubTypes
+import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.fasterxml.jackson.databind.annotation.JsonSerialize
 import com.fasterxml.jackson.datatype.jsr310.ser.InstantSerializer
@@ -68,6 +78,7 @@ class TaskDownloadHandler(
     private val sseResponseBuilder: SseResponseBuilder,
     private val keepAliveHandler: KeepAliveHandler,
     private val searchMessagesHandler: SearchMessagesHandler,
+    private val searchEventsHandler: SearchEventsHandler,
     private val dataMeasurement: DataMeasurement,
     private val taskManager: TaskManager,
 ) : JavalinHandler {
@@ -203,22 +214,33 @@ class TaskDownloadHandler(
     private fun executeTask(context: Context) {
         val taskID = TaskID.create(context.pathParam(TASK_ID))
         LOGGER.info { "Executing task $taskID" }
-        val taskState: TaskState = taskManager.execute(taskID) {
-            if (it == null) {
+        val taskState: TaskState = taskManager.execute(taskID) { taskInfo ->
+            if (taskInfo == null) {
                 return@execute TaskState.NotFound
             }
             val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
-            val handler = HttpMessagesRequestHandler(
-                queue, sseResponseBuilder, convExecutor, dataMeasurement,
-                maxMessagesPerRequest = configuration.bufferPerQuery,
-                responseFormats = it.request.responseFormats
-                    ?: configuration.responseFormats,
-                failFast = it.request.failFast,
-            )
-            if (!it.attachHandler(handler)) {
-                return@execute TaskState.AlreadyInProgress
+            when(taskInfo) {
+                is MessageTaskInfo -> {
+                    val handler = HttpMessagesRequestHandler(
+                        queue, sseResponseBuilder, convExecutor, dataMeasurement,
+                        maxMessagesPerRequest = configuration.bufferPerQuery,
+                        responseFormats = taskInfo.request.responseFormats
+                            ?: configuration.responseFormats,
+                        failFast = taskInfo.request.failFast,
+                    )
+                    if (!taskInfo.attachHandler(handler)) return@execute TaskState.AlreadyInProgress
+                    TaskState.MessagesReady(taskInfo, handler, queue)
+                }
+                is EventTaskInfo -> {
+                    val handler = HttpGenericResponseHandler(
+                        queue, sseResponseBuilder, convExecutor, dataMeasurement,
+                        Event::eventId,
+                        SseResponseBuilder::build
+                    )
+                    if (!taskInfo.attachHandler(handler)) return@execute TaskState.AlreadyInProgress
+                    TaskState.EventsReady(taskInfo, handler, queue)
+                }
             }
-            TaskState.Ready(it, handler, queue)
         }
         when (taskState) {
             TaskState.AlreadyInProgress -> {
@@ -233,12 +255,21 @@ class TaskDownloadHandler(
                     .json(ErrorMessage("task with id '${taskID.id}' is not found"))
             }
 
-            is TaskState.Ready -> {
+            is TaskState.MessagesReady -> {
                 val (taskInfo, handler, queue) = taskState
                 keepAliveHandler.addKeepAliveData(handler).use {
                     searchMessagesHandler.loadMessageGroups(taskInfo.request, handler, dataMeasurement)
                     writeJsonStream(context, queue, handler, dataMeasurement, LOGGER, taskInfo)
-                    LOGGER.info { "Task $taskID completed with status ${taskInfo.status}" }
+                    LOGGER.info { "Message task $taskID completed with status ${taskInfo.status}" }
+                }
+            }
+
+            is TaskState.EventsReady -> {
+                val (taskInfo, handler, queue) = taskState
+                keepAliveHandler.addKeepAliveData(handler).use {
+                    searchEventsHandler.loadEvents(taskInfo.request, handler)
+                    writeJsonStream(context, queue, handler, dataMeasurement, LOGGER)
+                    LOGGER.info { "Event task $taskID completed with status ${taskInfo.status}" }
                 }
             }
         }
@@ -275,27 +306,38 @@ class TaskDownloadHandler(
                 "empty value",
             )
             .check(
-                CreateTaskRequest::groups.name,
-                { it.groups.isNotEmpty() },
-                "empty value",
-            )
-            .check(
-                CreateTaskRequest::responseFormats.name,
-                { ResponseFormat.isValidCombination(it.responseFormats) },
-                "only one ${ResponseFormat.PROTO_PARSED} or ${ResponseFormat.JSON_PARSED} must be used",
-            )
-            .check(
                 CreateTaskRequest::limit.name,
                 { it.limit == null || it.limit >= 0 },
                 "negative limit",
             )
+            .check(
+                CreateMessagesTaskRequest::groups.name,
+                { it !is CreateMessagesTaskRequest || it.groups.isNotEmpty() },
+                "empty value",
+            )
+            .check(
+                CreateMessagesTaskRequest::responseFormats.name,
+                { it !is CreateMessagesTaskRequest || ResponseFormat.isValidCombination(it.responseFormats) },
+                "only one ${ResponseFormat.PROTO_PARSED} or ${ResponseFormat.JSON_PARSED} must be used",
+            )
+            .check(
+                CreateEventsTaskRequest::scope.name,
+                { it !is CreateEventsTaskRequest || it.scope.isNotEmpty() },
+                "empty value",
+            )
+            // TODO: check other fields
             .get()
 
         val taskID = TaskID(EventUtils.generateUUID())
 
-        LOGGER.info { "Registering task $taskID" }
-        taskManager[taskID] = TaskInformation(taskID, request.toGroupRequest())
-        LOGGER.info { "Task $taskID registered" }
+        val task = when(request) {
+            is CreateMessagesTaskRequest -> MessageTaskInfo(taskID, request.toGroupRequest())
+            is CreateEventsTaskRequest -> EventTaskInfo(taskID, request.toEventRequest())
+        }
+
+        LOGGER.info { "Registering ${request.resource} task $taskID" }
+        taskManager[taskID] = task
+        LOGGER.info { "${request.resource} task $taskID registered" }
 
         context.status(HttpStatus.CREATED)
             .json(TaskIDResponse(taskID))
@@ -304,9 +346,14 @@ class TaskDownloadHandler(
     private sealed class TaskState {
         object AlreadyInProgress : TaskState()
         object NotFound : TaskState()
-        data class Ready(
-            val info: TaskInformation,
+        data class MessagesReady(
+            val info: MessageTaskInfo,
             val handler: HttpMessagesRequestHandler,
+            val queue: ArrayBlockingQueue<Supplier<SseEvent>>,
+        ) : TaskState()
+        data class EventsReady(
+            val info: EventTaskInfo,
+            val handler: HttpGenericResponseHandler<Event>,
             val queue: ArrayBlockingQueue<Supplier<SseEvent>>,
         ) : TaskState()
     }
@@ -353,7 +400,7 @@ class TaskDownloadHandler(
             }
         )
 
-    private fun CreateTaskRequest.toGroupRequest(): MessagesGroupRequest {
+    private fun CreateMessagesTaskRequest.toGroupRequest(): MessagesGroupRequest {
         return MessagesGroupRequest(
             groups = groups,
             startTimestamp = startTimestamp,
@@ -369,12 +416,34 @@ class TaskDownloadHandler(
         )
     }
 
+    private fun CreateEventsTaskRequest.toEventRequest(): SseEventSearchRequest {
+        return SseEventSearchRequest(
+            startTimestamp = startTimestamp,
+            endTimestamp = endTimestamp,
+            parentEvent = parentEvent?.let(::ProviderEventId),
+            bookId = bookID,
+            scope = scope,
+            searchDirection = searchDirection,
+            resultCountLimit = limit,
+            filter = filter,
+        )
+    }
+
     private fun MessageStream.toProviderMessageStreams(): Sequence<ProviderMessageStream> {
         return directions.asSequence().map { ProviderMessageStream(sessionAlias, it) }
     }
 
-    private class CreateTaskRequest(
-        val resource: Resource,
+    @JsonTypeInfo(
+        use = JsonTypeInfo.Id.NAME,
+        include = JsonTypeInfo.As.PROPERTY,
+        property = "resource"
+    )
+    @JsonSubTypes(value = [
+        JsonSubTypes.Type(value = CreateMessagesTaskRequest::class, name = "MESSAGES"),
+        JsonSubTypes.Type(value = CreateEventsTaskRequest::class, name = "EVENTS")
+    ])
+    private sealed class CreateTaskRequest(
+        val resource: Resource = Resource.MESSAGES,
         @get:OpenApiPropertyType(definedBy = String::class)
         val bookID: BookId,
         @get:OpenApiPropertyType(definedBy = Long::class)
@@ -385,17 +454,40 @@ class TaskDownloadHandler(
         @get:OpenApiExample(HttpServer.TIME_EXAMPLE)
         @field:JsonDeserialize(using = CustomMillisOrNanosInstantDeserializer::class)
         val endTimestamp: Instant,
-        val groups: Set<String>,
-        @get:OpenApiPropertyType(definedBy = Array<ResponseFormat>::class, nullability = Nullability.NULLABLE)
-        val responseFormats: Set<ResponseFormat> = emptySet(),
         val limit: Int? = null,
-        @get:OpenApiPropertyType(definedBy = Array<MessageStream>::class, nullability = Nullability.NULLABLE)
-        val streams: List<MessageStream> = emptyList(),
         @get:OpenApiPropertyType(definedBy = SearchDirection::class, nullability = Nullability.NULLABLE)
         val searchDirection: SearchDirection = SearchDirection.next,
+    )
+
+    private class CreateMessagesTaskRequest(
+        bookID: BookId,
+        startTimestamp: Instant,
+        endTimestamp: Instant,
+        limit: Int? = null,
+        searchDirection: SearchDirection = SearchDirection.next,
+        val groups: Set<String> = emptySet(),
+        @get:OpenApiPropertyType(definedBy = Array<ResponseFormat>::class, nullability = Nullability.NULLABLE)
+        val responseFormats: Set<ResponseFormat> = emptySet(),
+        @get:OpenApiPropertyType(definedBy = Array<MessageStream>::class, nullability = Nullability.NULLABLE)
+        val streams: List<MessageStream> = emptyList(),
         @get:OpenApiPropertyType(definedBy = Boolean::class, nullability = Nullability.NULLABLE)
         @get:OpenApiDescription("the request will stop right after the first error reported. Enabled by default")
         val failFast: Boolean = true,
+    ): CreateTaskRequest(
+        Resource.MESSAGES, bookID, startTimestamp, endTimestamp, limit, searchDirection
+    )
+
+    private class CreateEventsTaskRequest(
+        bookID: BookId,
+        val scope: String,
+        startTimestamp: Instant,
+        endTimestamp: Instant,
+        limit: Int? = null,
+        searchDirection: SearchDirection = SearchDirection.next,
+        val parentEvent: String? = null,
+        val filter: DataFilter<BaseEventEntity>
+    ): CreateTaskRequest(
+        Resource.EVENTS, bookID, startTimestamp, endTimestamp, limit, searchDirection
     )
 
     private class MessageStream(
@@ -406,6 +498,7 @@ class TaskDownloadHandler(
 
     private enum class Resource {
         MESSAGES,
+        EVENTS
     }
 
     private class ErrorMessage(

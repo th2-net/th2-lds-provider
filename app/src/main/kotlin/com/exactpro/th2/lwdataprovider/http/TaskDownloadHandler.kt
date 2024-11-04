@@ -36,7 +36,6 @@ import com.exactpro.th2.lwdataprovider.filter.events.EventsFilterFactory
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import com.exactpro.th2.lwdataprovider.http.serializers.CustomMillisOrNanosInstantDeserializer
-import com.exactpro.th2.lwdataprovider.http.serializers.FiltersDeserializer
 import com.exactpro.th2.lwdataprovider.http.util.JSON_STREAM_CONTENT_TYPE
 import com.exactpro.th2.lwdataprovider.http.util.writeJsonStream
 import com.exactpro.th2.lwdataprovider.workers.EventTaskInfo
@@ -68,6 +67,10 @@ import io.javalin.openapi.OpenApiPropertyType
 import io.javalin.openapi.OpenApiRequestBody
 import io.javalin.openapi.OpenApiResponse
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.javalin.openapi.Discriminator
+import io.javalin.openapi.DiscriminatorProperty
+import io.javalin.openapi.MappedClass
+import io.javalin.openapi.OneOf
 import java.time.Instant
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.Executor
@@ -426,7 +429,7 @@ class TaskDownloadHandler(
             scope = scope,
             searchDirection = searchDirection,
             resultCountLimit = limit,
-            filter = EventsFilterFactory.create(filter),
+            filter = EventsFilterFactory.create(filters),
         )
     }
 
@@ -443,8 +446,28 @@ class TaskDownloadHandler(
         JsonSubTypes.Type(value = CreateMessagesTaskRequest::class, name = "MESSAGES"),
         JsonSubTypes.Type(value = CreateEventsTaskRequest::class, name = "EVENTS")
     ])
+
+    @OneOf(
+        CreateMessagesTaskRequest::class, CreateEventsTaskRequest::class,
+        discriminator = Discriminator(
+            property = DiscriminatorProperty(
+                name = "resource",
+                type = Resource::class,
+            ),
+            mapping = [
+                MappedClass(
+                    CreateMessagesTaskRequest::class,
+                    "MESSAGES",
+                ),
+                MappedClass(
+                    CreateEventsTaskRequest::class,
+                    "EVENTS",
+                ),
+            ]
+        )
+    )
     private sealed class CreateTaskRequest(
-        val resource: Resource = Resource.MESSAGES,
+        val resource: Resource,
         @get:OpenApiPropertyType(definedBy = String::class)
         val bookID: BookId,
         @get:OpenApiPropertyType(definedBy = Long::class)
@@ -486,8 +509,7 @@ class TaskDownloadHandler(
         limit: Int? = null,
         searchDirection: SearchDirection = SearchDirection.next,
         val parentEvent: String? = null,
-        @field:JsonDeserialize(using = FiltersDeserializer::class)
-        val filter: Collection<FilterRequest> = emptyList()
+        val filters: Collection<FilterRequest> = emptyList()
     ): CreateTaskRequest(
         Resource.EVENTS, bookID, startTimestamp, endTimestamp, limit, searchDirection
     )

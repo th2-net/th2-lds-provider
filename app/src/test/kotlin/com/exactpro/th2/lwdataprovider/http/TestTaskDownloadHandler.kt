@@ -156,16 +156,21 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
                     "limit" to 42,
                     "searchDirection" to "previous",
                     "parentEvent" to "test-book:test-scope:20241101103050123456789:test-event-id",
-                    "filter" to mapOf(
-                        "filters" to setOf("type", "name"),
-                        "type-values" to setOf("type-a", "type-b"),
-                        "name-values" to setOf("name-a", "name-b"),
-                        "type-conjunct" to "true",
-                        "name-conjunct" to "false",
-                        "type-negative" to "false",
-                        "name-negative" to "true",
-                    ),
-                )
+                    "filters" to listOf(
+                        mapOf(
+                            "name" to "name",
+                            "values" to setOf("name-a", "name-b"),
+                            "conjunct" to false,
+                            "negative" to true,
+                        ),
+                        mapOf(
+                            "name" to "type",
+                            "values" to setOf("type-a", "type-b"),
+                            "conjunct" to true,
+                            "negative" to false,
+                        ),
+                    )
+                ),
             )
 
             expectThat(response) {
@@ -222,14 +227,19 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
                     "limit" to -42,
                     "searchDirection" to "previous",
                     "parentEvent" to "test-book:test-scope:20241101103050123456789:test-event-id",
-                    "filter" to mapOf(
-                        "filters" to setOf("type", "name"),
-                        "type-values" to setOf("type-a", "type-b"),
-                        "name-values" to setOf("name-a", "name-b"),
-                        "type-conjunct" to "true",
-                        "name-conjunct" to "false",
-                        "type-negative" to "false",
-                        "name-negative" to "true",
+                    "filters" to listOf(
+                        mapOf(
+                            "name" to "name",
+                            "values" to setOf("name-a", "name-b"),
+                            "conjunct" to false,
+                            "negative" to true,
+                        ),
+                        mapOf(
+                            "name" to "type",
+                            "values" to setOf("type-a", "type-b"),
+                            "conjunct" to true,
+                            "negative" to false,
+                        ),
                     ),
                 )
             )

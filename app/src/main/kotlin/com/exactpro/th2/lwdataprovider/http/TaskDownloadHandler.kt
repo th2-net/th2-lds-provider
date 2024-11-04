@@ -509,6 +509,7 @@ class TaskDownloadHandler(
         limit: Int? = null,
         searchDirection: SearchDirection = SearchDirection.next,
         val parentEvent: String? = null,
+        @get:OpenApiPropertyType(definedBy = Array<FilterRequest>::class, nullability = Nullability.NULLABLE)
         val filters: Collection<FilterRequest> = emptyList()
     ): CreateTaskRequest(
         Resource.EVENTS, bookID, startTimestamp, endTimestamp, limit, searchDirection

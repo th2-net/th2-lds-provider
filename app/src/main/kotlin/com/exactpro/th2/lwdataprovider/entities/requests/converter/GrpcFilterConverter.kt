@@ -24,8 +24,8 @@ object GrpcFilterConverter {
         return filters.map {
             FilterRequest(
                 it.name.name,
-                it.negative,
                 it.valueList,
+                it.negative,
                 it.conjunct
             )
         }

@@ -30,7 +30,7 @@ object HttpFilterConverter {
                 }.flatMap { it.value }.toList()
             val negative: Boolean = params.getBooleanParam(name, "negative")
             val conjunct: Boolean = params.getBooleanParam(name, "conjunct")
-            FilterRequest(name, negative, values, conjunct)
+            FilterRequest(name, values, negative, conjunct)
         }
     }
 

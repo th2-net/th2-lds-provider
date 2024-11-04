@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,8 +28,10 @@ import com.exactpro.th2.lwdataprovider.entities.requests.converter.HttpFilterCon
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.filter.events.EventsFilterFactory
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
-import com.exactpro.th2.lwdataprovider.http.JavalinHandler.Companion.customSse
+import com.exactpro.th2.lwdataprovider.http.util.JSON_STREAM_CONTENT_TYPE
+import com.exactpro.th2.lwdataprovider.http.util.writeJsonStream
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.javalin.Javalin
 import io.javalin.http.Context
 import io.javalin.http.queryParamAsClass
@@ -38,53 +40,42 @@ import io.javalin.openapi.OpenApi
 import io.javalin.openapi.OpenApiContent
 import io.javalin.openapi.OpenApiParam
 import io.javalin.openapi.OpenApiResponse
-import io.github.oshai.kotlinlogging.KotlinLogging
 import java.time.Instant
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.Executor
 import java.util.function.Supplier
 
-class GetEventsServlet(
+class DownloadEventsHandler(
     private val configuration: Configuration,
+    private val convExecutor: Executor,
     private val sseResponseBuilder: SseResponseBuilder,
     private val keepAliveHandler: KeepAliveHandler,
     private val searchEventsHandler: SearchEventsHandler,
-    private val convExecutor: Executor,
     private val dataMeasurement: DataMeasurement,
-) : AbstractSseRequestHandler() {
-
-    companion object {
-        const val ROUTE = "/search/sse/events"
-        private const val REQUEST_KEY = "sse.events.request"
-        private val logger = KotlinLogging.logger { }
-    }
-
+) : JavalinHandler {
     override fun setup(app: Javalin, context: JavalinContext) {
-        app.before(ROUTE) {
-            it.attribute(REQUEST_KEY, createRequest(it))
-        }
-        app.customSse(ROUTE, this, context)
+        app.get(ROUTE_DOWNLOAD_EVENTS, this::handleEvent)
     }
 
     @OpenApi(
-        methods = [HttpMethod.GET],
-        path = ROUTE,
-        description = "returns stream of events that matches the specified parameters",
+        path = ROUTE_DOWNLOAD_EVENTS,
+        description = "returns list of events that matches the specified parameters",
         queryParams = [
-            OpenApiParam("startTimestamp", type = Long::class, required = true,
-                description = "start timestamp for search", example = HttpServer.TIME_EXAMPLE),
-            OpenApiParam("endTimestamp", type = Long::class,
-                description = "end timestamp for search", example = HttpServer.TIME_EXAMPLE),
-            OpenApiParam("parentEvent", type = String::class,
+            OpenApiParam(START_TIMESTAMP_PARAM, type = Long::class, required = true, example = HttpServer.TIME_EXAMPLE,
+                description = "start timestamp for search. Epoch time in milliseconds"),
+            OpenApiParam(END_TIMESTAMP_PARAM, type = Long::class, required = true, example = HttpServer.TIME_EXAMPLE,
+                description = "end timestamp for search. Epoch time in milliseconds"),
+            OpenApiParam(PARENT_EVENT_PARAM, type = String::class,
                 description = "parent event id for search", example = "testEventId123"),
-            OpenApiParam("searchDirection", type = SearchDirection::class,
-                description = "defines the order of the events", example = "next"),
-            OpenApiParam("resultCountLimit", type = Int::class,
-                description = "limit for events in the response", example = "42"),
-            OpenApiParam("bookId", type = String::class, required = true,
-                description = "book ID for events", example = "book123"),
-            OpenApiParam("scope", type = String::class, required = true,
+            OpenApiParam(BOOK_ID_PARAM, required = true, example = "bookId123",
+                description = "book ID for requested scope"),
+            OpenApiParam(SCOPE_PARAM, type = String::class, required = true,
                 description = "scope for events", example = "scope123"),
+            OpenApiParam(LIMIT, type = Int::class,
+                description = "limit for events in the response. No limit if not specified"),
+            OpenApiParam(SEARCH_DIRECTION, type = SearchDirection::class, example = "next",
+                description = "defines the order of the events"),
+
             OpenApiParam("filters", type = Array<String>::class, isRepeatable = true,
                 description = "list of filters. Available filters are: type, name", example = "type"),
             // for type filter
@@ -102,59 +93,58 @@ class GetEventsServlet(
             OpenApiParam("name-conjunct", type = Boolean::class,
                 description = "actual value must match all filter values values"),
         ],
+        methods = [HttpMethod.GET],
         responses = [
-            OpenApiResponse(
-                status = "200",
-                content = [
-                    OpenApiContent(from = Event::class, mimeType = "text/event-stream"),
-                ],
-                description = "event entity",
-            )
+            OpenApiResponse(status = "200", content = [
+                OpenApiContent(from = Event::class, mimeType = JSON_STREAM_CONTENT_TYPE)
+            ])
         ]
     )
-    override fun accept(sseClient: SseClient) {
-        val ctx = sseClient.ctx()
-        logger.info { "Received search sse event request with parameters: ${ctx.queryParamMap()}" }
-        val request = checkNotNull(ctx.attribute<SseEventSearchRequest>(REQUEST_KEY)) {
-            "request was not created in before handler"
-        }
-
-        val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
-        val reqContext = HttpGenericResponseHandler(
-            queue,
-            sseResponseBuilder,
-            convExecutor,
-            dataMeasurement,
-            Event::eventId,
-            SseResponseBuilder::build
-        )
-        sseClient.onClose(reqContext::cancel)
-        keepAliveHandler.addKeepAliveData(reqContext).use {
-            searchEventsHandler.loadEvents(request, reqContext)
-
-            sseClient.waitAndWrite(queue)
-            logger.info { "Processing search sse events request finished" }
-        }
-    }
 
     private fun createRequest(ctx: Context) = SseEventSearchRequest(
-        startTimestamp = ctx.queryParamAsClass<Instant>("startTimestamp").get(),
-        endTimestamp = ctx.queryParamAsClass<Instant>("endTimestamp")
+        startTimestamp = ctx.queryParamAsClass<Instant>(START_TIMESTAMP_PARAM).get(),
+        endTimestamp = ctx.queryParamAsClass<Instant>(END_TIMESTAMP_PARAM)
             .allowNullable().get(),
-        parentEvent = ctx.queryParamAsClass<ProviderEventId>("parentEvent")
+        parentEvent = ctx.queryParamAsClass<ProviderEventId>(PARENT_EVENT_PARAM)
             .allowNullable().get(),
-        searchDirection = ctx.queryParamAsClass<SearchDirection>("searchDirection")
+        searchDirection = ctx.queryParamAsClass<SearchDirection>(SEARCH_DIRECTION)
             .getOrDefault(SearchDirection.next),
-        resultCountLimit = ctx.queryParamAsClass<Int>("resultCountLimit")
+        resultCountLimit = ctx.queryParamAsClass<Int>(LIMIT)
             .allowNullable()
             .check({
                 it == null || it > 0
             }, "must be create than zero")
             .get(),
-        bookId = ctx.queryParamAsClass<BookId>("bookId").get(),
-        scope = ctx.queryParamAsClass<String>("scope").get(),
+        bookId = ctx.queryParamAsClass<BookId>(BOOK_ID_PARAM).get(),
+        scope = ctx.queryParamAsClass<String>(SCOPE_PARAM).get(),
         filter = EventsFilterFactory.create(HttpFilterConverter.convert(ctx.queryParamMap())),
     )
 
+    private fun handleEvent(ctx: Context) {
+        val request = createRequest(ctx)
 
+        val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
+        val handler = HttpGenericResponseHandler(
+            queue, sseResponseBuilder, convExecutor, dataMeasurement,
+            Event::eventId,
+            SseResponseBuilder::build
+        )
+        keepAliveHandler.addKeepAliveData(handler).use {
+            searchEventsHandler.loadEvents(request, handler)
+            writeJsonStream(ctx, queue, handler, dataMeasurement, LOGGER)
+            LOGGER.info { "Processing download events request finished" }
+        }
+    }
+
+    companion object {
+        private const val START_TIMESTAMP_PARAM = "startTimestamp"
+        private const val END_TIMESTAMP_PARAM = "endTimestamp"
+        private const val PARENT_EVENT_PARAM = "parentEvent"
+        private const val BOOK_ID_PARAM = "bookId"
+        private const val SCOPE_PARAM = "scope"
+        private const val LIMIT = "limit"
+        private const val SEARCH_DIRECTION = "searchDirection"
+        private val LOGGER = KotlinLogging.logger { }
+        const val ROUTE_DOWNLOAD_EVENTS = "/download/events"
+    }
 }

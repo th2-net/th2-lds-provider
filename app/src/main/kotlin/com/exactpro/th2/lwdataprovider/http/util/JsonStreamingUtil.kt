@@ -19,15 +19,15 @@ package com.exactpro.th2.lwdataprovider.http.util
 import com.exactpro.th2.lwdataprovider.EventType
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
-import com.exactpro.th2.lwdataprovider.http.HttpMessagesRequestHandler
+import com.exactpro.th2.lwdataprovider.handlers.AbstractCancelableHandler
 import com.exactpro.th2.lwdataprovider.http.listener.DEFAULT_PROCESS_LISTENER
 import com.exactpro.th2.lwdataprovider.http.listener.ProgressListener
 import com.exactpro.th2.lwdataprovider.metrics.HttpWriteMetrics
 import com.exactpro.th2.lwdataprovider.metrics.ResponseQueue
+import io.github.oshai.kotlinlogging.KLogger
 import io.javalin.http.Context
 import io.javalin.http.Header
 import io.javalin.http.HttpStatus
-import io.github.oshai.kotlinlogging.KLogger
 import org.apache.commons.lang3.StringUtils
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.function.Supplier
@@ -37,7 +37,7 @@ const val JSON_STREAM_CONTENT_TYPE = "application/stream+json"
 fun writeJsonStream(
     ctx: Context,
     queue: ArrayBlockingQueue<Supplier<SseEvent>>,
-    handler: HttpMessagesRequestHandler,
+    handler: AbstractCancelableHandler,
     dataMeasurement: DataMeasurement,
     logger: KLogger,
     progressListener: ProgressListener = DEFAULT_PROCESS_LISTENER,

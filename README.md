@@ -228,7 +228,9 @@ spec:
 
 + Conversion to JSON in HTTP handlers is executed in the separate executor. 
   The executor has `convThreadPoolSize` number of threads
++ Added `/download/events` endpoint to download events as file in JSONL format
 + Added `EVENTS` resource option for `/download` task endpoint
++ Updated th2 gradle plugin `0.1.3` (based on th2-bom: `4.8.0`)
 
 ## 2.11.0
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -279,7 +279,7 @@ internal class TestCradleEventExtractor {
         get { eventName } isEqualTo toStore.name
         get { eventType } isEqualTo toStore.type
         get { successful } isEqualTo toStore.isSuccess
-        get { body } isEqualTo (toStore.asSingle().content.takeIf { it.isNotEmpty() }?.toString(Charsets.UTF_8) ?: "[]")
+        get { body } isEqualTo (toStore.asSingle().content)
     }
 
     private fun createRequest(start: Instant?, end: Instant?, limit: Int? = null): SseEventSearchRequest =

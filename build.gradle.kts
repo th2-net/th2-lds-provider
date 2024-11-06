@@ -17,9 +17,9 @@ dependencyCheck {
 
 allprojects {
     group = "com.exactpro.th2"
-    version = project.findProperty("release_version")
+    version = project.findProperty("release_version").toString()
     val suffix: String = project.findProperty("version_suffix").toString()
-    if (!suffix.isEmpty()) {
+    if (suffix.isNotEmpty()) {
         version = "$version-$suffix"
     }
 }

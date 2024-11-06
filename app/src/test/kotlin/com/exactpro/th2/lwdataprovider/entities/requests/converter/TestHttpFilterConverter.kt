@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,10 +21,9 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 internal class TestHttpFilterConverter {
-    private val converter = HttpFilterConverter()
     @Test
     fun `converts request`() {
-        val filterRequests: Collection<FilterRequest> = converter.convert(
+        val filterRequests: Collection<FilterRequest> = HttpFilterConverter.convert(
             mapOf(
                 "filters" to listOf("type", "name"),
                 "type-values" to listOf("a", "b", "c"),

@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,7 +48,6 @@ import strikt.jackson.isObject
 import strikt.jackson.isTextual
 import strikt.jackson.path
 import strikt.jackson.textValue
-import strikt.jackson.textValues
 import java.time.Instant
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
@@ -63,6 +62,7 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
             sseResponseBuilder,
             keepAliveHandler = context.keepAliveHandler,
             searchMessagesHandler = context.searchMessagesHandler,
+            searchEventsHandler = context.searchEventsHandler,
             context.requestsDataMeasurement,
             context.taskManager,
         )
@@ -108,7 +108,7 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
     }
 
     @Test
-    fun `creates task`() {
+    fun `creates messages task`() {
         startTest { _, client ->
             val response = client.post(
                 path = "/download",
@@ -143,7 +143,49 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
     }
 
     @Test
-    fun `reports incorrect params`() {
+    fun `creates events task`() {
+        startTest { _, client ->
+            val response = client.post(
+                path = "/download",
+                json = mapOf(
+                    "resource" to "EVENTS",
+                    "bookID" to "test-book",
+                    "startTimestamp" to Instant.now().plusSeconds(10).toEpochMilli(),
+                    "endTimestamp" to Instant.now().toEpochMilli(),
+                    "scope" to "test-scope",
+                    "limit" to 42,
+                    "searchDirection" to "previous",
+                    "parentEvent" to "test-book:test-scope:20241101103050123456789:test-event-id",
+                    "filters" to listOf(
+                        mapOf(
+                            "name" to "name",
+                            "values" to setOf("name-a", "name-b"),
+                            "conjunct" to false,
+                            "negative" to true,
+                        ),
+                        mapOf(
+                            "name" to "type",
+                            "values" to setOf("type-a", "type-b"),
+                            "conjunct" to true,
+                            "negative" to false,
+                        ),
+                    )
+                ),
+            )
+
+            expectThat(response) {
+                get { code } isEqualTo HttpStatus.CREATED.code
+                jsonBody()
+                    .isObject()
+                    .has("taskID")
+                    .path("taskID")
+                    .isTextual()
+            }
+        }
+    }
+
+    @Test
+    fun `reports incorrect params for messages task`() {
         startTest { _, client ->
             val response = client.post(
                 path = "/download",
@@ -167,6 +209,48 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
                     .has("groups")
                     .has("limit")
                     .has("responseFormats")
+            }
+        }
+    }
+
+    @Test
+    fun `reports incorrect params for events task`() {
+        startTest { _, client ->
+            val response = client.post(
+                path = "/download",
+                json = mapOf(
+                    "resource" to "EVENTS",
+                    "bookID" to "",
+                    "startTimestamp" to Instant.now().plusSeconds(10).toEpochMilli(),
+                    "endTimestamp" to Instant.now().toEpochMilli(),
+                    "scope" to "",
+                    "limit" to -42,
+                    "searchDirection" to "previous",
+                    "parentEvent" to "test-book:test-scope:20241101103050123456789:test-event-id",
+                    "filters" to listOf(
+                        mapOf(
+                            "name" to "name",
+                            "values" to setOf("name-a", "name-b"),
+                            "conjunct" to false,
+                            "negative" to true,
+                        ),
+                        mapOf(
+                            "name" to "type",
+                            "values" to setOf("type-a", "type-b"),
+                            "conjunct" to true,
+                            "negative" to false,
+                        ),
+                    ),
+                )
+            )
+
+            expectThat(response) {
+                get { code } isEqualTo HttpStatus.BAD_REQUEST.code
+                jsonBody()
+                    .isObject()
+                    .has("bookID")
+                    .has("scope")
+                    .has("limit")
             }
         }
     }

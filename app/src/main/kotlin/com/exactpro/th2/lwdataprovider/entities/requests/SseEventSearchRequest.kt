@@ -1,5 +1,5 @@
-/*******************************************************************************
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+/*
+ * Copyright 2021-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ */
 
 package com.exactpro.th2.lwdataprovider.entities.requests
 
@@ -50,18 +50,13 @@ class SseEventSearchRequest(
         checkRequest()
     }
 
-    companion object {
-        private val httpConverter = HttpFilterConverter()
-        private val grpcConverter = GrpcFilterConverter()
-    }
-
     constructor(parameters: Map<String, List<String>>) : this(
         startTimestamp = parameters["startTimestamp"]?.firstOrNull()?.let { Instant.ofEpochMilli(it.toLong()) },
         parentEvent = parameters["parentEvent"]?.firstOrNull()?.let { ProviderEventId(it) },
         searchDirection = parameters["searchDirection"]?.firstOrNull()?.let(SearchDirection::valueOf) ?: SearchDirection.next,
         endTimestamp = parameters["endTimestamp"]?.firstOrNull()?.let { Instant.ofEpochMilli(it.toLong()) },
         resultCountLimit = parameters["resultCountLimit"]?.firstOrNull()?.toInt(),
-        filter = EventsFilterFactory.create(httpConverter.convert(parameters)),
+        filter = EventsFilterFactory.create(HttpFilterConverter.convert(parameters)),
         bookId = parameters["bookId"]?.firstOrNull()?.run(::BookId)
             ?: invalidRequest("parameter 'bookId' is required"),
         scope = parameters["scope"]?.firstOrNull()
@@ -89,7 +84,7 @@ class SseEventSearchRequest(
         resultCountLimit = if (request.hasResultCountLimit()) {
             request.resultCountLimit.value
         } else null,
-        filter = EventsFilterFactory.create(grpcConverter.convert(request.filterList)),
+        filter = EventsFilterFactory.create(GrpcFilterConverter.convert(request.filterList)),
         bookId = request.run { if (hasBookId()) bookId.toCradle() else invalidRequest("parameter 'bookId' is required") },
         scope = request.run { if (hasScope()) scope.name else invalidRequest("parameter 'scope' is required") },
     )

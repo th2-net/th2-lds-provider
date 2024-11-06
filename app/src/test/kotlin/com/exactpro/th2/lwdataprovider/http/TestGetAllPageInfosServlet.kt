@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,11 @@
 
 package com.exactpro.th2.lwdataprovider.http
 
-import com.exactpro.cradle.counters.Interval
 import com.exactpro.th2.lwdataprovider.util.createPageInfo
 import io.javalin.http.HttpStatus
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doReturn
-import org.mockito.kotlin.eq
 import org.mockito.kotlin.whenever
 import strikt.api.expectThat
 import strikt.assertions.first
@@ -43,6 +41,8 @@ internal class TestGetAllPageInfosServlet : AbstractHttpHandlerTest<GetAllPageIn
             sseResponseBuilder,
             context.keepAliveHandler,
             context.generalCradleHandler,
+            context.convExecutor,
+            context.requestsDataMeasurement,
         )
     }
 

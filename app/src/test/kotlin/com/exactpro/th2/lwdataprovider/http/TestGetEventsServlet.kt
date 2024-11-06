@@ -43,6 +43,8 @@ internal class TestGetEventsServlet : AbstractHttpHandlerTest<GetEventsServlet>(
             sseResponseBuilder,
             context.keepAliveHandler,
             context.searchEventsHandler,
+            context.convExecutor,
+            context.requestsDataMeasurement,
         )
     }
 
@@ -78,11 +80,11 @@ internal class TestGetEventsServlet : AbstractHttpHandlerTest<GetEventsServlet>(
                 .isEqualTo("""
                     id: 1
                     event: event
-                    data: {"eventId":"test:test-scope:20201031010001000000000:a","batchId":null,"isBatched":false,"eventName":"test_event","eventType":"test","endTimestamp":{"epochSecond":1604188798,"nano":999999999},"startTimestamp":{"epochSecond":1604106001,"nano":0},"parentEventId":null,"successful":true,"bookId":"test","scope":"test-scope","attachedMessageIds":[],"body":[]}
+                    data: {"eventId":"test:test-scope:20201031010000000000000:a","batchId":null,"isBatched":false,"eventName":"test_event","eventType":"test","endTimestamp":{"epochSecond":1604188799,"nano":999999999},"startTimestamp":{"epochSecond":1604106000,"nano":0},"parentEventId":null,"successful":true,"bookId":"test","scope":"test-scope","attachedMessageIds":[],"body":[]}
 
                     id: 2
                     event: event
-                    data: {"eventId":"test:test-scope:20201101000001000000000:b","batchId":null,"isBatched":false,"eventName":"test_event","eventType":"test","endTimestamp":{"epochSecond":1604192399,"nano":0},"startTimestamp":{"epochSecond":1604188801,"nano":0},"parentEventId":null,"successful":true,"bookId":"test","scope":"test-scope","attachedMessageIds":[],"body":[]}
+                    data: {"eventId":"test:test-scope:20201101000000000000000:b","batchId":null,"isBatched":false,"eventName":"test_event","eventType":"test","endTimestamp":{"epochSecond":1604192400,"nano":0},"startTimestamp":{"epochSecond":1604188800,"nano":0},"parentEventId":null,"successful":true,"bookId":"test","scope":"test-scope","attachedMessageIds":[],"body":[]}
                     
                     event: close
                     data: empty data

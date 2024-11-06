@@ -101,10 +101,15 @@ class HttpServer(private val context: Context) {
                 configuration, context.convExecutor,
                 sseResponseBuilder, searchMessagesHandler, context.requestsDataMeasurement
             ),
-            GetOneEvent(configuration, sseResponseBuilder, this.context.searchEventsHandler),
+            GetOneEvent(
+                sseResponseBuilder,
+                this.context.searchEventsHandler,
+                context.requestsDataMeasurement,
+            ),
             GetEventsServlet(
                 configuration, sseResponseBuilder, keepAliveHandler,
-                this.context.searchEventsHandler
+                this.context.searchEventsHandler,
+                context.convExecutor, context.requestsDataMeasurement,
             ),
             GetBookIDs(context.generalCradleHandler),
             GetSessionAliases(context.searchMessagesHandler),
@@ -112,11 +117,13 @@ class HttpServer(private val context: Context) {
             GetMessageGroups(context.searchMessagesHandler),
             GetPageInfosServlet(
                 configuration, sseResponseBuilder,
-                keepAliveHandler, context.generalCradleHandler
+                keepAliveHandler, context.generalCradleHandler,
+                context.convExecutor, context.requestsDataMeasurement,
             ),
             GetAllPageInfosServlet(
                 configuration, sseResponseBuilder,
-                keepAliveHandler, context.generalCradleHandler
+                keepAliveHandler, context.generalCradleHandler,
+                context.convExecutor, context.requestsDataMeasurement,
             ),
             GetSingleMessageByGroupAndId(
                 searchMessagesHandler,
@@ -125,12 +132,20 @@ class HttpServer(private val context: Context) {
                 context.convExecutor,
                 context.requestsDataMeasurement,
             ),
-            FileDownloadHandler(
+            DownloadMessagesHandler(
                 configuration,
                 context.convExecutor,
                 sseResponseBuilder,
                 context.keepAliveHandler,
                 context.searchMessagesHandler,
+                context.requestsDataMeasurement,
+            ),
+            DownloadEventsHandler(
+                configuration,
+                context.convExecutor,
+                sseResponseBuilder,
+                context.keepAliveHandler,
+                context.searchEventsHandler,
                 context.requestsDataMeasurement,
             ),
             TaskDownloadHandler(
@@ -139,6 +154,7 @@ class HttpServer(private val context: Context) {
                 sseResponseBuilder,
                 context.keepAliveHandler,
                 context.searchMessagesHandler,
+                context.searchEventsHandler,
                 context.requestsDataMeasurement,
                 context.taskManager,
             ),
@@ -168,7 +184,7 @@ class HttpServer(private val context: Context) {
 
             val externalContextPath = System.getenv(EXTERNAL_CONTEXT_PATH_ENV)?.takeUnless(String::isBlank)
 
-            setupOpenApi(it, externalContextPath)
+            setupOpenApi(it)
 
             setupSwagger(it)
 
@@ -206,7 +222,7 @@ class HttpServer(private val context: Context) {
         it.plugins.register(SwaggerPlugin(swaggerConfiguration))
     }
 
-    private fun setupOpenApi(it: JavalinConfig, externalContextPath: String?) {
+    private fun setupOpenApi(it: JavalinConfig) {
 
         val openApiConfiguration = OpenApiPluginConfiguration()
             .withDefinitionConfiguration { _, definition ->

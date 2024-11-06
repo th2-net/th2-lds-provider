@@ -135,7 +135,7 @@ private fun Event.toGrpc(): CommonGrpcEvent {
         .setName(eventName)
         .setType(eventType)
         .setStatus(if (successful) EventStatus.SUCCESS else EventStatus.FAILED)
-        .setBody(UnsafeByteOperations.unsafeWrap(body.toByteArray(Charsets.UTF_8)))
+        .setBody(UnsafeByteOperations.unsafeWrap(body))
         .also { event ->
             endTimestamp?.also { event.endTimestamp = it.toTimestamp() }
             parentEventId?.also { event.parentId = Event.convertToEventIdProto(it) }

@@ -19,7 +19,7 @@ package com.exactpro.th2.lwdataprovider.http
 import com.exactpro.th2.lwdataprovider.ExceptionInfo
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
-import com.exactpro.th2.lwdataprovider.configuration.Configuration
+import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.failureReason
@@ -36,9 +36,9 @@ import java.util.concurrent.ArrayBlockingQueue
 import java.util.function.Supplier
 
 class GetOneEvent(
-    private val configuration: Configuration,
     private val sseResponseBuilder: SseResponseBuilder,
-    private val searchEventsHandler: SearchEventsHandler
+    private val searchEventsHandler: SearchEventsHandler,
+    private val dataMeasurement: DataMeasurement,
 ) : AbstractRequestHandler() {
 
     companion object {
@@ -84,7 +84,14 @@ class GetOneEvent(
 
         logger.info { "Received get event request ($eventId)" }
 
-        val reqContext = HttpGenericResponseHandler(queue, sseResponseBuilder, Event::eventId, SseResponseBuilder::build)
+        val reqContext = HttpGenericResponseHandler(
+            queue,
+            sseResponseBuilder,
+            Runnable::run,
+            dataMeasurement,
+            Event::eventId,
+            SseResponseBuilder::build
+        )
         var request: GetEventRequest? = null
         try {
             request = GetEventRequest.fromString(eventId)

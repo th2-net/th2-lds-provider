@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,9 +40,9 @@ import java.time.Instant
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 
-class TestFileDownloadHandler : AbstractHttpHandlerTest<FileDownloadHandler>() {
-    override fun createHandler(): FileDownloadHandler {
-        return FileDownloadHandler(
+class TestDownloadMessagesHandler : AbstractHttpHandlerTest<DownloadMessagesHandler>() {
+    override fun createHandler(): DownloadMessagesHandler {
+        return DownloadMessagesHandler(
             configuration,
             convExecutor = context.convExecutor,
             sseResponseBuilder,

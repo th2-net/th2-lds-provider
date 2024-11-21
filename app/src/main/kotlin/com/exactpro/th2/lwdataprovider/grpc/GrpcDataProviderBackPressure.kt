@@ -58,7 +58,6 @@ class GrpcDataProviderBackPressure(
         val servCallObs = responseObserver as ServerCallStreamObserver<T>
         val lock = ReentrantLock()
         var future: Future<*>? = null
-        val isCancelled = AtomicBoolean(false)
 
         fun cleanBuffer() {
             while (buffer.poll() != null) {
@@ -67,13 +66,11 @@ class GrpcDataProviderBackPressure(
         }
 
         fun cancel() {
-            if (isCancelled.compareAndSet(false, true)) {
-                handler.cancel()
-                onClose(handler)
-                cleanBuffer()
-                onFinished()
-                logger.info { "Stream cancelled and cleaned up" }
-            }
+            handler.cancel()
+            onClose(handler)
+            cleanBuffer()
+            onFinished()
+            logger.info { "Stream cancelled and cleaned up" }
         }
 
         servCallObs.setOnCancelHandler {
@@ -86,7 +83,7 @@ class GrpcDataProviderBackPressure(
         }
 
         servCallObs.setOnReadyHandler {
-            if (!handler.isAlive || isCancelled.get()) {
+            if (!handler.isAlive) {
                 logger.debug { "Handler no longer alive or already cancelled, skipping processing" }
                 return@setOnReadyHandler
             }
@@ -97,7 +94,7 @@ class GrpcDataProviderBackPressure(
             }
 
             var inProcess = true
-            while (servCallObs.isReady && inProcess && !isCancelled.get()) {
+            while (servCallObs.isReady && inProcess) {
                 if (servCallObs.isCancelled) {
                     logger.warn { "Request is canceled during processing" }
                     cancel()
@@ -141,7 +138,7 @@ class GrpcDataProviderBackPressure(
                 }
             }
 
-            if (inProcess && !isCancelled.get()) {
+            if (inProcess && !handler.isAlive) {
                 lock.withLock {
                     future = scheduler.schedule({
                         runCatching {

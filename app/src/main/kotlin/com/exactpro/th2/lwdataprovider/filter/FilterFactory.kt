@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,18 @@
 
 package com.exactpro.th2.lwdataprovider.filter
 
+import io.javalin.openapi.Nullability
+import io.javalin.openapi.OpenApiPropertyType
+
 interface FilterFactory<T> {
     fun create(requests: Collection<FilterRequest>): DataFilter<T>
 }
 
 data class FilterRequest(
     val name: String,
-    val negative: Boolean,
     val values: Collection<String>,
-    val conjunct: Boolean,
+    @get:OpenApiPropertyType(definedBy = Boolean::class, nullability = Nullability.NULLABLE)
+    val negative: Boolean = false,
+    @get:OpenApiPropertyType(definedBy = Boolean::class, nullability = Nullability.NULLABLE)
+    val conjunct: Boolean = false,
 )

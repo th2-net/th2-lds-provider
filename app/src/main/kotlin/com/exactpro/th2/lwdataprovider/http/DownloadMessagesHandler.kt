@@ -45,7 +45,7 @@ import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.Executor
 import java.util.function.Supplier
 
-class FileDownloadHandler(
+class DownloadMessagesHandler(
     private val configuration: Configuration,
     private val convExecutor: Executor,
     private val sseResponseBuilder: SseResponseBuilder,
@@ -184,7 +184,7 @@ class FileDownloadHandler(
         keepAliveHandler.addKeepAliveData(handler).use {
             searchMessagesHandler.loadMessageGroups(request, handler, dataMeasurement)
             writeJsonStream(ctx, queue, handler, dataMeasurement, LOGGER)
-            LOGGER.info { "Processing search sse messages group request finished" }
+            LOGGER.info { "Processing download messages request finished" }
         }
     }
 

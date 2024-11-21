@@ -134,6 +134,8 @@ class DataIndexer {
 class HttpGenericResponseHandler<T>(
     private val buffer: BlockingQueue<Supplier<SseEvent>>,
     private val builder: SseResponseBuilder,
+    private val executor: Executor,
+    private val dataMeasurement: DataMeasurement,
     private val getId: (T) -> Any,
     private val createEvent: SseResponseBuilder.(data: T, index: Long) -> SseEvent,
 ) : AbstractCancelableHandler(), ResponseHandler<T>, KeepAliveListener {
@@ -161,7 +163,12 @@ class HttpGenericResponseHandler<T>(
     override fun handleNext(data: T) {
         if (!isAlive) return
         val index = indexer.nextIndex()
-        buffer.put { builder.createEvent(data, index) }
+        val future: CompletableFuture<SseEvent> = CompletableFuture.supplyAsync({
+            dataMeasurement.start("convert_to_json").use {
+                builder.createEvent(data, index)
+            }
+        }, executor)
+        buffer.put(future::get)
         scannedObjectInfo.update(getId(data).toString(), index)
     }
 

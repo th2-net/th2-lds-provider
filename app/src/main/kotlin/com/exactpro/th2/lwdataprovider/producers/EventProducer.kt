@@ -22,60 +22,54 @@ import com.exactpro.cradle.testevents.StoredTestEventBatch
 import com.exactpro.cradle.testevents.StoredTestEventSingle
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.responses.BaseEventEntity
-import java.util.*
+import java.util.Collections.emptySet
 
-class EventProducer {
+fun fromSingleEvent(storedEvent: StoredTestEventSingle): BaseEventEntity {
+    return BaseEventEntity(
+        "event",
+        ProviderEventId(null, storedEvent.id),
+        null,
+        false,
+        storedEvent.name ?: "",
+        storedEvent.type ?: "",
+        storedEvent.endTimestamp,
+        storedEvent.startTimestamp,
+        storedEvent.parentId?.let { ProviderEventId(null, storedEvent.parentId) },
+        storedEvent.isSuccess,
+        storedEvent.bookId.name,
+        storedEvent.scope,
+        loadAttachedMessages(storedEvent.messages),
+        storedEvent.content,
+    )
+}
 
-    companion object {
-        fun fromSingleEvent(storedEvent: StoredTestEventSingle): BaseEventEntity {
-            return BaseEventEntity(
-                "event",
-                ProviderEventId(null, storedEvent.id),
-                null,
-                false,
-                storedEvent.name ?: "",
-                storedEvent.type ?: "",
-                storedEvent.endTimestamp,
-                storedEvent.startTimestamp,
-                storedEvent.parentId?.let { ProviderEventId(null, storedEvent.parentId) },
-                storedEvent.isSuccess,
-                storedEvent.bookId.name,
-                storedEvent.scope,
-                loadAttachedMessages(storedEvent.messages),
-                storedEvent.content.toString(Charsets.UTF_8),
+fun fromBatchEvent(
+    storedEvent: BatchedStoredTestEvent,
+    batch: StoredTestEventBatch,
+): BaseEventEntity {
+    return BaseEventEntity(
+        "event",
+        ProviderEventId(storedEvent.batchId, storedEvent.id),
+        storedEvent.batchId,
+        true,
+        storedEvent.name ?: "",
+        storedEvent.type ?: "",
+        storedEvent.endTimestamp,
+        storedEvent.startTimestamp,
+        storedEvent.parentId?.let {
+            ProviderEventId(
+                batch.getTestEvent(storedEvent.parentId)?.let { batch.id /*if the parent in the current batch*/ },
+                storedEvent.parentId
             )
-        }
+        },
+        storedEvent.isSuccess,
+        storedEvent.bookId.name,
+        storedEvent.scope,
+        loadAttachedMessages(storedEvent.messages),
+        storedEvent.content,
+    )
+}
 
-        fun fromBatchEvent(
-            storedEvent: BatchedStoredTestEvent,
-            batch: StoredTestEventBatch,
-        ): BaseEventEntity {
-            return BaseEventEntity(
-                "event",
-                ProviderEventId(storedEvent.batchId, storedEvent.id),
-                storedEvent.batchId,
-                true,
-                storedEvent.name ?: "",
-                storedEvent.type ?: "",
-                storedEvent.endTimestamp,
-                storedEvent.startTimestamp,
-                storedEvent.parentId?.let {
-                    ProviderEventId(
-                        batch.getTestEvent(storedEvent.parentId)?.let { batch.id /*if the parent in the current batch*/ },
-                        storedEvent.parentId
-                    )
-                },
-                storedEvent.isSuccess,
-                storedEvent.bookId.name,
-                storedEvent.scope,
-                loadAttachedMessages(storedEvent.messages),
-                storedEvent.content.toString(Charsets.UTF_8),
-            )
-        }
-
-        private fun loadAttachedMessages(messageIds: Collection<StoredMessageId>?): Set<String> {
-            return messageIds?.asSequence()?.map { t -> t.toString() }?.toSet() ?: Collections.emptySet()
-        }
-    }
-
+private fun loadAttachedMessages(messageIds: Collection<StoredMessageId>?): Set<String> {
+    return messageIds?.asSequence()?.map { t -> t.toString() }?.toSet() ?: emptySet()
 }

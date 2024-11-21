@@ -20,6 +20,7 @@ import com.exactpro.cradle.BookId
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
+import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.requests.SsePageInfosSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.PageInfo
 import com.exactpro.th2.lwdataprovider.handlers.GeneralCradleHandler
@@ -36,6 +37,7 @@ import io.javalin.openapi.OpenApiResponse
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.time.Instant
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.Executor
 import java.util.function.Supplier
 
 class GetPageInfosServlet(
@@ -43,6 +45,8 @@ class GetPageInfosServlet(
     private val sseResponseBuilder: SseResponseBuilder,
     private val keepAliveHandler: KeepAliveHandler,
     private val handler: GeneralCradleHandler,
+    private val convExecutor: Executor,
+    private val dataMeasurement: DataMeasurement,
 ) : AbstractSseRequestHandler() {
 
     override fun setup(app: Javalin, context: JavalinContext) {
@@ -92,7 +96,14 @@ class GetPageInfosServlet(
         }
 
         val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
-        val reqContext = HttpGenericResponseHandler(queue, sseResponseBuilder, PageInfo::id, SseResponseBuilder::build)
+        val reqContext = HttpGenericResponseHandler(
+            queue,
+            sseResponseBuilder,
+            convExecutor,
+            dataMeasurement,
+            PageInfo::id,
+            SseResponseBuilder::build,
+        )
         sseClient.onClose(reqContext::cancel)
         keepAliveHandler.addKeepAliveData(reqContext).use {
             handler.getPageInfos(request, reqContext)

@@ -63,6 +63,8 @@ dependencies {
     testImplementation("org.testcontainers:cassandra")
 
     testImplementation("com.datastax.oss:java-driver-core")
+    testImplementation("io.grpc:grpc-testing")
+    testImplementation("io.grpc:grpc-inprocess")
 }
 
 application {

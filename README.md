@@ -1,5 +1,6 @@
 # Lightweight data provider (2.12.1)
 
+
 # Overview
 This component serves as a data provider for [th2-data-services](https://github.com/th2-net/th2-data-services). It will connect to the cassandra database via [cradle api](https://github.com/th2-net/cradleapi) and expose the data stored in there as REST resources.
 This component is similar to [rpt-data-provider](https://github.com/th2-net/th2-rpt-data-provider) but the last one contains additional GUI-specific logic.
@@ -123,6 +124,7 @@ spec:
 #      * 0: no compression
 #      * 1: best speed
 #      * 9: best compression
+#   keepOpenPullingTimeout: 100 # time to wait in between attempts to get new data from data storage when `keepOpen` request parameter is used.
 
   pins: # pins are used to communicate with codec components to parse message data
     - name: to_codec
@@ -181,6 +183,7 @@ spec:
 #   validateCradleData: false # validate data loaded from cradle. NOTE: Enabled validation affect performance 
 #   codecUsePinAttributes: true # send raw message to specified codec (true) or send to all codecs (false) 
 #   responseFormats: string list # resolve data for selected formats only. (allowed values: BASE_64, PARSED)
+#   keepOpenPullingTimeout: 100 # time to wait in between attempts to get new data from data storage when `keepOpen` request parameter is used.
     
 
   # pins are used to communicate with codec components to parse message data
@@ -223,6 +226,11 @@ spec:
 ```
 
 # Release notes:
+
+## 2.12.1
+
++ Support `keepOpen` option for `searchMessageGroups` gRPC request 
++ th2 gradle plugin `0.1.3`
 
 ## 2.12.0
 

@@ -31,6 +31,7 @@ import java.util.concurrent.BlockingQueue
 import java.util.concurrent.Future
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
@@ -42,9 +43,9 @@ class GrpcDataProviderBackPressure(
     dataMeasurement: DataMeasurement,
     private val scheduler: ScheduledExecutorService,
 ) : GrpcDataProviderImpl(configuration, searchMessagesHandler, searchEventsHandler, generalCradleHandler, dataMeasurement) {
-
     companion object {
         private val logger = KotlinLogging.logger { }
+        private const val EVENT_POLLING_TIMEOUT = 100L
     }
 
     override fun <T> processResponse(
@@ -63,44 +64,81 @@ class GrpcDataProviderBackPressure(
                 buffer.clear()
             }
         }
+
         fun cancel() {
             handler.cancel()
             onClose(handler)
             cleanBuffer()
             onFinished()
+            logger.info { "Stream cancelled and cleaned up" }
         }
+
+        servCallObs.setOnCancelHandler {
+            logger.warn { "Execution cancelled" }
+            lock.withLock {
+                future?.cancel(true)
+                future = null
+            }
+            cancel()
+        }
+
         servCallObs.setOnReadyHandler {
-            if (!handler.isAlive)
+            if (!handler.isAlive) {
+                logger.debug { "Handler no longer alive or already cancelled, skipping processing" }
                 return@setOnReadyHandler
+            }
+
             lock.withLock {
                 future?.cancel(false)
                 future = null
             }
+
             var inProcess = true
             while (servCallObs.isReady && inProcess) {
                 if (servCallObs.isCancelled) {
                     logger.warn { "Request is canceled during processing" }
-                    handler.cancel()
+                    cancel()
                     return@setOnReadyHandler
                 }
-                val event = buffer.take()
-                if (event.close) {
-                    servCallObs.onCompleted()
-                    inProcess = false
-                    onFinished()
-                    onClose(handler)
-                    logger.info { "Executing finished successfully" }
-                } else if (event.error != null) {
-                    servCallObs.onError(event.error)
-                    inProcess = false
-                    onFinished()
-                    handler.complete()
-                    logger.warn(event.error) { "Executing finished with error" }
-                } else {
-                    converter.invoke(event)?.let {  servCallObs.onNext(it) }
+
+                try {
+                    // We need to poll because if we will use take and keepOpen option it is possible that we will have to wait here indefinitely
+                    val event = buffer.poll(EVENT_POLLING_TIMEOUT, TimeUnit.MILLISECONDS) ?: continue
+                    when {
+                        event.close -> {
+                            servCallObs.onCompleted()
+                            inProcess = false
+                            onFinished()
+                            onClose(handler)
+                            logger.info { "Executing finished successfully" }
+                        }
+                        event.error != null -> {
+                            servCallObs.onError(event.error)
+                            inProcess = false
+                            onFinished()
+                            handler.complete()
+                            logger.warn(event.error) { "Executing finished with error" }
+                        }
+                        else -> {
+                            converter.invoke(event)?.let { servCallObs.onNext(it) }
+                        }
+                    }
+                } catch (e: InterruptedException) {
+                    logger.warn(e) { "Processing interrupted" }
+                    cancel()
+                    return@setOnReadyHandler
+                } catch (e: Exception) {
+                    logger.error(e) { "Error processing event" }
+                    servCallObs.onError(Status.INTERNAL
+                        .withDescription("Internal error during processing")
+                        .withCause(e)
+                        .asRuntimeException())
+                    cancel()
+                    return@setOnReadyHandler
                 }
             }
-            if (inProcess) {
+
+            if (inProcess && !handler.isAlive) {
                 lock.withLock {
                     future = scheduler.schedule({
                         runCatching {
@@ -118,20 +156,10 @@ class GrpcDataProviderBackPressure(
                     }, configuration.grpcBackPressureReadinessTimeoutMls, TimeUnit.MILLISECONDS)
                 }
             }
+
             if (!servCallObs.isReady) {
                 logger.trace { "Suspending processing because the opposite side is not ready to receive more messages. In queue: ${buffer.size}" }
             }
         }
-
-        servCallObs.setOnCancelHandler {
-            logger.warn{ "Execution cancelled" }
-            lock.withLock {
-                future?.cancel(true)
-                future = null
-            }
-            cancel()
-        }
-
-
     }
 }

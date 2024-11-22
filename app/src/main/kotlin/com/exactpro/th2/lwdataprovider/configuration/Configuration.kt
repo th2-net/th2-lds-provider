@@ -49,6 +49,7 @@ class CustomConfigurationClass(
     @JsonDeserialize(using = ByteSizeDeserializer::class)
     val batchSizeBytes: Int? = null,
     val downloadTaskTTL: Long? = null,
+    val keepOpenPullingTimeoutMs: Long? = null
 )
 
 class Configuration(customConfiguration: CustomConfigurationClass) {
@@ -79,6 +80,8 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     val gzipCompressionLevel: Int = VariableBuilder.getVariable(customConfiguration::gzipCompressionLevel, -1)
     val batchSizeBytes: Int = VariableBuilder.getVariable(customConfiguration::batchSizeBytes, 256 * 1024)
     val downloadTaskTTL: Long = VariableBuilder.getVariable(customConfiguration::downloadTaskTTL, TimeUnit.HOURS.toMillis(1))
+    val keepOpenPullingTimeoutMs: Long = VariableBuilder.getVariable(customConfiguration::keepOpenPullingTimeoutMs, 10)
+
     init {
         require(bufferPerQuery <= maxBufferDecodeQueue) {
             "buffer per queue ($bufferPerQuery) must be less or equal to the total buffer size ($maxBufferDecodeQueue)"

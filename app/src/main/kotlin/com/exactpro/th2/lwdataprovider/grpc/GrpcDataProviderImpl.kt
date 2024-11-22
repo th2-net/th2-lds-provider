@@ -244,7 +244,7 @@ open class GrpcDataProviderImpl(
         }
     }
 
-    protected open fun <T> processResponse(
+    internal open fun <T> processResponse(
         responseObserver: StreamObserver<T>,
         buffer: BlockingQueue<GrpcEvent>,
         handler: CancelableResponseHandler,

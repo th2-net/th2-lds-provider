@@ -19,7 +19,10 @@ package com.exactpro.th2.lwdataprovider.util
 import com.exactpro.cradle.Order
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageId
+import com.exactpro.th2.common.grpc.MessageID
+import com.exactpro.th2.dataprovider.lw.grpc.MessageSearchResponse
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
+import com.exactpro.th2.lwdataprovider.grpc.toInstant
 import com.exactpro.th2.lwdataprovider.workers.RequestId
 import org.junit.jupiter.api.Assertions
 
@@ -50,6 +53,26 @@ fun validateMessagesOrder(messages: List<RequestedMessageDetails>, expectedUniqu
         ids += message.requestId
         prevMessage?.also {
             Assertions.assertTrue(it.storedMessage.timestamp <= message.storedMessage.timestamp) {
+                "Unordered messages: $it and $message"
+            }
+        }
+        prevMessage = message
+    }
+    Assertions.assertEquals(expectedUniqueMessages, ids.size) {
+        "Unexpected number of IDs: $ids"
+    }
+}
+
+fun validateMessagesOrderGrpc(messages: List<MessageSearchResponse>, expectedUniqueMessages: Int) {
+    var prevMessage: MessageSearchResponse? = null
+    val ids = HashSet<MessageID>(expectedUniqueMessages)
+    for (message in messages) {
+        if (message.hasMessageStreamPointers()) {
+            continue
+        }
+        ids += message.message.messageId
+        prevMessage?.also {
+            Assertions.assertTrue(it.message.messageId.timestamp.toInstant() <= message.message.messageId.timestamp.toInstant()) {
                 "Unordered messages: $it and $message"
             }
         }

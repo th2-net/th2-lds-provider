@@ -124,6 +124,7 @@ spec:
 #      * 0: no compression
 #      * 1: best speed
 #      * 9: best compression
+#   keepOpenPullingTimeout: 100 # time to wait in between attempts to get new data from data storage when `keepOpen` request parameter is used.
 
   pins: # pins are used to communicate with codec components to parse message data
     - name: to_codec
@@ -182,6 +183,7 @@ spec:
 #   validateCradleData: false # validate data loaded from cradle. NOTE: Enabled validation affect performance 
 #   codecUsePinAttributes: true # send raw message to specified codec (true) or send to all codecs (false) 
 #   responseFormats: string list # resolve data for selected formats only. (allowed values: BASE_64, PARSED)
+#   keepOpenPullingTimeout: 100 # time to wait in between attempts to get new data from data storage when `keepOpen` request parameter is used.
     
 
   # pins are used to communicate with codec components to parse message data

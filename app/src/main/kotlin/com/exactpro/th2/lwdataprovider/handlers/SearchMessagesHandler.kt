@@ -140,6 +140,7 @@ class SearchMessagesHandler(
                         val allLoaded = hashSetOf<Stream>()
                         do {
                             val continuePulling = pullUpdates(request, order, sink, allLoaded)
+                            Thread.sleep(configuration.keepOpenPullingTimeoutMs)
                         } while (continuePulling)
                     }
                 }
@@ -293,13 +294,14 @@ class SearchMessagesHandler(
                         }
                         val lastTimestamp: Instant = request.endTimestamp
                         val allGroupLoaded = hashSetOf<String>()
-                        // TODO: Maybe we need to wait between pulling attempts to not overwhelm storage with requests
+
                         do {
                             val keepPulling = pullUpdates(request, lastTimestamp, sink, parameters, allGroupLoaded)
                             sink.canceled?.apply {
                                 logger.info { "request canceled: $message" }
                                 return@use
                             }
+                            Thread.sleep(configuration.keepOpenPullingTimeoutMs)
                         } while (keepPulling)
                     }
                 } catch (ex: Exception) {

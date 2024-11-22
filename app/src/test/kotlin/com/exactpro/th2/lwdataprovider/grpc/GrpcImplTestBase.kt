@@ -44,11 +44,13 @@ import org.mockito.kotlin.spy
 import java.util.Queue
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.Executor
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 
 abstract class GrpcImplTestBase {
-    protected val executor: Executor = Executor { it.run() }
+
+    protected val executor: Executor = Executors.newSingleThreadExecutor()
     protected val storage = mock<CradleStorage>()
     protected val manager = mock<CradleManager> {
         on { storage } doReturn storage
@@ -105,16 +107,19 @@ abstract class GrpcImplTestBase {
     protected class GrpcTestHolder(
         service: BindableService
     ) : AutoCloseable {
+        private val serverExecutor = Executors.newFixedThreadPool(1)
+        private val clientExecutor = Executors.newFixedThreadPool(1)
+
         private val inProcessServer: Server = InProcessServerBuilder
             .forName(SERVER_NAME)
             .addService(service)
-            .directExecutor()
+            .executor(serverExecutor)
             .build()
             .also(Server::start)
 
         private val inProcessChannel: ManagedChannel = InProcessChannelBuilder
             .forName(SERVER_NAME)
-            .directExecutor()
+            .executor(clientExecutor)
             .build()
 
         val stub: DataProviderGrpc.DataProviderBlockingStub = DataProviderGrpc.newBlockingStub(inProcessChannel)

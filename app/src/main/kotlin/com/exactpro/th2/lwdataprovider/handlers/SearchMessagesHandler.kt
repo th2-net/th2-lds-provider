@@ -293,6 +293,7 @@ class SearchMessagesHandler(
                         }
                         val lastTimestamp: Instant = request.endTimestamp
                         val allGroupLoaded = hashSetOf<String>()
+                        // TODO: Maybe we need to wait between pulling attempts to not overwhelm storage with requests
                         do {
                             val keepPulling = pullUpdates(request, lastTimestamp, sink, parameters, allGroupLoaded)
                             sink.canceled?.apply {

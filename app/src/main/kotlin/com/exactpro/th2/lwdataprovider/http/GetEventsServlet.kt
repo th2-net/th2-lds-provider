@@ -30,6 +30,7 @@ import com.exactpro.th2.lwdataprovider.filter.events.EventsFilterFactory
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.http.JavalinHandler.Companion.customSse
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.javalin.Javalin
 import io.javalin.http.Context
 import io.javalin.http.queryParamAsClass
@@ -38,7 +39,6 @@ import io.javalin.openapi.OpenApi
 import io.javalin.openapi.OpenApiContent
 import io.javalin.openapi.OpenApiParam
 import io.javalin.openapi.OpenApiResponse
-import io.github.oshai.kotlinlogging.KotlinLogging
 import java.time.Instant
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.Executor

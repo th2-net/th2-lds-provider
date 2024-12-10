@@ -1,21 +1,21 @@
 [versions]
-kotlin = "1.9.22"
+kotlin = "1.9.23"
 th2-plugin = "0.1.6"
 strikt = "0.34.1"
-javalin = "5.6.5"
-openapi = "5.6.4"
+javalin = "6.3.0"
+openapi = "6.3.0"
 
 [libraries]
 th2-common = { group = "com.exactpro.th2", name = "common", version = "5.14.0-dev" }
 th2-grpc-common = { group = "com.exactpro.th2", name = "grpc-common", version = "4.5.0-dev" }
 cradle-cassandra = { group = "com.exactpro.th2", name = "cradle-cassandra", version = "5.4.4-dev" }
-lz4 = { group = "net.jpountz.lz4", name = "lz4", version = "1.3.0" }
+lz4 = { group = "org.lz4", name = "lz4-java", version = "1.8.0" }
 
-kotlin-logging = { group = "io.github.oshai", name = "kotlin-logging", version = "5.1.4" }
-kotlinx-serialization-json-jvm = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json-jvm", version = "1.5.1" }
+kotlin-logging = { group = "io.github.oshai", name = "kotlin-logging", version = "6.0.9" }
+kotlinx-serialization-json-jvm = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json-jvm", version = "1.6.3" }
 
-testcontainers-bom = { group = "org.testcontainers", name = "testcontainers-bom", version = "1.20.1" }
-junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version = "5.11.0" }
+testcontainers-bom = { group = "org.testcontainers", name = "testcontainers-bom", version = "1.20.4" }
+junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version = "5.11.3" }
 mockito-kotlin = { group = "org.mockito.kotlin", name = "mockito-kotlin", version = "5.4.0" }
 strikt-core = { group = "io.strikt", name = "strikt-core", version.ref = "strikt" }
 strikt-jackson = { group = "io.strikt", name = "strikt-jackson", version.ref = "strikt" }
@@ -28,7 +28,7 @@ javalin-testtools = { group = "io.javalin", name = "javalin-testtools", version.
 javalin = { group = "io.javalin", name = "javalin", version.ref = "javalin" }
 javalin-micrometer = { group = "io.javalin", name = "javalin-micrometer", version.ref = "javalin" }
 
-micrometer-bom = { group = "io.micrometer", name = "micrometer-bom", version = "1.13.3" }
+micrometer-bom = { group = "io.micrometer", name = "micrometer-bom", version = "1.14.1" }
 
 [plugins]
 kotlin = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

@@ -29,7 +29,6 @@ import com.exactpro.th2.lwdataprovider.entities.requests.util.convertToMessageSt
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import com.exactpro.th2.lwdataprovider.http.JavalinHandler.Companion.customSse
-import com.exactpro.th2.lwdataprovider.http.util.listQueryParameters
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import io.javalin.Javalin
 import io.javalin.http.Context
@@ -40,6 +39,7 @@ import io.javalin.openapi.OpenApiContent
 import io.javalin.openapi.OpenApiParam
 import io.javalin.openapi.OpenApiResponse
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.javalin.http.queryParamsAsClass
 import java.time.Instant
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.Executor
@@ -174,13 +174,13 @@ class GetMessagesServlet(
     private fun createRequest(ctx: Context) = SseMessageSearchRequest(
         startTimestamp = ctx.queryParamAsClass<Instant>(START_TIMESTAMP)
             .allowNullable().get(),
-        stream = ctx.listQueryParameters(STREAM).get()
+        stream = ctx.queryParamsAsClass<String>(STREAM).get()
             .takeIf(List<*>::isNotEmpty)
             ?.let(::convertToMessageStreams),
         searchDirection = ctx.queryParamAsClass<SearchDirection>(SEARCH_DIRECTION)
             .getOrDefault(SearchDirection.next),
         endTimestamp = ctx.queryParamAsClass<Instant>(END_TIMESTAMP).allowNullable().get(),
-        resumeFromIdsList = ctx.listQueryParameters(MESSAGE_ID).get()
+        resumeFromIdsList = ctx.queryParamsAsClass<String>(MESSAGE_ID).get()
             .takeIf(List<*>::isNotEmpty)
             ?.map { StoredMessageId.fromString(it) },
         resultCountLimit = ctx.queryParamAsClass<Int>(RESULT_COUNT_LIMIT).allowNullable().get(),

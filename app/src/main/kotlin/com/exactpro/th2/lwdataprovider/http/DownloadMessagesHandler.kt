@@ -28,13 +28,13 @@ import com.exactpro.th2.lwdataprovider.entities.requests.util.convertToMessageSt
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import com.exactpro.th2.lwdataprovider.http.util.JSON_STREAM_CONTENT_TYPE
-import com.exactpro.th2.lwdataprovider.http.util.listQueryParameters
 import com.exactpro.th2.lwdataprovider.http.util.writeJsonStream
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.javalin.Javalin
 import io.javalin.http.Context
 import io.javalin.http.queryParamAsClass
+import io.javalin.http.queryParamsAsClass
 import io.javalin.openapi.HttpMethod
 import io.javalin.openapi.OpenApi
 import io.javalin.openapi.OpenApiContent
@@ -67,7 +67,6 @@ class DownloadMessagesHandler(
                 type = Array<String>::class,
                 required = true,
                 description = "set of groups to request",
-                isRepeatable = true,
             ),
             OpenApiParam(
                 START_TIMESTAMP_PARAM,
@@ -145,7 +144,7 @@ class DownloadMessagesHandler(
     )
     private fun handleMessage(ctx: Context) {
         val request = MessagesGroupRequest(
-            groups = ctx.listQueryParameters(GROUP_PARAM)
+            groups = ctx.queryParamsAsClass<String>(GROUP_PARAM)
                 .check(List<*>::isNotEmpty, "EMPTY_COLLECTION")
                 .check({ it.all(String::isNotBlank) }, "BLANK_GROUP")
                 .get().toSet(),

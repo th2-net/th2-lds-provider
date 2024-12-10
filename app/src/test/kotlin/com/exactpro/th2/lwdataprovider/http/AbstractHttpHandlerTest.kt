@@ -32,6 +32,7 @@ import com.exactpro.th2.lwdataprovider.Context
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.configuration.CustomConfigurationClass
+import com.exactpro.th2.lwdataprovider.http.HttpServer.Companion.setupConverters
 import com.exactpro.th2.lwdataprovider.producers.MessageProducer53
 import com.fasterxml.jackson.databind.JsonNode
 import com.google.common.util.concurrent.ThreadFactoryBuilder
@@ -190,14 +191,14 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
         ), testCase: TestCase
     ) {
         JavalinTest.test(
-            app = Javalin.create {
-                it.jsonMapper(JavalinJackson(MAPPER))
-                it.plugins.enableDevLogging()
+            app = Javalin.create { config ->
+                config.jsonMapper(JavalinJackson(MAPPER))
+                config.bundledPlugins.enableDevLogging()
+                setupConverters(config)
             }.apply {
                 val handler = createHandler()
                 handler.setup(this, JavalinContext(flushAfter = 0/*auto flush*/))
-            }.also(HttpServer.Companion::setupConverters)
-                .also(HttpServer.Companion::setupExceptionHandlers),
+            }.also(HttpServer.Companion::setupExceptionHandlers),
             config = testConfig,
             testCase,
         )

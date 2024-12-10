@@ -41,6 +41,7 @@ import io.javalin.openapi.OpenApiLicense
 import io.javalin.openapi.plugin.OpenApiPlugin
 import io.javalin.openapi.plugin.redoc.ReDocPlugin
 import io.javalin.openapi.plugin.swagger.SwaggerPlugin
+import io.javalin.validation.Validation
 import io.micrometer.core.instrument.Clock
 import io.micrometer.core.instrument.Tag
 import io.micrometer.prometheusmetrics.PrometheusConfig
@@ -290,7 +291,7 @@ class HttpServer(private val context: Context) {
             config.validation.register(ProviderEventId::class.java, ::ProviderEventId)
             config.validation.register(SearchDirection::class.java, SearchDirection::valueOf)
             config.validation.register(BookId::class.java, ::BookId)
-// FIXME:           config.validation.addValidationExceptionMapper(config)
+            Validation.addValidationExceptionMapper(config)
         }
 
         @JvmStatic

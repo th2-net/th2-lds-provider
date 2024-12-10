@@ -173,12 +173,6 @@ class HttpServer(private val context: Context) {
                     logger.info { "Request ${ctx.method().name} '${ctx.path()}' executed with status ${ctx.status()}: ${time}.ms" }
                 }
             }
-            MicrometerPlugin { micrometer ->
-                micrometer.registry =
-                    PrometheusMeterRegistry(PrometheusConfig.DEFAULT, PrometheusRegistry.defaultRegistry, Clock.SYSTEM)
-                micrometer.tags = listOf(Tag.of("application", context.applicationName))
-            }
-
             config.registerPlugin(MicrometerPlugin { micrometer ->
                 micrometer.registry =
                     PrometheusMeterRegistry(PrometheusConfig.DEFAULT, PrometheusRegistry.defaultRegistry, Clock.SYSTEM)

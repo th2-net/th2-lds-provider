@@ -1,0 +1,24 @@
+name: Scan licenses and vulnerabilities in java project
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 1'
+
+jobs:
+  app-version:
+    name: Collect app version
+    uses: th2-net/.github/.github/workflows/compound-prebuild-java-dev-workflow.yml@main
+    with:
+      project-path: app
+  owasp-scan:
+    uses: th2-net/.github/.github/workflows/owasp-gradle-scan.yml@main
+    with:
+      multiproject: true
+    secrets:
+      nvd-api-key: ${{ secrets.NVD_APIKEY }}
+  license-scan:
+    uses: th2-net/.github/.github/workflows/license_check.yml@main
+    needs: [ app-version ]
+    with:
+      version: ${{ needs.app-version.outputs.version }}

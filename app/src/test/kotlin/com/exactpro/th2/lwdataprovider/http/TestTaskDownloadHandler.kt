@@ -81,7 +81,7 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
     fun `get possible statuses`() {
         startTest { _, client ->
             val response = client.get("/download/status")
-            val statuses = TaskStatus.values()
+            val statuses = TaskStatus.entries.toTypedArray()
             val firstTerminalIndex = TaskStatus.COMPLETED.ordinal
             expectThat(response)
                 .jsonBody()
@@ -143,6 +143,63 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
     }
 
     @Test
+    fun `creates messages task with null values`() {
+        startTest { _, client ->
+            val response = client.post(
+                path = "/download",
+                json = mapOf(
+                    "resource" to "MESSAGES",
+                    "bookID" to "test-book",
+                    "startTimestamp" to Instant.now().plusSeconds(10).toEpochMilli(),
+                    "endTimestamp" to Instant.now().toEpochMilli(),
+                    "groups" to setOf("group1", "group2"),
+                    "limit" to null,
+                    "failFast" to null,
+                )
+            )
+
+            expectThat(response) {
+                get { code } isEqualTo HttpStatus.CREATED.code
+                jsonBody()
+                    .isObject()
+                    .has("taskID")
+                    .path("taskID")
+                    .isTextual()
+            }
+        }
+    }
+
+    @Test
+    fun `creates messages task with stream without directions`() {
+        startTest { _, client ->
+            val response = client.post(
+                path = "/download",
+                json = mapOf(
+                    "resource" to "MESSAGES",
+                    "bookID" to "test-book",
+                    "startTimestamp" to Instant.now().plusSeconds(10).toEpochMilli(),
+                    "endTimestamp" to Instant.now().toEpochMilli(),
+                    "groups" to setOf("group1", "group2"),
+                    "streams" to listOf(
+                        mapOf(
+                            "sessionAlias" to "test",
+                        ),
+                    ),
+                )
+            )
+
+            expectThat(response) {
+                get { code } isEqualTo HttpStatus.CREATED.code
+                jsonBody()
+                    .isObject()
+                    .has("taskID")
+                    .path("taskID")
+                    .isTextual()
+            }
+        }
+    }
+
+    @Test
     fun `creates events task`() {
         startTest { _, client ->
             val response = client.post(
@@ -170,6 +227,33 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
                             "negative" to false,
                         ),
                     )
+                ),
+            )
+
+            expectThat(response) {
+                get { code } isEqualTo HttpStatus.CREATED.code
+                jsonBody()
+                    .isObject()
+                    .has("taskID")
+                    .path("taskID")
+                    .isTextual()
+            }
+        }
+    }
+
+    @Test
+    fun `creates events task with null values`() {
+        startTest { _, client ->
+            val response = client.post(
+                path = "/download",
+                json = mapOf(
+                    "resource" to "EVENTS",
+                    "bookID" to "test-book",
+                    "startTimestamp" to Instant.now().toEpochMilli(),
+                    "endTimestamp" to Instant.now().plusSeconds(10).toEpochMilli(),
+                    "scope" to "test-scope",
+                    "limit" to null,
+                    "parentEvent" to null,
                 ),
             )
 

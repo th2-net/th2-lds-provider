@@ -52,25 +52,26 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.fasterxml.jackson.databind.annotation.JsonSerialize
 import com.fasterxml.jackson.datatype.jsr310.ser.InstantSerializer
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.javalin.Javalin
 import io.javalin.http.Context
 import io.javalin.http.HttpStatus
 import io.javalin.http.bodyValidator
+import io.javalin.openapi.Discriminator
+import io.javalin.openapi.DiscriminatorProperty
 import io.javalin.openapi.HttpMethod
+import io.javalin.openapi.MappedClass
 import io.javalin.openapi.Nullability
+import io.javalin.openapi.OneOf
 import io.javalin.openapi.OpenApi
 import io.javalin.openapi.OpenApiContent
 import io.javalin.openapi.OpenApiDescription
 import io.javalin.openapi.OpenApiExample
+import io.javalin.openapi.OpenApiNullable
 import io.javalin.openapi.OpenApiParam
 import io.javalin.openapi.OpenApiPropertyType
 import io.javalin.openapi.OpenApiRequestBody
 import io.javalin.openapi.OpenApiResponse
-import io.github.oshai.kotlinlogging.KotlinLogging
-import io.javalin.openapi.Discriminator
-import io.javalin.openapi.DiscriminatorProperty
-import io.javalin.openapi.MappedClass
-import io.javalin.openapi.OneOf
 import java.time.Instant
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.Executor
@@ -371,7 +372,7 @@ class TaskDownloadHandler(
     private class TaskStatusResponse(
         @get:OpenApiPropertyType(definedBy = String::class)
         val taskID: TaskID,
-        @get:OpenApiPropertyType(definedBy = String::class)
+        @get:OpenApiPropertyType(definedBy = String::class, nullability = Nullability.NOT_NULL)
         @field:JsonSerialize(using = InstantSerializer::class)
         @field:JsonFormat(shape = JsonFormat.Shape.STRING)
         val createdAt: Instant,
@@ -380,7 +381,8 @@ class TaskDownloadHandler(
         @field:JsonFormat(shape = JsonFormat.Shape.STRING)
         val completedAt: Instant? = null,
         val status: TaskStatus,
-        @get:OpenApiPropertyType(definedBy = Array<ErrorMessage>::class, nullability = Nullability.NULLABLE)
+        @get:OpenApiNullable(nullable = false) // this annotation is added to mark this field as not nullable if exist
+        @get:OpenApiPropertyType(definedBy = Array<ErrorMessage>::class, nullability = Nullability.NULLABLE) // thia annotation is added to mark this field as optional
         val errors: List<ErrorMessage> = emptyList(),
     )
 
@@ -388,7 +390,7 @@ class TaskDownloadHandler(
     private class StatusInfoResponse(
         val status: TaskStatus,
         val terminal: Boolean,
-        val description: String? = null,
+        val description: String,
     )
 
     private fun TaskInformation.toTaskStatusResponse(): TaskStatusResponse =
@@ -479,7 +481,8 @@ class TaskDownloadHandler(
         @field:JsonDeserialize(using = CustomMillisOrNanosInstantDeserializer::class)
         val endTimestamp: Instant,
         val limit: Int? = null,
-        @get:OpenApiPropertyType(definedBy = SearchDirection::class, nullability = Nullability.NULLABLE)
+        @get:OpenApiNullable(nullable = false) // this annotation is added to mark this field as not nullable if exist
+        @get:OpenApiPropertyType(definedBy = SearchDirection::class, nullability = Nullability.NULLABLE) // thia annotation is added to mark this field as optional
         val searchDirection: SearchDirection = SearchDirection.next,
     )
 
@@ -517,7 +520,8 @@ class TaskDownloadHandler(
 
     private class MessageStream(
         val sessionAlias: String,
-        @get:OpenApiPropertyType(definedBy = Array<Direction>::class, nullability = Nullability.NULLABLE)
+        @get:OpenApiNullable(nullable = false) // this annotation is added to mark this field as not nullable if exist
+        @get:OpenApiPropertyType(definedBy = Array<Direction>::class, nullability = Nullability.NULLABLE) // thia annotation is added to mark this field as optional
         val directions: Set<Direction> = setOf(Direction.SECOND, Direction.FIRST)
     )
 

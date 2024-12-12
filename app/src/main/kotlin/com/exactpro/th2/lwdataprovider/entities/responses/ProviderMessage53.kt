@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import com.exactpro.th2.lwdataprovider.entities.internal.Direction
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonRawValue
 import io.javalin.openapi.OpenApiIgnore
+import io.javalin.openapi.OpenApiNullable
 import io.javalin.openapi.OpenApiPropertyType
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
@@ -32,8 +33,10 @@ import java.util.Collections
 
 @Deprecated("same format as rpt-data-provider5.3")
 @Serializable
-data class ProviderMessage53 constructor(
-    @Serializable(with = InstantSerializer::class) val timestamp: Instant,
+data class ProviderMessage53(
+    @Serializable(with = InstantSerializer::class)
+    val timestamp: Instant,
+    @get:OpenApiNullable(nullable = false)
     val direction: Direction?,
     val sessionId: String,
     val messageType: String,
@@ -41,10 +44,12 @@ data class ProviderMessage53 constructor(
     val attachedEventIds: Set<String>,
 
     @JsonRawValue
+    @get:OpenApiNullable(nullable = false)
     @get:OpenApiPropertyType(Map::class)
     @Serializable(with = UnwrappingJsonListSerializer::class)
     val body: String?,
 
+    @get:OpenApiNullable(nullable = false)
     val bodyBase64: String?,
 
     @JsonIgnore

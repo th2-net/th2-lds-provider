@@ -226,16 +226,20 @@ class TestDownloadEventsHandler : AbstractHttpHandlerTest<DownloadEventsHandler>
         "filters=type&type-negative=true",
         "filters=type&type-value=&type-negative=true",
         "filters=type&type-values=Root&type-values=Sub&type-conjunct=false&type-negative=true",
+        "filters=type&type-values=Root&type-values=Sub&type-conjunct=null&type-negative=true",
         "filters=type&type-values=Root&type-values=Sub&type-conjunct=abc&type-negative=true", // type-conjunct resolved as false
         "filters=type&type-value=test-event-type&type-negative=abc", // type-negative resolved as false
         "filters=type&type-value=TEST-EVENT-TYPE&type-negative=false",
+        "filters=type&type-value=TEST-EVENT-TYPE&type-negative=null",
         "filters=type&type-value=Root&type-value=Sub&type-conjunct=false&type-negative=true",
 
         "filters=name&name-negative=true",
         "filters=name&name-value=&name-negative=true",
         "filters=name&name-values=Root&name-values=Sub&name-conjunct=false&name-negative=true",
+        "filters=name&name-values=Root&name-values=Sub&name-conjunct=null&name-negative=true",
         "filters=name&name-values=Root&name-values=Sub&name-conjunct=abc&name-negative=true", // type-conjunct resolved as false
         "filters=name&name-value=test-event-name&name-negative=abc", // type-negative resolved as false
+        "filters=name&name-value=TEST-EVENT-NAME&name-negative=null",
         "filters=name&name-value=TEST-EVENT-NAME&name-negative=false",
         "filters=name&name-value=Root&name-value=Sub&name-conjunct=false&name-negative=true",
     ])

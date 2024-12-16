@@ -32,9 +32,11 @@ import com.exactpro.th2.lwdataprovider.Context
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.configuration.CustomConfigurationClass
+import com.exactpro.th2.lwdataprovider.http.HttpServer.Companion.setupConverters
 import com.exactpro.th2.lwdataprovider.producers.MessageProducer53
 import com.fasterxml.jackson.databind.JsonNode
 import com.google.common.util.concurrent.ThreadFactoryBuilder
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.javalin.Javalin
 import io.javalin.http.Header
 import io.javalin.json.JavalinJackson
@@ -43,13 +45,22 @@ import io.javalin.testtools.JavalinTest
 import io.javalin.testtools.TestCase
 import io.javalin.testtools.TestConfig
 import io.prometheus.client.CollectorRegistry
-import io.github.oshai.kotlinlogging.KotlinLogging
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
-import org.junit.jupiter.api.*
+import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.TestInstance
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.kotlin.*
+import org.mockito.kotlin.any
+import org.mockito.kotlin.anyVararg
+import org.mockito.kotlin.doAnswer
+import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.reset
+import org.mockito.kotlin.whenever
 import strikt.api.Assertion
 import strikt.api.expectCatching
 import strikt.assertions.isNotNull
@@ -190,14 +201,14 @@ abstract class AbstractHttpHandlerTest<T : JavalinHandler> {
         ), testCase: TestCase
     ) {
         JavalinTest.test(
-            app = Javalin.create {
-                it.jsonMapper(JavalinJackson(MAPPER))
-                it.plugins.enableDevLogging()
+            app = Javalin.create { config ->
+                config.jsonMapper(JavalinJackson(MAPPER))
+                config.bundledPlugins.enableDevLogging()
+                setupConverters(config)
             }.apply {
                 val handler = createHandler()
                 handler.setup(this, JavalinContext(flushAfter = 0/*auto flush*/))
-            }.also(HttpServer.Companion::setupConverters)
-                .also(HttpServer.Companion::setupExceptionHandlers),
+            }.also(HttpServer.Companion::setupExceptionHandlers),
             config = testConfig,
             testCase,
         )

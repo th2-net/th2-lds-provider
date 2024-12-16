@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,9 @@
 
 package com.exactpro.th2.lwdataprovider.http
 
+import com.exactpro.cradle.BookId
+import com.exactpro.cradle.PageId
+import com.exactpro.cradle.PageInfo
 import com.exactpro.cradle.counters.Interval
 import com.exactpro.th2.lwdataprovider.util.createPageInfo
 import io.javalin.http.HttpStatus
@@ -83,6 +86,43 @@ internal class TestGetPageInfosServlet : AbstractHttpHandlerTest<GetPageInfosSer
                         event: page_info
                         data: {"id":{"book":"test","name":"c"},"comment":"test comment for c","started":{"epochSecond":1604105995,"nano":0},"ended":{"epochSecond":1604106000,"nano":0},"updated":null,"removed":null}
                     
+                        event: close
+                        data: empty data
+                      
+                      
+                    """.trimIndent())
+            }
+        }
+    }
+
+    @Test
+    fun `returns page infos with minimal filled fields from cradle`() {
+        val start = Instant.parse("2020-10-31T00:00:00Z")
+        val end = start.plus(1, ChronoUnit.HOURS)
+        val pageA = PageInfo(
+            /* id = */ PageId(BookId("test-book"), start, "test-page"),
+            /* ended = */ null,
+            /* comment = */ null,
+            /* updated = */ null,
+            /* removed = */ null
+        )
+
+        doReturn(listOf(pageA).iterator())
+            .whenever(storage).getPages(any(), eq(Interval(start, end)))
+        startTest { _, client ->
+            client.sse(
+                "/search/sse/page-infos" +
+                        "?startTimestamp=${start.toEpochMilli()}" +
+                        "&endTimestamp=${end.toEpochMilli()}" +
+                        "&bookId=test"
+            ).also { response ->
+                expectThat(response.body?.bytes()?.toString(Charsets.UTF_8))
+                    .isNotNull()
+                    .isEqualTo("""
+                        id: 1
+                        event: page_info
+                        data: {"id":{"book":"test-book","name":"test-page"},"comment":null,"started":{"epochSecond":1604102400,"nano":0},"ended":null,"updated":null,"removed":null}
+                        
                         event: close
                         data: empty data
                       

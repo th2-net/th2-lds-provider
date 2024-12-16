@@ -30,6 +30,7 @@ import com.exactpro.th2.lwdataprovider.filter.events.EventsFilterFactory
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.http.JavalinHandler.Companion.customSse
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.javalin.Javalin
 import io.javalin.http.Context
 import io.javalin.http.queryParamAsClass
@@ -38,7 +39,6 @@ import io.javalin.openapi.OpenApi
 import io.javalin.openapi.OpenApiContent
 import io.javalin.openapi.OpenApiParam
 import io.javalin.openapi.OpenApiResponse
-import io.github.oshai.kotlinlogging.KotlinLogging
 import java.time.Instant
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.Executor
@@ -85,17 +85,17 @@ class GetEventsServlet(
                 description = "book ID for events", example = "book123"),
             OpenApiParam("scope", type = String::class, required = true,
                 description = "scope for events", example = "scope123"),
-            OpenApiParam("filters", type = Array<String>::class, isRepeatable = true,
+            OpenApiParam("filters", type = Array<String>::class,
                 description = "list of filters. Available filters are: type, name", example = "type"),
             // for type filter
-            OpenApiParam("type-value", type = Array<String>::class, isRepeatable = true,
+            OpenApiParam("type-value", type = Array<String>::class,
                 description = "values for type filter", example = "test"),
             OpenApiParam("type-negative", type = Boolean::class,
                 description = "inverts the filter"),
             OpenApiParam("type-conjunct", type = Boolean::class,
                 description = "actual value must match all filter values values"),
             // for type filter
-            OpenApiParam("name-value", type = Array<String>::class, isRepeatable = true,
+            OpenApiParam("name-value", type = Array<String>::class,
                 description = "values for name filter", example = "test"),
             OpenApiParam("name-negative", type = Boolean::class,
                 description = "inverts the filter"),

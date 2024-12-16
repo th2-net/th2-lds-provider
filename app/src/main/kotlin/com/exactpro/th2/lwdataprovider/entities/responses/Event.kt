@@ -27,20 +27,29 @@ import com.exactpro.th2.dataprovider.lw.grpc.EventResponse
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.grpc.toGrpcMessageId
 import com.google.protobuf.UnsafeByteOperations
+import io.javalin.openapi.OpenApiNullable
 import io.javalin.openapi.OpenApiPropertyType
+import io.javalin.openapi.OpenApiRequired
 import java.time.Instant
 
 data class Event(
     //** full event id  */
     val eventId: String,
+    @get:OpenApiRequired
+    @get:OpenApiPropertyType(definedBy = String::class)
     val batchId: String?,
     /** last part of event id. it doesn't consider in equal and hashCode methods */
     val shortEventId: String,
     val isBatched: Boolean,
     val eventName: String,
+    @get:OpenApiRequired
+    @get:OpenApiPropertyType(definedBy = String::class)
     val eventType: String?,
+    @get:OpenApiRequired
+    @get:OpenApiPropertyType(definedBy = Instant::class)
     val endTimestamp: Instant?,
     val startTimestamp: Instant,
+    @get:OpenApiRequired
     @get:OpenApiPropertyType(definedBy = String::class)
     val parentEventId: ProviderEventId?,
     val successful: Boolean,
@@ -48,6 +57,8 @@ data class Event(
     val scope: String,
     val attachedMessageIds: Set<String>,
 
+    @get:OpenApiRequired
+    @get:OpenApiNullable(nullable = false)
     @get:OpenApiPropertyType(definedBy = Array<Any>::class)
     val body: ByteArray?
 ) {

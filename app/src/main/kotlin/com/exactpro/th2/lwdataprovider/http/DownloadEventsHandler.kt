@@ -76,17 +76,17 @@ class DownloadEventsHandler(
             OpenApiParam(SEARCH_DIRECTION, type = SearchDirection::class, example = "next",
                 description = "defines the order of the events"),
 
-            OpenApiParam("filters", type = Array<String>::class, isRepeatable = true,
+            OpenApiParam("filters", type = Array<String>::class,
                 description = "list of filters. Available filters are: type, name", example = "type"),
             // for type filter
-            OpenApiParam("type-value", type = Array<String>::class, isRepeatable = true,
+            OpenApiParam("type-value", type = Array<String>::class,
                 description = "values for type filter", example = "test"),
             OpenApiParam("type-negative", type = Boolean::class,
                 description = "inverts the filter"),
             OpenApiParam("type-conjunct", type = Boolean::class,
                 description = "actual value must match all filter values values"),
             // for type filter
-            OpenApiParam("name-value", type = Array<String>::class, isRepeatable = true,
+            OpenApiParam("name-value", type = Array<String>::class,
                 description = "values for name filter", example = "test"),
             OpenApiParam("name-negative", type = Boolean::class,
                 description = "inverts the filter"),

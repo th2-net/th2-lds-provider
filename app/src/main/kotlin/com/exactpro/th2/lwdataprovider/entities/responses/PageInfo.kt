@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,21 @@
 
 package com.exactpro.th2.lwdataprovider.entities.responses
 
+import io.javalin.openapi.OpenApiRequired
 import java.time.Instant
 
 data class PageInfo(
     val id: PageId,
+    @get:OpenApiRequired
     val comment: String?,
 
     val started: Instant,
+    @get:OpenApiRequired
     val ended: Instant?,
 
+    @get:OpenApiRequired
     val updated: Instant?,
+    @get:OpenApiRequired
     val removed: Instant?
 )
 

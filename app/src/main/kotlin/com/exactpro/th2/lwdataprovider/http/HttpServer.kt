@@ -39,12 +39,9 @@ import io.javalin.micrometer.MicrometerPlugin
 import io.javalin.openapi.OpenApiContact
 import io.javalin.openapi.OpenApiLicense
 import io.javalin.openapi.plugin.OpenApiPlugin
-import io.javalin.openapi.plugin.OpenApiPluginConfiguration
-import io.javalin.openapi.plugin.redoc.ReDocConfiguration
 import io.javalin.openapi.plugin.redoc.ReDocPlugin
-import io.javalin.openapi.plugin.swagger.SwaggerConfiguration
 import io.javalin.openapi.plugin.swagger.SwaggerPlugin
-import io.javalin.validation.JavalinValidation
+import io.javalin.validation.Validation
 import io.micrometer.core.instrument.Clock
 import io.micrometer.core.instrument.Tag
 import io.micrometer.prometheusmetrics.PrometheusConfig
@@ -160,9 +157,9 @@ class HttpServer(private val context: Context) {
             ),
         )
 
-        app = Javalin.create {
-            it.showJavalinBanner = false
-            it.jsonMapper(JavalinJackson(
+        app = Javalin.create { config ->
+            config.showJavalinBanner = false
+            config.jsonMapper(JavalinJackson(
                 jacksonMapper.registerModule(
                     SimpleModule("th2").apply {
                         addDeserializer(BookId::class.java, BookIdDeserializer())
@@ -170,13 +167,13 @@ class HttpServer(private val context: Context) {
                 )
             ))
             if (logger.isTraceEnabled()) {
-                it.plugins.enableDevLogging()
+                config.bundledPlugins.enableDevLogging()
             } else {
-                it.requestLogger.http { ctx, time ->
+                config.requestLogger.http { ctx, time ->
                     logger.info { "Request ${ctx.method().name} '${ctx.path()}' executed with status ${ctx.status()}: ${time}.ms" }
                 }
             }
-            it.plugins.register(MicrometerPlugin.create { micrometer ->
+            config.registerPlugin(MicrometerPlugin { micrometer ->
                 micrometer.registry =
                     PrometheusMeterRegistry(PrometheusConfig.DEFAULT, PrometheusRegistry.defaultRegistry, Clock.SYSTEM)
                 micrometer.tags = listOf(Tag.of("application", context.applicationName))
@@ -184,13 +181,14 @@ class HttpServer(private val context: Context) {
 
             val externalContextPath = System.getenv(EXTERNAL_CONTEXT_PATH_ENV)?.takeUnless(String::isBlank)
 
-            setupOpenApi(it)
+            setupOpenApi(config)
 
-            setupSwagger(it)
+            setupSwagger(config)
 
-            setupReDoc(it, externalContextPath)
+            setupReDoc(config, externalContextPath)
+
+            setupConverters(config)
         }.apply {
-            setupConverters(this)
             val javalinContext = JavalinContext(configuration.flushSseAfter)
             for (handler in handlers) {
                 handler.setup(this, javalinContext)
@@ -209,24 +207,22 @@ class HttpServer(private val context: Context) {
         logger.info { "http server stopped" }
     }
 
-    private fun setupReDoc(it: JavalinConfig, externalContextPath: String?) {
-        val reDocConfiguration = ReDocConfiguration()
-        externalContextPath?.also { path ->
-            reDocConfiguration.basePath = path
-        }
-        it.plugins.register(ReDocPlugin(reDocConfiguration))
+    private fun setupReDoc(config: JavalinConfig, externalContextPath: String?) {
+        config.registerPlugin(ReDocPlugin { userConfig ->
+            externalContextPath?.also { path ->
+                userConfig.basePath = path
+            }
+        })
     }
 
-    private fun setupSwagger(it: JavalinConfig) {
-        val swaggerConfiguration = SwaggerConfiguration()
-        it.plugins.register(SwaggerPlugin(swaggerConfiguration))
+    private fun setupSwagger(config: JavalinConfig) {
+        config.registerPlugin(SwaggerPlugin())
     }
 
-    private fun setupOpenApi(it: JavalinConfig) {
-
-        val openApiConfiguration = OpenApiPluginConfiguration()
-            .withDefinitionConfiguration { _, definition ->
-                definition.withOpenApiInfo { openApiInfo ->
+    private fun setupOpenApi(config: JavalinConfig) {
+        config.registerPlugin(OpenApiPlugin { userConfig ->
+            userConfig.withDefinitionConfiguration { _, definition ->
+                definition.withInfo { openApiInfo ->
                     val openApiContact = OpenApiContact()
                     openApiContact.name = "Exactpro DEV"
                     openApiContact.email = "dev@exactprosystems.com"
@@ -247,7 +243,7 @@ class HttpServer(private val context: Context) {
                     openApiServer.addVariable("port", "8080", arrayOf("8080"), "Port of the server")
                 }
             }
-        it.plugins.register(OpenApiPlugin(openApiConfiguration))
+        })
     }
 
     companion object {
@@ -281,15 +277,15 @@ class HttpServer(private val context: Context) {
         }
 
         @JvmStatic
-        fun setupConverters(javalin: Javalin) {
-            JavalinValidation.register(Instant::class.java) {
+        fun setupConverters(config: JavalinConfig) {
+            config.validation.register(Instant::class.java) {
                 val value = it.toLong()
                 convertToInstant(value)
             }
-            JavalinValidation.register(ProviderEventId::class.java, ::ProviderEventId)
-            JavalinValidation.register(SearchDirection::class.java, SearchDirection::valueOf)
-            JavalinValidation.register(BookId::class.java, ::BookId)
-            JavalinValidation.addValidationExceptionMapper(javalin)
+            config.validation.register(ProviderEventId::class.java, ::ProviderEventId)
+            config.validation.register(SearchDirection::class.java, SearchDirection::valueOf)
+            config.validation.register(BookId::class.java, ::BookId)
+            Validation.addValidationExceptionMapper(config)
         }
 
         @JvmStatic

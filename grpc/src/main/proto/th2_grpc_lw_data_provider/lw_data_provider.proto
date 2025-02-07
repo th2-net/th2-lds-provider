@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import "google/protobuf/wrappers.proto";
 option java_multiple_files = true;
 option java_package = "com.exactpro.th2.dataprovider.lw.grpc";
 
+option go_package = "th2-grpc/th2_grpc_lw_data_provider";
 
 service DataProvider {
 

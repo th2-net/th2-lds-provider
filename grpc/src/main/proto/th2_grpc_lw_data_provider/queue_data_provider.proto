@@ -25,7 +25,7 @@ import "th2_grpc_lw_data_provider/lw_data_provider.proto";
 option java_multiple_files = true;
 option java_package = "com.exactpro.th2.dataprovider.lw.grpc";
 
-option go_package = "th2-grpc/th2_grpc_lw_data_provider";
+option go_package = "github.com/th2-net/th2-lw-data-provider/grpc/src/main/proto/th2_grpc_lw_data_provider";
 
 /**
  Service is used to request messages from DB and sent them to specified Queue

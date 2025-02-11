@@ -1,6 +1,10 @@
-# gRPC for lw-data-provider (2.3.3)
+# gRPC for lw-data-provider (2.3.4)
 
 ## Release notes:
+
+### 2.3.4
+
++ Added go_package option into proto files
 
 ### 2.3.3
 

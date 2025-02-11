@@ -37,7 +37,7 @@ jobs:
       grpc: ${{ steps.filter.outputs.grpc }}
     steps:
       - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v2
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           base: ${{ needs.get-previous-tag.outputs.tag }}
@@ -78,7 +78,7 @@ jobs:
           distribution: 'zulu'
           java-version: '11'
       - name: Setup Gradle
-        uses: gradle/gradle-build-action@v2
+        uses: gradle/gradle-build-action@v3
       - name: Build with Gradle
         run: ./gradlew --info -Pversion_suffix='dev' clean build :grpc-lw-data-provider:publish closeAndReleaseSonatypeStagingRepository
         env:
@@ -118,7 +118,7 @@ jobs:
           distribution: 'zulu'
           java-version: '11'
       - name: Setup Gradle
-        uses: gradle/gradle-build-action@v2
+        uses: gradle/gradle-build-action@v3
       - name: Build with Gradle
         run: ./gradlew --info -Pversion_suffix='dev' clean build :lw-data-provider-utils:publish closeAndReleaseSonatypeStagingRepository
         env:

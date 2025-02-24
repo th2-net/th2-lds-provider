@@ -118,7 +118,17 @@ class HttpMessagesRequestHandler(
 
     private fun fail() {
         cancel()
-        buffer.put { SseEvent.Closed }
+        // make sure there is enough space to put a Closed event
+        // otherwise, it will cause a deadlock:
+        // reader waits on a future but the future will not complete until reader reads another event from a queue
+        do {
+            val added = buffer.offer({ SseEvent.Closed }, 1, TimeUnit.SECONDS)
+            if (!added) {
+                LOGGER.warn { "Clearing response queue to put the closing event on fail-fast strategy" }
+                // since we are failing in any case there is not point in keeping the events
+                buffer.clear()
+            }
+        } while (!added)
     }
 
     companion object {

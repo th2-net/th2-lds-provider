@@ -30,9 +30,7 @@ import org.mockito.kotlin.same
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.verifyNoInteractions
 import strikt.api.expect
-import strikt.api.expectThat
 import strikt.assertions.containsExactly
-import strikt.assertions.hasSize
 import strikt.assertions.isEqualTo
 import strikt.assertions.isFalse
 import strikt.assertions.isNotNull

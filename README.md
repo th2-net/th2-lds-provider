@@ -224,6 +224,12 @@ spec:
 
 # Release notes:
 
+## Unreleased
+
+### Update:
+
++ Update `th2-gradle-plugin` to `0.2.2`
+
 ## 2.13.1
 
 ### Fix:

@@ -1,6 +1,6 @@
 [versions]
 kotlin = "1.9.23"
-th2-plugin = "0.1.6"
+th2-plugin = "0.2.2"
 strikt = "0.34.1"
 javalin = "6.3.0"
 openapi = "6.3.0"

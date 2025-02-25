@@ -119,7 +119,7 @@ class DecodeQueueBuffer(
                 val expired = details.count(isExpired)
                 // we are under lock so details won't change during execution
                 when {
-                    expired == details.size -> {
+                    expired == initialSize -> {
                         entries.remove()
                         decodeTimers.remove(id)?.close()
                         LOGGER.trace { "Requests for message $id were cancelled due to timeout" }

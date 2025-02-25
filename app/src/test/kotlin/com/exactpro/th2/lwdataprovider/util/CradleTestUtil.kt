@@ -131,6 +131,9 @@ fun <T> CradleResult(vararg data: T): CradleResultSet<T> = ImmutableListCradleRe
 @Suppress("TestFunctionName")
 fun <T> SupplierResult(vararg suppliers: Supplier<T>): CradleResultSet<T> = SupplierCradleResult(suppliers.toList())
 
+@Suppress("TestFunctionName")
+fun <T> SupplierResult(suppliers: List<Supplier<T>>): CradleResultSet<T> = SupplierCradleResult(suppliers)
+
 const val TEST_SESSION_GROUP = "test-group"
 const val TEST_SESSION_ALIAS = "test-alias"
 

@@ -52,6 +52,7 @@ import java.time.Instant
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
+import java.util.function.Supplier
 import kotlin.concurrent.withLock
 
 class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
@@ -71,6 +72,7 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
     override val configuration: Configuration
         get() = Configuration(
             CustomConfigurationClass(
+                responseQueueSize = 10,
                 decodingTimeout = 400,
                 batchSizeBytes = 30,
                 downloadTaskTTL = 500,
@@ -586,6 +588,61 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
                 },
 
                 )
+        ).whenever(storage).getGroupedMessageBatches(argThat {
+            groupName == "test-group" && bookId.name == "test-book"
+        })
+
+        startTest { _, client ->
+            val createResp = client.post(
+                path = "/download",
+                json = mapOf(
+                    "resource" to "MESSAGES",
+                    "bookID" to "test-book",
+                    "startTimestamp" to start.toEpochMilli(),
+                    "endTimestamp" to Instant.now().toEpochMilli(),
+                    "groups" to setOf("test-group"),
+                    "responseFormats" to setOf("JSON_PARSED"),
+                )
+            )
+            val taskID = createResp.bodyAsJson()["taskID"].asText()
+
+            val expectedTimestamp = StoredMessageIdUtils.timestampToString(start)
+            expect {
+                that(client.get("/download/$taskID")) {
+                    get { code } isEqualTo HttpStatus.OK.code
+                    get { body?.bytes()?.toString(Charsets.UTF_8) }
+                        .isNotNull()
+                        .isEqualTo(
+                            """{"id":"test-book:test-0:1:$expectedTimestamp:1","error":"Codec response wasn\u0027t received during timeout"}
+                              |""".trimMargin(marginPrefix = "|")
+                        )
+                }
+                that(client.get("/download/$taskID/status")) {
+                    get { code } isEqualTo HttpStatus.OK.code
+                    jsonBody()
+                        .isObject() and {
+                        path("status").textValue() isEqualTo "CANCELED_WITH_ERRORS"
+                        path("errors").isArray()
+                            .hasSize(1)
+                            .elementAt(0)
+                            .path("error")
+                            .textValue() isEqualTo "{\"id\":\"test-book:test-0:1:$expectedTimestamp:1\",\"error\":\"Codec response wasn\\u0027t received during timeout\"}"
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `report decoding timeout during task execution with fail fast when response buffer is full`() {
+        val start = Instant.now()
+        doReturn(
+            SupplierResult(
+                // response queue has size 10
+                (1..11L).map {
+                    Supplier { generateBatch(start, count = 1, index = it) }
+                },
+            )
         ).whenever(storage).getGroupedMessageBatches(argThat {
             groupName == "test-group" && bookId.name == "test-book"
         })

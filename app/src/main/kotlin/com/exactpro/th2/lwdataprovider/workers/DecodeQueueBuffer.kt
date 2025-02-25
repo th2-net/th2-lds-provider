@@ -114,12 +114,25 @@ class DecodeQueueBuffer(
             val entries = decodeQueue.entries.iterator()
             while (entries.hasNext()) {
                 val (id, details) = entries.next()
-                if (details.any { currentTime - it.time >= timeout }) {
-                    entries.remove()
-                    decodeTimers.remove(id)?.close()
-                    LOGGER.trace { "Requests for message $id were cancelled due to timeout" }
-                    details.forEach { it.timeout() }
-                } else {
+                val isExpired: (RequestedMessageDetails) -> Boolean = { currentTime - it.time >= timeout }
+                val initialSize = details.size
+                val expired = details.count(isExpired)
+                // we are under lock so details won't change during execution
+                when {
+                    expired == details.size -> {
+                        entries.remove()
+                        decodeTimers.remove(id)?.close()
+                        LOGGER.trace { "Requests for message $id were cancelled due to timeout" }
+                        details.forEach { it.timeout() }
+                    }
+                    expired > 0 -> {
+                        val expired = details.filterTo(ArrayList(expired), isExpired)
+                        LOGGER.trace { "${expired.size} request(s) for message $id were cancelled due to timeout" }
+                        expired.forEach { it.timeout() }
+                        details.removeAll(expired)
+                    }
+                }
+                if (expired != initialSize) {
                     // Possible cause of timeout thread death
                     val oldestReq = details.minOf { it.time }
                     if (oldestReq < minTime) {

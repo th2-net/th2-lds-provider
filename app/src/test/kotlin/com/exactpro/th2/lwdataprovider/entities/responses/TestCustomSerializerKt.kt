@@ -28,6 +28,9 @@ import com.fasterxml.jackson.databind.json.JsonMapper
 import io.netty.buffer.Unpooled
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.Arguments.arguments
+import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 import java.time.Instant
 import java.util.Base64
@@ -35,7 +38,9 @@ import java.util.Base64
 internal class TestCustomSerializerKt {
     private val mapper = JsonMapper()
     @ParameterizedTest(name = "char `{0}` does not cause problems")
-    @ValueSource(chars = ['\"', '\n', '\r', '\\', '\t', '\b', ':'])
+    @ValueSource(chars = ['\"', '\\', ':'])
+    @MethodSource("controlChars")
+    @MethodSource("unicodeChars")
     fun `writes ProviderMessage53Transport as valid json`(escapeCharacter: Char) {
         val timestamp = Instant.now()
         val message = ProviderMessage53Transport(
@@ -88,7 +93,9 @@ internal class TestCustomSerializerKt {
     }
 
     @ParameterizedTest(name = "char `{0}` does not cause problems")
-    @ValueSource(chars = ['\"', '\n', '\r', '\\', '\t', '\b', ':'])
+    @ValueSource(chars = ['\"', '\\', ':'])
+    @MethodSource("controlChars")
+    @MethodSource("unicodeChars")
     fun `writes Event as valid json`(escapeCharacter: Char) {
         val timestamp = Instant.now()
         val event = Event(
@@ -126,5 +133,21 @@ internal class TestCustomSerializerKt {
         val jsonBytes = event.toJSONByteArray()
 
         assertDoesNotThrow { mapper.readTree(jsonBytes) }
+    }
+
+    companion object {
+        @JvmStatic
+        fun controlChars(): List<Arguments> =
+            // 0x00 (NUL)..0x1F (US) + 0x7F (DEL)
+            ((0..' '.code - 1) + 0x7f).map { arguments(it.toChar()) }
+
+        @JvmStatic
+        fun unicodeChars(): List<Arguments> =
+            listOf(
+                arguments('a'), // 1 byte
+                arguments('¡'), // 2 bytes
+                arguments('Ⴔ'), // 3 bytes
+                arguments("🦛"[0]), // half of 4 bytes
+            )
     }
 }

@@ -26,12 +26,15 @@ import com.exactpro.th2.lwdataprovider.entities.internal.Direction
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.fasterxml.jackson.databind.json.JsonMapper
 import io.netty.buffer.Unpooled
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.Arguments.arguments
 import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
+import strikt.api.expectThat
+import strikt.assertions.isEqualTo
 import java.time.Instant
 import java.util.Base64
 
@@ -135,6 +138,12 @@ internal class TestCustomSerializerKt {
         assertDoesNotThrow { mapper.readTree(jsonBytes) }
     }
 
+    @ParameterizedTest(name = "char `{0}` escaped as `{1}`")
+    @MethodSource("escapedResults")
+    fun `test json escape result`(char: Char, escaped: String) {
+        expectThat(jsonEscape("$char")).isEqualTo(escaped)
+    }
+
     companion object {
         @JvmStatic
         fun controlChars(): List<Arguments> =
@@ -148,6 +157,25 @@ internal class TestCustomSerializerKt {
                 arguments('¡'), // 2 bytes
                 arguments('Ⴔ'), // 3 bytes
                 arguments("🦛"[0]), // half of 4 bytes
+            )
+
+        @JvmStatic
+        fun escapedResults(): List<Arguments> =
+            listOf(
+                arguments('\u0000', "\\u0000"),
+                arguments('\u000F', "\\u000f"),
+                arguments('\u0010', "\\u0010"),
+                arguments('\u001F', "\\u001f"),
+                arguments('\b', "\\b"),
+                arguments('\n', "\\n"),
+                arguments('\r', "\\r"),
+                arguments('\t', "\\t"),
+                arguments('\"', "\\\""),
+                arguments('\\', "\\\\"),
+                arguments(':', ":"),
+                arguments(' ', " "),
+                arguments('~', "~"),
+                arguments('\u007F', "\\u007f"),
             )
     }
 }

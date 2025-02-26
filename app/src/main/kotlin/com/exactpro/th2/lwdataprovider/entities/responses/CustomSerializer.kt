@@ -144,11 +144,33 @@ fun Event.toJSONByteArray(): ByteArray =
         write(CLOSING_CURLY_BRACE)
     }.toByteArray()
 
-private fun jsonEscape(value: String): String {
-    return if (ESCAPE_CHARACTERS.any(value::contains)) {
-        JsonEscapeUtil.escape(value)
-    } else {
-        value
+internal fun jsonEscape(value: String): String {
+    val noEscapeRequired = value.chars().noneMatch {
+        it.toChar().let { ch ->
+            ch in ESCAPE_CHARACTERS || ch < ' ' || ch == '\u007f'
+        }
+    }
+    if (noEscapeRequired) {
+        return value
+    }
+    return buildString(value.length) {
+        for (ch in value) {
+            when (ch) {
+                '\"' -> append("\\\"")
+                '\n' -> append("\\n")
+                '\r' -> append("\\r")
+                '\\' -> append("\\\\")
+                '\t' -> append("\\t")
+                '\b' -> append("\\b")
+                in '\u0000'..'\u000F' ->
+                    append("\\u000").append(ch.code.toString(16))
+                in '\u0010'..'\u001F' ->
+                    append("\\u00").append(ch.code.toString(16))
+                // DEL
+                0x7F.toChar() -> append("\\u007f")
+                else -> append(ch)
+            }
+        }
     }
 }
 

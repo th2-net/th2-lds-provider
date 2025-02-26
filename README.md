@@ -1,4 +1,4 @@
-# Lightweight data provider (2.13.2)
+# Lightweight data provider (2.13.3)
 
 # Overview
 This component serves as a data provider for [th2-data-services](https://github.com/th2-net/th2-data-services). It will connect to the cassandra database via [cradle api](https://github.com/th2-net/cradleapi) and expose the data stored in there as REST resources.
@@ -223,6 +223,13 @@ spec:
 ```
 
 # Release notes:
+
+## 2.13.3
+
+### Fix:
+
++ If two requests have been made using same parameters but one is after another the later one can get a codec timeout
+  when the first request gets codec timeout, but it should not because it was made later.
 
 ## 2.13.2
 

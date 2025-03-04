@@ -22,8 +22,8 @@ jobs:
       cisa-user: ${{ secrets.CISA_USER }}
       cisa-password: ${{ secrets.CISA_PWD }}
   license-scan:
-    uses: th2-net/.github/.github/workflows/license_check.yml@main
+    uses: th2-net/.github/.github/workflows/license_check.yml@customize-java
     needs: [ app-version ]
     with:
-      # TODO: pass java version
+      java-version: '21'
       version: ${{ needs.app-version.outputs.version }}

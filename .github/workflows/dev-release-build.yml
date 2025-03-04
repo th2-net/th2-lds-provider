@@ -140,11 +140,11 @@ jobs:
       cisa-password: ${{ secrets.CISA_PWD }}
 
   license-scan:
-    uses: th2-net/.github/.github/workflows/license_check.yml@main
+    uses: th2-net/.github/.github/workflows/license_check.yml@customize-java
     needs: [app-version]
     with:
-      # TODO: pass java version
       version: ${{ needs.app-version.outputs.version }}-dev
+      java-version: '21'
 
   publish-docker:
     name: Build and publish docker image
@@ -155,9 +155,9 @@ jobs:
       - build-and-publish-grpc-python
       - build-and-publish-grpc-java
       - app-version
-    uses: th2-net/.github/.github/workflows/compaund-java-docker-push.yml@main
+    uses: th2-net/.github/.github/workflows/compaund-java-docker-push.yml@customize-java
     with:
-      # TODO: pass java version
+      javaVersion: '21'
       docker-username: ${{ github.actor }}
       version: ${{ needs.app-version.outputs.version }}-dev
       versionNumber: ${{ needs.app-version.outputs.version }}

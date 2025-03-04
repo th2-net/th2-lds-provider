@@ -13,17 +13,17 @@ on:
 jobs:
   grpc-version:
     name: Collect grpc version
-    uses: th2-net/.github/.github/workflows/compound-prebuild-java-dev-workflow.yml@main
+    uses: th2-net/.github/.github/workflows/compound-prebuild-java-dev-workflow.yml@update-ubuntu-runner
     with:
       project-path: grpc
   app-version:
     name: Collect app version
-    uses: th2-net/.github/.github/workflows/compound-prebuild-java-dev-workflow.yml@main
+    uses: th2-net/.github/.github/workflows/compound-prebuild-java-dev-workflow.yml@update-ubuntu-runner
     with:
       project-path: app
   build-and-publish-grpc-java:
     name: Build and publish Java gRPC distributions
-    uses: th2-net/.github/.github/workflows/compaund-java-multi-project-build.yml@main
+    uses: th2-net/.github/.github/workflows/compaund-java-multi-project-build.yml@update-ubuntu-runner
     with:
       projectPath: grpc
       additionalTasks: '["publish"]'
@@ -36,7 +36,7 @@ jobs:
       sonatypeSigningPassword: ${{ secrets.SONATYPE_SIGNING_PASSWORD }}
   build-and-publish-utils:
     name: Build and publish lw-data-provider-utils
-    uses: th2-net/.github/.github/workflows/compaund-java-multi-project-build.yml@main
+    uses: th2-net/.github/.github/workflows/compaund-java-multi-project-build.yml@update-ubuntu-runner
     with:
       projectPath: utils
       additionalTasks: '["publish"]'
@@ -51,7 +51,7 @@ jobs:
     name: Build and publish Python distributions to PyPI
     needs:
       - grpc-version
-    uses: th2-net/.github/.github/workflows/compaund-python-grpc-pypi-publication.yml@main
+    uses: th2-net/.github/.github/workflows/compaund-python-grpc-pypi-publication.yml@update-ubuntu-runner
     with:
       custom-version: ${{ needs.grpc-version.outputs.versionNumber }}.dev${{ github.run_id }}
       project-path: grpc
@@ -59,7 +59,7 @@ jobs:
     secrets:
       pypi_password: ${{ secrets.PYPI_PASSWORD }}
   owasp-scan:
-    uses: th2-net/.github/.github/workflows/owasp-gradle-scan.yml@main
+    uses: th2-net/.github/.github/workflows/owasp-gradle-scan.yml@update-ubuntu-runner
     with:
       multiproject: true
       javaVersion: '21'
@@ -93,7 +93,7 @@ jobs:
     needs:
       - publish-docker
       - app-version
-    uses: th2-net/.github/.github/workflows/trivy-scan-github.yml@main
+    uses: th2-net/.github/.github/workflows/trivy-scan-github.yml@update-ubuntu-runner
     with:
       image-path: ghcr.io/${{ github.repository }}:${{ needs.app-version.outputs.version }}
       target: 'os,library'

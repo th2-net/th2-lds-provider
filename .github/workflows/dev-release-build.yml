@@ -72,11 +72,11 @@ jobs:
     if: ${{ needs.changes.outputs.grpc == 'true' }}
     steps:
       - uses: actions/checkout@v4
-      - name: Set up JDK 'zulu' '11'
+      - name: Set up JDK 'zulu' '21'
         uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
-          java-version: '11'
+          java-version: '21'
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v3
       - name: Build with Gradle
@@ -98,6 +98,7 @@ jobs:
     with:
       custom-version: ${{ needs.grpc-version.outputs.version }}rc1
       project-path: grpc
+      java-version: '21'
     secrets:
       pypi_password: ${{ secrets.PYPI_PASSWORD }}
 
@@ -112,11 +113,11 @@ jobs:
       (needs.changes.outputs.utils == 'true' || needs.changes.outputs.grpc == 'true')
     steps:
       - uses: actions/checkout@v4
-      - name: Set up JDK 'zulu' '11'
+      - name: Set up JDK 'zulu' '21'
         uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
-          java-version: '11'
+          java-version: '21'
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v3
       - name: Build with Gradle
@@ -131,6 +132,7 @@ jobs:
     uses: th2-net/.github/.github/workflows/owasp-gradle-scan.yml@main
     with:
       multiproject: true
+      javaVersion: '21'
     secrets:
       nvd-api-key: ${{ secrets.NVD_APIKEY }}
       cisa-domain: ${{ secrets.CISA_DOMAIN }}

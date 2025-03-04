@@ -41,6 +41,7 @@ jobs:
     if: ${{ needs.changes.outputs.grpc == 'true' }}
     uses: th2-net/.github/.github/workflows/compaund-java-multi-project-build.yml@main
     with:
+      javaVersion: '21'
       projectPath: grpc
       release: true
       additionalTasks: '["publish"]'
@@ -56,6 +57,7 @@ jobs:
     if: ${{ needs.changes.outputs.grpc == 'true' }}
     uses: th2-net/.github/.github/workflows/compaund-python-grpc-pypi-publication.yml@main
     with:
+      java-version: '21'
       project-path: grpc
     secrets:
       pypi_password: ${{ secrets.PYPI_PASSWORD }}
@@ -67,6 +69,7 @@ jobs:
     if: ${{ needs.changes.outputs.utils == 'true' }}
     uses: th2-net/.github/.github/workflows/compaund-java-multi-project-build.yml@main
     with:
+      javaVersion: '21'
       projectPath: utils
       release: true
       additionalTasks: '["publish"]'
@@ -79,6 +82,7 @@ jobs:
   owasp-scan:
     uses: th2-net/.github/.github/workflows/owasp-gradle-scan.yml@main
     with:
+      javaVersion: '21'
       multiproject: true
     secrets:
       nvd-api-key: ${{ secrets.NVD_APIKEY }}

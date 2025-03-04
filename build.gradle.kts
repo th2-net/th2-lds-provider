@@ -27,10 +27,6 @@ allprojects {
 subprojects {
     apply(plugin = "kotlin")
 
-    kotlin {
-        jvmToolchain(11)
-    }
-
     configurations.all {
         resolutionStrategy.cacheChangingModulesFor(0, "seconds")
         resolutionStrategy.cacheDynamicVersionsFor(0, "seconds")

@@ -94,6 +94,7 @@ jobs:
     uses: th2-net/.github/.github/workflows/license_check.yml@main
     needs: [versions]
     with:
+      # TODO: pass java version
       version: ${{ needs.versions.outputs.version }}
 
   publish-docker:
@@ -107,6 +108,7 @@ jobs:
       - versions
     uses: th2-net/.github/.github/workflows/compaund-java-docker-push.yml@main
     with:
+      # TODO: pass java version
       docker-username: ${{ github.actor }}
       version: ${{ needs.versions.outputs.version }}
       versionNumber: ${{ needs.versions.outputs.version }}

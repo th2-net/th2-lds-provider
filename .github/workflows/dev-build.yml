@@ -72,6 +72,7 @@ jobs:
     uses: th2-net/.github/.github/workflows/license_check.yml@main
     needs: [ app-version ]
     with:
+      # TODO: pass java version
       version: ${{ needs.app-version.outputs.version }}
   publish-docker:
     name: Build docker image
@@ -79,6 +80,7 @@ jobs:
       - app-version
     uses: th2-net/.github/.github/workflows/compaund-java-docker-push.yml@main
     with:
+      # TODO: pass java version
       docker-username: ${{ github.actor }}
       version: ${{ needs.app-version.outputs.version }}
       versionNumber: ${{ needs.app-version.outputs.versionNumber }}

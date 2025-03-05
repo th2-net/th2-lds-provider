@@ -12,7 +12,7 @@ on:
 jobs:
   versions:
     name: Extract app version
-    uses: th2-net/.github/.github/workflows/compound-prebuild-java-workflow.yml@update-ubuntu-runner
+    uses: th2-net/.github/.github/workflows/compound-prebuild-java-workflow.yml@main
     with:
       project-path: app
   changes:
@@ -39,7 +39,7 @@ jobs:
     needs:
       - changes
     if: ${{ needs.changes.outputs.grpc == 'true' }}
-    uses: th2-net/.github/.github/workflows/compaund-java-multi-project-build.yml@update-ubuntu-runner
+    uses: th2-net/.github/.github/workflows/compaund-java-multi-project-build.yml@main
     with:
       javaVersion: '21'
       projectPath: grpc
@@ -55,7 +55,7 @@ jobs:
     needs:
       - changes
     if: ${{ needs.changes.outputs.grpc == 'true' }}
-    uses: th2-net/.github/.github/workflows/compaund-python-grpc-pypi-publication.yml@update-ubuntu-runner
+    uses: th2-net/.github/.github/workflows/compaund-python-grpc-pypi-publication.yml@main
     with:
       java-version: '21'
       project-path: grpc
@@ -67,7 +67,7 @@ jobs:
     needs:
       - changes
     if: ${{ needs.changes.outputs.utils == 'true' }}
-    uses: th2-net/.github/.github/workflows/compaund-java-multi-project-build.yml@update-ubuntu-runner
+    uses: th2-net/.github/.github/workflows/compaund-java-multi-project-build.yml@main
     with:
       javaVersion: '21'
       projectPath: utils
@@ -80,7 +80,7 @@ jobs:
       sonatypeSigningPassword: ${{ secrets.SONATYPE_SIGNING_PASSWORD }}
 
   owasp-scan:
-    uses: th2-net/.github/.github/workflows/owasp-gradle-scan.yml@update-ubuntu-runner
+    uses: th2-net/.github/.github/workflows/owasp-gradle-scan.yml@main
     with:
       javaVersion: '21'
       multiproject: true
@@ -91,7 +91,7 @@ jobs:
       cisa-password: ${{ secrets.CISA_PWD }}
 
   license-scan:
-    uses: th2-net/.github/.github/workflows/license_check.yml@customize-java
+    uses: th2-net/.github/.github/workflows/license_check.yml@main
     needs: [versions]
     with:
       version: ${{ needs.versions.outputs.version }}
@@ -106,7 +106,7 @@ jobs:
       - build-and-publish-grpc-python
       - build-and-publish-grpc-java
       - versions
-    uses: th2-net/.github/.github/workflows/compaund-java-docker-push.yml@customize-java
+    uses: th2-net/.github/.github/workflows/compaund-java-docker-push.yml@main
     with:
       javaVersion: '21'
       docker-username: ${{ github.actor }}
@@ -121,7 +121,7 @@ jobs:
     needs:
       - publish-docker
       - versions
-    uses: th2-net/.github/.github/workflows/trivy-scan-github.yml@update-ubuntu-runner
+    uses: th2-net/.github/.github/workflows/trivy-scan-github.yml@main
     with:
       image-path: ghcr.io/${{ github.repository }}:${{ needs.versions.outputs.version }}
       target: 'os,library'

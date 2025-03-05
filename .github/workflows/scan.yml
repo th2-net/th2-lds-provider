@@ -8,11 +8,11 @@ on:
 jobs:
   app-version:
     name: Collect app version
-    uses: th2-net/.github/.github/workflows/compound-prebuild-java-dev-workflow.yml@update-ubuntu-runner
+    uses: th2-net/.github/.github/workflows/compound-prebuild-java-dev-workflow.yml@main
     with:
       project-path: app
   owasp-scan:
-    uses: th2-net/.github/.github/workflows/owasp-gradle-scan.yml@update-ubuntu-runner
+    uses: th2-net/.github/.github/workflows/owasp-gradle-scan.yml@main
     with:
       javaVersion: '21'
       multiproject: true
@@ -22,7 +22,7 @@ jobs:
       cisa-user: ${{ secrets.CISA_USER }}
       cisa-password: ${{ secrets.CISA_PWD }}
   license-scan:
-    uses: th2-net/.github/.github/workflows/license_check.yml@customize-java
+    uses: th2-net/.github/.github/workflows/license_check.yml@main
     needs: [ app-version ]
     with:
       java-version: '21'

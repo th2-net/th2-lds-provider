@@ -28,6 +28,7 @@ jobs:
       projectPath: grpc
       additionalTasks: '["publish"]'
       release: false
+      javaVersion: '21'
     secrets:
       sonatypeUsername: ${{ secrets.SONATYPE_NEXUS_USERNAME }}
       sonatypePassword: ${{ secrets.SONATYPE_NEXUS_PASSWORD }}
@@ -40,6 +41,7 @@ jobs:
       projectPath: utils
       additionalTasks: '["publish"]'
       release: false
+      javaVersion: '21'
     secrets:
       sonatypeUsername: ${{ secrets.SONATYPE_NEXUS_USERNAME }}
       sonatypePassword: ${{ secrets.SONATYPE_NEXUS_PASSWORD }}
@@ -53,12 +55,14 @@ jobs:
     with:
       custom-version: ${{ needs.grpc-version.outputs.versionNumber }}.dev${{ github.run_id }}
       project-path: grpc
+      java-version: '21'
     secrets:
       pypi_password: ${{ secrets.PYPI_PASSWORD }}
   owasp-scan:
     uses: th2-net/.github/.github/workflows/owasp-gradle-scan.yml@main
     with:
       multiproject: true
+      javaVersion: '21'
     secrets:
       nvd-api-key: ${{ secrets.NVD_APIKEY }}
       cisa-domain: ${{ secrets.CISA_DOMAIN }}
@@ -69,12 +73,14 @@ jobs:
     needs: [ app-version ]
     with:
       version: ${{ needs.app-version.outputs.version }}
+      java-version: '21'
   publish-docker:
     name: Build docker image
     needs:
       - app-version
     uses: th2-net/.github/.github/workflows/compaund-java-docker-push.yml@main
     with:
+      javaVersion: '21'
       docker-username: ${{ github.actor }}
       version: ${{ needs.app-version.outputs.version }}
       versionNumber: ${{ needs.app-version.outputs.versionNumber }}
